@@ -1,0 +1,216 @@
+import React, { useState } from 'react';
+import { 
+  format, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  startOfWeek, 
+  endOfWeek, 
+  isSameMonth, 
+  isSameDay, 
+  addDays, 
+  eachDayOfInterval,
+  parse,
+  isValid
+} from 'date-fns';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Clock, 
+  Bell, 
+  RefreshCw, 
+  AlertCircle,
+  Calendar as CalendarIcon,
+  Check
+} from 'lucide-react';
+import { cn } from '../utils/cn';
+
+interface DatePickerProps {
+  selectedDate?: Date;
+  initialConfig?: DateConfig;
+  onSelect: (date: Date, config?: DateConfig) => void;
+  onClose: () => void;
+}
+
+export interface DateConfig {
+  time?: string;
+  reminder?: string;
+  alert?: string;
+  repeat?: string;
+}
+
+export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: DatePickerProps) {
+  const [currentMonth, setCurrentMonth] = useState(selectedDate || new Date());
+  const [tempDate, setTempDate] = useState<Date | undefined>(selectedDate);
+  const [config, setConfig] = useState<DateConfig>(initialConfig || {
+    time: '12:00',
+    reminder: 'none',
+    alert: 'none',
+    repeat: 'none'
+  });
+
+  const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(monthStart);
+  const startDate = startOfWeek(monthStart);
+  const endDate = endOfWeek(monthEnd);
+
+  const calendarDays = eachDayOfInterval({
+    start: startDate,
+    end: endDate,
+  });
+
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+
+  const handleDateClick = (day: Date) => {
+    setTempDate(day);
+  };
+
+  const handleSave = () => {
+    if (tempDate) {
+      onSelect(tempDate, config);
+    }
+  };
+
+  return (
+    <div className="flex flex-col w-72 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      {/* Calendar Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <div className="text-sm font-bold text-white/90">
+          {format(currentMonth, 'MMMM yyyy')}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={prevMonth} className="p-1 hover:bg-white/5 rounded-md text-white/40 hover:text-white transition-colors">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={nextMonth} className="p-1 hover:bg-white/5 rounded-md text-white/40 hover:text-white transition-colors">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="p-3">
+        <div className="grid grid-cols-7 mb-2">
+          {days.map(day => (
+            <div key={day} className="text-center text-xs font-bold text-white/20 tracking-wider">
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-0.5">
+          {calendarDays.map((day, idx) => {
+            const isSelected = tempDate && isSameDay(day, tempDate);
+            const isCurrentMonth = isSameMonth(day, monthStart);
+            const isToday = isSameDay(day, new Date());
+
+            return (
+              <button
+                key={idx}
+                onClick={() => handleDateClick(day)}
+                className={cn(
+                  "h-8 flex items-center justify-center rounded-md text-xs transition-all cursor-pointer",
+                  !isCurrentMonth && "text-white/10",
+                  isCurrentMonth && !isSelected && "text-white/60 hover:bg-white/5 hover:text-white",
+                  isSelected && "bg-blue-600 text-white font-bold",
+                  isToday && !isSelected && "text-blue-400 font-bold underline underline-offset-4"
+                )}
+              >
+                {format(day, 'd')}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Settings Section */}
+      <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-3 bg-white/[0.01]">
+        {/* Time */}
+        <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
+          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+            <Clock className="w-3.5 h-3.5" />
+            <span className="text-xs font-bold tracking-widest">Time</span>
+          </div>
+          <input 
+            type="time" 
+            value={config.time}
+            onChange={(e) => setConfig({ ...config, time: e.target.value })}
+            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer [color-scheme:dark]"
+          />
+        </div>
+
+        {/* Reminder */}
+        <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
+          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+            <Bell className="w-3.5 h-3.5" />
+            <span className="text-xs font-bold tracking-widest">Reminder</span>
+          </div>
+          <select 
+            value={config.reminder}
+            onChange={(e) => setConfig({ ...config, reminder: e.target.value })}
+            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
+          >
+            <option value="none">None</option>
+            <option value="at-time">At time</option>
+            <option value="5-min">5 min before</option>
+            <option value="30-min">30 min before</option>
+            <option value="1-hour">1 hour before</option>
+          </select>
+        </div>
+
+        {/* Repeat */}
+        <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
+          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span className="text-xs font-bold tracking-widest">Repeat</span>
+          </div>
+          <select 
+            value={config.repeat}
+            onChange={(e) => setConfig({ ...config, repeat: e.target.value })}
+            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
+          >
+            <option value="none">Don't repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+
+        {/* Alerts */}
+        <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
+          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span className="text-xs font-bold tracking-widest">Alerts</span>
+          </div>
+          <select 
+            value={config.alert}
+            onChange={(e) => setConfig({ ...config, alert: e.target.value })}
+            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
+          >
+            <option value="none">Off</option>
+            <option value="on">On</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="p-2 bg-white/[0.02] border-t border-white/5 flex gap-2">
+        <button 
+          onClick={onClose}
+          className="flex-1 py-1.5 rounded-md text-xs font-bold tracking-wider text-white/30 hover:bg-white/5 hover:text-white transition-all"
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={handleSave}
+          className="flex-1 py-1.5 rounded-md text-xs font-bold tracking-wider bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}

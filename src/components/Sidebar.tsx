@@ -1,0 +1,997 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, HelpCircleIcon as HelpCircle, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy } from 'hugeicons-react';
+import { cn } from '../utils/cn';
+import { useAppStore } from '../store';
+import { IconPicker, ALL_ICONS } from './IconPicker';
+
+export type ViewType = string;
+
+interface SidebarProps {
+  currentView: ViewType;
+  onViewChange: (view: ViewType) => void;
+  onOpenCommandPalette: (initialValue?: string, mode?: 'default' | 'create') => void;
+  isMobileMenuOpen: boolean;
+  setIsMobileMenuOpen: (open: boolean) => void;
+  isCollapsed: boolean;
+  onToggleSidebar: () => void;
+}
+
+const iconMap: Record<string, React.ElementType> = {
+  ...ALL_ICONS,
+  Calendar: CalendarIcon,
+};
+
+export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleSidebar }: SidebarProps) {
+  const { 
+    sidebarItems, 
+    reorderSidebarItems, 
+    addCustomPage, 
+    deleteSidebarItem, 
+    updateSidebarItem, 
+    duplicateSidebarItem,
+    addFolder,
+    toggleFolderExpansion,
+    moveSidebarItem,
+    trash,
+    user
+  } = useAppStore();
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string, type: 'item' } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isNewItemMenuOpen, setIsNewItemMenuOpen] = useState(false);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const newItemMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (newItemMenuRef.current && !newItemMenuRef.current.contains(event.target as Node)) {
+        setIsNewItemMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Removed global click listener in favor of transparent overlay
+
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, [editingId]);
+
+  const handleContextMenu = (e: React.MouseEvent, id: string, type: 'item' = 'item') => {
+    e.preventDefault();
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = rect.left + 32;
+    let y = rect.bottom;
+    
+    const menuHeight = type === 'item' ? 120 : 80;
+    if (y + menuHeight > window.innerHeight) {
+      y = rect.top - menuHeight;
+    }
+      
+    setContextMenu({ x, y, id, type });
+  };
+
+  const handleRenameSubmit = (id: string) => {
+    if (editValue.trim()) {
+      updateSidebarItem(id, editValue.trim());
+    }
+    setEditingId(null);
+  };
+
+  const handleNewPage = () => {
+    const newId = `page-${Date.now()}`;
+    addCustomPage({
+      id: newId,
+      title: 'Untitled',
+      icon: 'File',
+      tabs: [
+        { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
+        { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
+        { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+      ],
+      columns: [
+        { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
+        { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
+        { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
+        { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
+        { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
+      ],
+      items: [],
+      properties: [],
+      content: ''
+    });
+    onViewChange(newId);
+  };
+
+  const handleNewFolder = () => {
+    const newId = `folder-${Date.now()}`;
+    addFolder({
+      id: newId,
+      label: 'New Folder',
+      icon: 'Folder',
+      type: 'folder',
+      isExpanded: true
+    });
+    setEditingId(newId);
+    setEditValue('New Folder');
+    setIsNewItemMenuOpen(false);
+  };
+
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<'top' | 'bottom' | 'middle' | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    // Set a drag image if needed, but default is usually fine
+  };
+
+  const handleDragOver = (e: React.DragEvent, id?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (id) {
+      setDragOverId(id);
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const height = rect.height;
+      
+      const item = sidebarItems.find(i => i.id === id);
+      if (item?.type === 'folder') {
+        if (y < height * 0.25) setDropPosition('top');
+        else if (y > height * 0.75) setDropPosition('bottom');
+        else setDropPosition('middle');
+      } else {
+        if (y < height / 2) setDropPosition('top');
+        else setDropPosition('bottom');
+      }
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only clear if we are leaving the element, not entering a child
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
+      setDragOverId(null);
+      setDropPosition(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragOverId(null);
+    setDropPosition(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentDropPosition = dropPosition;
+    setDragOverId(null);
+    setDropPosition(null);
+    
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (!draggedId || draggedId === targetId) return;
+
+    // Prevent dropping a folder into its own descendant
+    const isDescendant = (parent: string, potentialChild: string): boolean => {
+      const item = sidebarItems.find(i => i.id === potentialChild);
+      if (!item || !item.parentId) return false;
+      if (item.parentId === parent) return true;
+      return isDescendant(parent, item.parentId);
+    };
+
+    if (targetId && isDescendant(draggedId, targetId)) return;
+
+    const newItems = [...sidebarItems];
+    const draggedIndex = newItems.findIndex(i => i.id === draggedId);
+    if (draggedIndex === -1) return;
+    
+    const [draggedItem] = newItems.splice(draggedIndex, 1);
+    const targetItem = newItems.find(i => i.id === targetId);
+
+    if (targetItem) {
+      if (targetItem.type === 'folder' && currentDropPosition === 'middle') {
+        // Move into folder
+        draggedItem.parentId = targetId;
+        // Expand the folder so the user sees the item moved in
+        if (!targetItem.isExpanded) {
+          toggleFolderExpansion(targetId);
+        }
+        // Insert after the folder
+        const targetIndex = newItems.findIndex(i => i.id === targetId);
+        newItems.splice(targetIndex + 1, 0, draggedItem);
+      } else {
+        // Move to same level as target
+        draggedItem.parentId = targetItem.parentId;
+        const targetIndex = newItems.findIndex(i => i.id === targetId);
+        if (currentDropPosition === 'bottom') {
+          newItems.splice(targetIndex + 1, 0, draggedItem);
+        } else {
+          newItems.splice(targetIndex, 0, draggedItem);
+        }
+      }
+    } else {
+      // Move to root end
+      draggedItem.parentId = undefined;
+      newItems.push(draggedItem);
+    }
+    
+    reorderSidebarItems(newItems);
+  };
+
+  return (
+    <>
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+      
+      {/* Profile Overlay */}
+      {isProfileOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setIsProfileOpen(false)}
+        />
+      )}
+
+      <div className={cn(
+        "fixed md:relative z-50 bg-[#202020] border-r border-white/5 h-screen flex flex-col text-[#D4D4D4] select-none transition-all duration-300 overflow-hidden",
+        isCollapsed ? "w-16" : "w-64",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto custom-scrollbar" ref={containerRef}>
+            <div className="relative z-20 bg-[#202020] shrink-0">
+              {/* Top Section - Design Match */}
+              {!isCollapsed && (
+                <div className="px-4 pt-4 pb-1 space-y-2">
+                  {/* User Profile & Actions */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="relative flex-1 min-w-0">
+                      <button 
+                        onClick={() => user ? setIsProfileOpen(!isProfileOpen) : undefined}
+                        className={cn(
+                          "w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group",
+                          isProfileOpen && "bg-white/5"
+                        )}
+                      >
+                        <img 
+                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'User'}&background=0D8ABC&color=fff`} 
+                          alt={user?.displayName || 'User'} 
+                          className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="flex flex-col min-w-0 flex-1 text-left gap-0.5">
+                          <span className="text-[14px] font-semibold text-[#E8E6E1] truncate leading-tight">
+                            {user?.displayName || 'Sign In'}
+                          </span>
+                          <span className="text-[12px] text-white/40 truncate leading-tight">
+                            {user?.email || 'Click to login'}
+                          </span>
+                        </div>
+                          {user && <ChevronDown className={cn("w-3.5 h-3.5 text-white/40 transition-transform shrink-0", isProfileOpen && "rotate-180")} />}
+                      </button>
+
+                      {isProfileOpen && (
+                          <div 
+                            className={cn(
+                              "absolute top-full left-0 mt-2 w-56 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                            )}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="px-3 py-2 border-b border-white/5 mb-1">
+                              <p className="text-xs font-medium text-white/30">Account</p>
+                            </div>
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                              <User className="w-4 h-4 text-white/40" />
+                              Profile
+                            </button>
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                              <Settings className="w-4 h-4 text-white/40" />
+                              Settings
+                            </button>
+                            <div className="h-px bg-white/5 my-1.5" />
+                            <button 
+                              onClick={() => {
+                                setIsShortcutsOpen(true);
+                                setIsProfileOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                            >
+                              <Keyboard className="w-4 h-4 text-white/40" />
+                              Shortcuts
+                            </button>
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                              <HelpCircle className="w-4 h-4 text-white/40" />
+                              Help
+                            </button>
+                            <div className="h-px bg-white/5 my-1.5" />
+                            <button 
+                              onClick={() => {
+                                setIsProfileOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              Logout
+                            </button>
+                          </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={onToggleSidebar}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#2A2A2A] text-white/60 hover:text-white hover:bg-[#3A3A3A] transition-colors cursor-pointer p-1.5 shrink-0"
+                      title="Toggle Sidebar"
+                    >
+                      <SidebarIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex items-center">
+                    <button 
+                      onClick={() => onOpenCommandPalette()}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 bg-transparent border border-white/5 rounded-lg text-white/30 hover:text-white/50 hover:bg-white/5 transition-colors cursor-pointer group"
+                    >
+                      <span className="text-sm font-medium flex-1 text-left">Quick actions</span>
+                      <div className="flex items-center gap-0.5 px-1 py-0.5 rounded border border-white/10 bg-transparent">
+                        <span className="text-xs font-sans">⌘</span>
+                        <span className="text-xs font-sans">K</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Top Actions (Collapsed State) */}
+              {isCollapsed && (
+                <div className="px-4 pt-4 pb-1 space-y-2">
+                  <div className="flex flex-col items-center gap-2">
+                    <button 
+                      onClick={onToggleSidebar}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#2A2A2A] text-white/60 hover:text-white hover:bg-[#3A3A3A] transition-colors cursor-pointer p-1.5"
+                      title="Toggle Sidebar"
+                    >
+                      <SidebarIcon className="w-4 h-4" />
+                    </button>
+                    
+                    <div className="relative">
+                      <button 
+                        onClick={() => user ? setIsProfileOpen(!isProfileOpen) : undefined}
+                        className="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
+                      >
+                        <img 
+                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'User'}&background=0D8ABC&color=fff`} 
+                          alt={user?.displayName || 'User'} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </button>
+
+                      {isProfileOpen && (
+                          <div 
+                            className="absolute top-0 left-full ml-2 w-56 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="px-3 py-2 border-b border-white/5 mb-1">
+                              <p className="text-xs font-medium text-white/30">Account</p>
+                            </div>
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                              <User className="w-4 h-4 text-white/40" />
+                              Profile
+                            </button>
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                              <Settings className="w-4 h-4 text-white/40" />
+                              Settings
+                            </button>
+                            <div className="h-px bg-white/5 my-1.5" />
+                            <button 
+                              onClick={() => {
+                                setIsShortcutsOpen(true);
+                                setIsProfileOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                            >
+                              <Keyboard className="w-4 h-4 text-white/40" />
+                              Shortcuts
+                            </button>
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
+                              <HelpCircle className="w-4 h-4 text-white/40" />
+                              Help
+                            </button>
+                            <div className="h-px bg-white/5 my-1.5" />
+                            <button 
+                              onClick={() => {
+                                setIsProfileOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              Logout
+                            </button>
+                          </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => onOpenCommandPalette()}
+                    className="w-full flex items-center justify-center bg-transparent border border-white/5 hover:bg-white/5 text-white/50 hover:text-white/80 rounded-md py-1.5 transition-colors cursor-pointer"
+                    title="Quick actions"
+                  >
+                    <Search className="w-4 h-4 shrink-0" />
+                  </button>
+                </div>
+              )}
+
+              <div className="px-4 mt-1 space-y-0.5">
+                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'inbox' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
+                    <Inbox className="w-4 h-4 text-blue-400 shrink-0" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="text-sm font-medium flex-1 text-left">Inbox</span>
+                        <span className="text-xs font-medium text-white/40 group-hover:text-white/60">2</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'today' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
+                    <Star className="w-4 h-4 text-yellow-400 shrink-0" />
+                    {!isCollapsed && (
+                      <>
+                        <span className="text-sm font-medium flex-1 text-left">Today</span>
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-white text-xs font-bold">1</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'upcoming' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
+                    <CalendarIcon className="w-4 h-4 text-rose-400 shrink-0" />
+                    {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Upcoming</span>}
+                  </button>
+
+                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'someday' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
+                    <Clock className="w-4 h-4 text-purple-400 shrink-0" />
+                    {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Someday</span>}
+                  </button>
+
+                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'logbook' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
+                    <BookCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Logbook</span>}
+                  </button>
+                </div>
+                <div className="h-px bg-white/5 my-4 mx-4" />
+            </div>
+
+            {/* Main Section */}
+            <div 
+              className="px-4 pb-4 space-y-0.5 min-h-[50px]" 
+              onDragOver={(e) => handleDragOver(e)} 
+              onDrop={(e) => handleDrop(e)}
+            >
+              {sidebarItems.filter(item => !item.parentId).map((item, index) => {
+                const Icon = iconMap[item.icon] || File;
+                const isActive = currentView === item.id || (item.id === 'goals' && currentView.startsWith('goal-details:'));
+                
+                return (
+                  <SidebarItem
+                    key={item.id}
+                    item={item}
+                    isActive={isActive}
+                    isCollapsed={isCollapsed}
+                    editingId={editingId}
+                    editValue={editValue}
+                    setEditValue={setEditValue}
+                    handleRenameSubmit={handleRenameSubmit}
+                    setEditingId={setEditingId}
+                    onViewChange={onViewChange}
+                    handleContextMenu={handleContextMenu}
+                    setIconPickerId={setIconPickerId}
+                    setIconPickerPos={setIconPickerPos}
+                    editInputRef={editInputRef}
+                    Icon={Icon}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDragEnd={handleDragEnd}
+                    onDrop={handleDrop}
+                    dragOverId={dragOverId}
+                    dropPosition={dropPosition}
+                    toggleFolderExpansion={toggleFolderExpansion}
+                    sidebarItems={sidebarItems}
+                    iconMap={iconMap}
+                    currentView={currentView}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Bottom Actions */}
+            <div className="px-4 py-4 space-y-1">
+              {!isCollapsed ? (
+                <>
+                  <div className="relative" ref={newItemMenuRef}>
+                    <button 
+                      onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
+                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      New Item
+                    </button>
+                    
+                    {isNewItemMenuOpen && (
+                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <button 
+                          onClick={() => {
+                            handleNewPage();
+                            setIsNewItemMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <File className="w-4 h-4 text-white/40" />
+                          New Page
+                        </button>
+                        <button 
+                          onClick={handleNewFolder}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <Folder className="w-4 h-4 text-white/40" />
+                          New Folder
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => onViewChange('trash')}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer group",
+                      currentView === 'trash' ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    <span className="flex-1 text-left">Trash</span>
+                    {trash.length > 0 && (
+                      <span className="text-xs font-medium text-white/30 group-hover:text-white/50">{trash.length}</span>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="relative" ref={newItemMenuRef}>
+                    <button 
+                      onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
+                      className="p-2 text-white/40 hover:text-white transition-colors cursor-pointer" 
+                      title="New Item"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    
+                    {isNewItemMenuOpen && (
+                      <div className="absolute bottom-0 left-full ml-2 w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
+                        <button 
+                          onClick={() => {
+                            handleNewPage();
+                            setIsNewItemMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <File className="w-4 h-4 text-white/40" />
+                          New Page
+                        </button>
+                        <button 
+                          onClick={() => {
+                            handleNewFolder();
+                            setIsNewItemMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <Folder className="w-4 h-4 text-white/40" />
+                          New Folder
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => onViewChange('trash')} className={cn("p-2 rounded-md transition-colors cursor-pointer", currentView === 'trash' ? "bg-white/10 text-white" : "text-white/40 hover:text-white")} title="Trash">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    {/* Shortcuts Modal */}
+    {isShortcutsOpen && (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div 
+          className="fixed inset-0" 
+          onClick={() => setIsShortcutsOpen(false)}
+        />
+        <div className="relative w-full max-w-lg bg-[#1C1C1C] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                <Keyboard className="w-5 h-5 text-white/80" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white/90">Keyboard Shortcuts</h2>
+                <p className="text-sm text-white/40">Boost your productivity with quick keys</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setIsShortcutsOpen(false)}
+              className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white transition-colors cursor-pointer"
+            >
+              <Plus className="w-5 h-5 rotate-45" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <div className="grid grid-cols-1 gap-8">
+              <section>
+                <h3 className="text-xs font-semibold text-white/20 uppercase tracking-wider mb-4">General</h3>
+                <div className="space-y-4">
+                  <ShortcutRow label="Open Command Palette" keys={['⌘', 'K']} />
+                  <ShortcutRow label="Toggle Sidebar" keys={['⌘', '/']} />
+                  <ShortcutRow label="Quick Search" keys={['/']} />
+                  <ShortcutRow label="Go to Dashboard" keys={['G', 'D']} />
+                  <ShortcutRow label="Go to Tasks" keys={['G', 'T']} />
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs font-semibold text-white/20 uppercase tracking-wider mb-4">Actions</h3>
+                <div className="space-y-4">
+                  <ShortcutRow label="Create New Task" keys={['C']} />
+                  <ShortcutRow label="Create New Note" keys={['N']} />
+                  <ShortcutRow label="Create New Idea" keys={['I']} />
+                  <ShortcutRow label="Toggle Theme" keys={['⌘', '⇧', 'L']} />
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs font-semibold text-white/20 uppercase tracking-wider mb-4">Navigation</h3>
+                <div className="space-y-4">
+                  <ShortcutRow label="Next Item" keys={['J']} />
+                  <ShortcutRow label="Previous Item" keys={['K']} />
+                  <ShortcutRow label="Select Item" keys={['Enter']} />
+                  <ShortcutRow label="Go Back" keys={['Esc']} />
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white/5 text-center">
+            <p className="text-xs text-white/30">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 font-sans mx-1">?</kbd> anywhere to show this menu
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+    
+      {contextMenu && (
+        <>
+          <div 
+            className="fixed inset-0 z-[99]" 
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenu(null);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenu(null);
+            }}
+          />
+          <div 
+            className="fixed bg-[#2A2A2A] border border-white/10 shadow-xl rounded-lg py-1 w-48 z-[100]"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+              {contextMenu.type === 'item' ? (
+            <>
+              <button 
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                onClick={() => {
+                  const item = sidebarItems.find(i => i.id === contextMenu.id);
+                  if (item) {
+                    setEditValue(item.label);
+                    setEditingId(contextMenu.id);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Edit2 className="w-4 h-4" />
+                Rename
+              </button>
+              {sidebarItems.find(i => i.id === contextMenu.id)?.type === 'custom' && (
+                <button 
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                  onClick={() => {
+                    duplicateSidebarItem(contextMenu.id);
+                    setContextMenu(null);
+                  }}
+                >
+                  <Copy className="w-4 h-4" />
+                  Duplicate
+                </button>
+              )}
+              <button 
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                onClick={() => {
+                  const item = sidebarItems.find(i => i.id === contextMenu.id);
+                  if (item) {
+                    setIconPickerId(item.id);
+                    setIconPickerPos({ x: contextMenu.x, y: contextMenu.y });
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Smile className="w-4 h-4" />
+                Change Icon
+              </button>
+              <div className="h-px bg-white/5 my-1" />
+              <button 
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+                onClick={() => {
+                  deleteSidebarItem(contextMenu.id);
+                  if (currentView === contextMenu.id) {
+                    onViewChange('dashboard');
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </>
+          ) : null}
+        </div>
+        </>
+      )}
+
+      {/* Icon Picker Popover */}
+      {iconPickerId && iconPickerPos && (
+        <>
+          <div 
+            className="fixed inset-0 z-[110]" 
+            onClick={() => setIconPickerId(null)}
+          />
+          <div 
+            className="fixed z-[120]"
+            style={{ 
+              top: Math.min(iconPickerPos.y, window.innerHeight - 350), 
+              left: Math.min(iconPickerPos.x, window.innerWidth - 280) 
+            }}
+          >
+            <IconPicker 
+              currentIcon={sidebarItems.find(i => i.id === iconPickerId)?.icon || 'File'}
+              onSelect={(iconName) => {
+                const item = sidebarItems.find(i => i.id === iconPickerId);
+                if (item) {
+                  updateSidebarItem(item.id, item.label, iconName);
+                }
+                setIconPickerId(null);
+              }}
+              onClose={() => setIconPickerId(null)}
+              onRemove={() => {
+                const item = sidebarItems.find(i => i.id === iconPickerId);
+                if (item) {
+                  updateSidebarItem(item.id, item.label, 'File');
+                }
+                setIconPickerId(null);
+              }}
+            />
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function ShortcutRow({ label, keys }: { label: string, keys: string[] }) {
+  return (
+    <div className="flex items-center justify-between group">
+      <span className="text-sm text-white/70 group-hover:text-white/90 transition-colors">{label}</span>
+      <div className="flex items-center gap-1.5">
+        {keys.map((key, i) => (
+          <React.Fragment key={i}>
+            <kbd className="min-w-[24px] h-6 px-1.5 flex items-center justify-center rounded bg-white/5 border border-white/10 text-xs font-medium text-white/60 font-sans shadow-sm">
+              {key}
+            </kbd>
+            {i < keys.length - 1 && <span className="text-xs text-white/20">+</span>}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SidebarItem({
+  item,
+  isActive,
+  isCollapsed,
+  editingId,
+  editValue,
+  setEditValue,
+  handleRenameSubmit,
+  setEditingId,
+  onViewChange,
+  handleContextMenu,
+  setIconPickerId,
+  setIconPickerPos,
+  editInputRef,
+  Icon,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDragEnd,
+  onDrop,
+  dragOverId,
+  dropPosition,
+  toggleFolderExpansion,
+  sidebarItems,
+  iconMap,
+  currentView
+}: any) {
+  const isFolder = item.type === 'folder';
+  const children = sidebarItems.filter((i: any) => i.parentId === item.id);
+  const isDraggingOver = dragOverId === item.id;
+
+  return (
+    <div className="space-y-0.5 relative">
+      <div 
+        draggable
+        onDragStart={(e) => onDragStart(e, item.id)}
+        onDragOver={(e) => onDragOver(e, item.id)}
+        onDragLeave={(e) => onDragLeave(e)}
+        onDragEnd={onDragEnd}
+        onDrop={(e) => onDrop(e, item.id)}
+        className={cn(
+          "w-full flex items-center rounded-md py-1.5 transition-all group relative select-none",
+          "cursor-pointer",
+          isCollapsed ? "justify-center" : "px-3 gap-3",
+          isActive ? "bg-white/10 text-[#E8E6E1]" : "text-white/80 hover:bg-white/5",
+          isFolder && "font-semibold",
+          isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
+        )}
+        title={isCollapsed ? item.label : undefined}
+        onContextMenu={(e) => handleContextMenu(e, item.id)}
+        onClick={(e) => {
+          if (editingId !== item.id) {
+            if (isFolder) {
+              toggleFolderExpansion(item.id);
+            } else {
+              onViewChange(item.id);
+            }
+          }
+        }}
+      >
+        {isDraggingOver && dropPosition === 'top' && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 z-20 rounded-full" />
+        )}
+        {isDraggingOver && dropPosition === 'bottom' && (
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 z-20 rounded-full" />
+        )}
+        <div className="flex items-center">
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setIconPickerId(item.id);
+              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+            }}
+            className="hover:bg-white/10 rounded p-0.5 transition-colors cursor-pointer"
+          >
+            <Icon className={cn("w-4 h-4 shrink-0 stroke-[1.5]", isActive ? "opacity-100" : "opacity-70")} />
+          </button>
+        </div>
+        {!isCollapsed && (
+          editingId === item.id ? (
+            <input
+              ref={editInputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={() => handleRenameSubmit(item.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameSubmit(item.id);
+                if (e.key === 'Escape') setEditingId(null);
+              }}
+              className="flex-1 bg-transparent outline-none text-[#E8E6E1] text-sm font-medium cursor-text"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-between min-w-0">
+              <span className="text-sm font-medium truncate">{item.label}</span>
+              {isFolder && (
+                <motion.div
+                  animate={{ rotate: item.isExpanded ? 90 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="shrink-0 ml-2"
+                >
+                  <ChevronRight className="w-3 h-3 text-white/40" />
+                </motion.div>
+              )}
+            </div>
+          )
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isFolder && item.isExpanded && !isCollapsed && children.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="ml-4 border-l border-white/5 pl-2 space-y-0.5 overflow-hidden"
+          >
+            {children.map((child: any) => {
+              const ChildIcon = iconMap[child.icon] || File;
+              return (
+                <SidebarItem
+                  key={child.id}
+                  item={child}
+                  isActive={currentView === child.id}
+                  isCollapsed={isCollapsed}
+                  editingId={editingId}
+                  editValue={editValue}
+                  setEditValue={setEditValue}
+                  handleRenameSubmit={handleRenameSubmit}
+                  setEditingId={setEditingId}
+                  onViewChange={onViewChange}
+                  handleContextMenu={handleContextMenu}
+                  setIconPickerId={setIconPickerId}
+                  setIconPickerPos={setIconPickerPos}
+                  editInputRef={editInputRef}
+                  Icon={ChildIcon}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDragLeave={onDragLeave}
+                  onDragEnd={onDragEnd}
+                  onDrop={onDrop}
+                  dragOverId={dragOverId}
+                  dropPosition={dropPosition}
+                  toggleFolderExpansion={toggleFolderExpansion}
+                  sidebarItems={sidebarItems}
+                  iconMap={iconMap}
+                  currentView={currentView}
+                />
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
