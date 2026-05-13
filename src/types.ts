@@ -147,6 +147,7 @@ export interface CustomPage {
   id: ID;
   title: string;
   icon: string;
+  kind?: 'database' | 'document';
   tabs: Array<{ id: string; label: string; icon: string }>;
   columns: Array<{ id: string; label: string; icon: string; width: string }>;
   items: CustomPageItem[];

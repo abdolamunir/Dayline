@@ -28,7 +28,7 @@ import { Menu01Icon as Menu, Search01Icon as SearchIcon } from 'hugeicons-react'
 import { format } from 'date-fns';
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  const [currentView, setCurrentView] = useState<ViewType>('inbox');
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandPaletteInitialValue, setCommandPaletteInitialValue] = useState('');
@@ -91,7 +91,7 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen bg-[#191919] overflow-hidden font-sans text-white/90 selection:bg-white/20">
+    <div className="flex h-screen overflow-hidden bg-[#181715] font-sans text-white/90 selection:bg-[#D7CCC0]/25">
       <Sidebar 
         currentView={currentView} 
         onViewChange={(view) => {
@@ -105,9 +105,9 @@ function AppContent() {
         onToggleSidebar={() => setIsCollapsed(!isCollapsed)}
       />
       
-      <main className="flex-1 overflow-y-auto relative flex flex-col">
+      <main className="relative flex flex-1 flex-col overflow-y-auto bg-[#181715]">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-4 border-b border-white/5 bg-[#191919] sticky top-0 z-30">
+        <div className="md:hidden flex items-center justify-between p-3 border-b border-white/[0.06] bg-[#181715]/95 backdrop-blur sticky top-0 z-30">
           <button onClick={() => setIsMobileMenuOpen(true)} className="text-white/70 hover:text-white transition-colors cursor-pointer">
             <Menu className="w-6 h-6" />
           </button>

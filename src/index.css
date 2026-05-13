@@ -1,14 +1,77 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background-color: #1c1917; /* stone-950 */
-  color: rgba(231, 229, 228, 0.9); /* stone-200 */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.018), transparent 240px),
+    #181715;
+  color: rgba(233, 230, 223, 0.9);
   font-family: var(--font-sans);
+  letter-spacing: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.database-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.database-table th {
+  height: 34px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.database-table td {
+  height: 38px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: rgba(233, 230, 223, 0.78);
+  font-size: 14px;
+}
+
+.database-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.bn-container[data-color-scheme="dark"] {
+  --bn-colors-editor-background: transparent;
+  --bn-colors-menu-background: #22211f;
+  --bn-colors-hovered-background: rgba(255,255,255,0.055);
+  --bn-colors-selected-background: rgba(215,204,192,0.13);
+  --bn-colors-text: rgba(233,230,223,0.88);
+  --bn-border-radius: 8px;
 }
 
 /* Custom Scrollbar Styles */

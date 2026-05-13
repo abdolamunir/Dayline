@@ -25,6 +25,8 @@ import { Reorder } from 'motion/react';
 import { cn } from '../utils/cn';
 import { format } from 'date-fns';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
+import { BlockEditor } from '../components/BlockEditor';
+import { DatabasePanel, EmptyState, PrimaryButton, SearchButton, StatusPill, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -61,7 +63,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
     { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
   ]);
 
-  const filteredNotes = notes;
+  const filteredNotes = notes.filter(note => note.status === activeTab);
 
   const effectiveSelectedNoteId = selectedNoteId || localSelectedNoteId;
   const selectedNote = effectiveSelectedNoteId ? notes.find(n => n.id === effectiveSelectedNoteId) : null;
@@ -82,17 +84,41 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-1">
-      {/* Header */}
-      <header className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-stone-500/10 rounded-xl text-stone-300">
-          <Pencil className="w-8 h-8" />
-        </div>
-        <h1 className="text-3xl font-bold text-stone-100 tracking-tight">Notes</h1>
-      </header>
+    <WorkspacePage>
+      <WorkspaceHeader
+        icon={<Pencil className="h-4 w-4" />}
+        title="Notes"
+        description="Documents, outlines, and reference material."
+        count={notes.length}
+        actions={
+          <>
+            <SearchButton />
+            <ToolButton><FilterIcon className="h-4 w-4" /></ToolButton>
+            <PrimaryButton onClick={() => {
+              const id = `note-${Date.now()}`;
+              addNote({ id, title: 'Untitled note', content: '', ideaIds: [], createdAt: new Date().toISOString(), status: 'inbox', priority: 'medium', progress: 0, assignee: '' });
+              if (onViewChange) onViewChange(`note-details:${id}`);
+              else setLocalSelectedNoteId(id);
+            }}>
+              <Plus className="h-4 w-4" /> New
+            </PrimaryButton>
+          </>
+        }
+      />
+
+      <ViewTabs
+        tabs={tabs.map(tab => ({
+          id: tab.id,
+          label: tab.label,
+          icon: React.createElement(iconMap[tab.icon] || Target, { className: "h-4 w-4" }),
+          count: notes.filter(note => note.status === tab.id).length,
+        }))}
+        activeId={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Tabs & Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
+      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
         {/* Mobile/Tablet Dropdown */}
         <div className="sm:hidden relative">
           <button 
@@ -168,9 +194,9 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       </div>
 
       {/* Table Container */}
-      <div className="flex-1 overflow-hidden">
+      <DatabasePanel className="flex-1">
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <table className="w-full text-left border-separate border-spacing-0 min-w-[600px]">
+          <table className="database-table min-w-[600px] text-left">
             <thead>
               <tr className="text-white/40 text-[12px] font-medium">
                 {columns.map((col, index) => (
@@ -198,7 +224,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
               onReorder={reorderNotes}
               className="relative"
             >
-              {filteredNotes.map(note => (
+              {filteredNotes.length > 0 ? filteredNotes.map(note => (
                 <Reorder.Item 
                   key={note.id} 
                   value={note}
@@ -229,7 +255,8 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                     </div>
                   </td>
                   <td className="px-4 py-2 border-b border-white/[0.01] whitespace-nowrap">
-                    <span 
+                    <StatusPill
+                      tone={note.priority === 'high' ? 'red' : note.priority === 'medium' ? 'orange' : 'green'}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setCustomDropdown({
@@ -239,14 +266,9 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                           currentValue: note.priority
                         });
                       }}
-                      className={cn(
-                        "px-2 py-1 rounded-lg font-medium text-[11px] cursor-pointer hover:opacity-80 transition-opacity",
-                        note.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                        note.priority === 'medium' ? "bg-orange-500/20 text-orange-400" :
-                        "bg-green-500/20 text-green-400"
-                      )}>
-                      {note.priority.charAt(0).toUpperCase() + note.priority.slice(1)}
-                    </span>
+                    >
+                      {note.priority}
+                    </StatusPill>
                   </td>
                   <td className="px-4 py-2 border-b border-white/[0.01] text-[11px] font-medium text-white/50 whitespace-nowrap">
                     {note.createdAt}
@@ -257,11 +279,17 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                     </button>
                   </td>
                 </Reorder.Item>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={4}>
+                    <EmptyState icon={<Pencil className="h-10 w-10" />} title="No notes here" description="Create a note and start typing." />
+                  </td>
+                </tr>
+              )}
             </Reorder.Group>
           </table>
         </div>
-      </div>
+      </DatabasePanel>
 
       {/* Custom Dropdown Popover */}
       <AnimatePresence>
@@ -314,7 +342,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
           </>
         )}
       </AnimatePresence>
-    </div>
+    </WorkspacePage>
   );
 }
 
@@ -322,20 +350,19 @@ function NoteDetailsPage({ note, onBack }: { note: any, onBack: () => void }) {
   const { updateNote, deleteNote } = useAppStore();
   
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6">
-      <button onClick={onBack} className="text-white/50 hover:text-white mb-4">← Back</button>
+    <WorkspacePage className="max-w-5xl">
+      <button onClick={onBack} className="mb-4 text-sm text-white/45 hover:text-white">Back to notes</button>
       <input 
         type="text"
         value={note.title}
         onChange={(e) => updateNote({ ...note, title: e.target.value })}
-        className="text-3xl font-bold bg-transparent w-full outline-none text-white"
+        className="mb-4 w-full bg-transparent text-3xl font-semibold text-[#E9E6DF] outline-none placeholder:text-white/18"
       />
-      <textarea 
-        value={note.content}
-        onChange={(e) => updateNote({ ...note, content: e.target.value })}
-        className="w-full h-64 bg-white/5 p-4 rounded-lg text-white outline-none"
+      <BlockEditor
+        initialContent={note.content}
+        onChange={(content) => updateNote({ ...note, content })}
       />
-      <button onClick={() => { deleteNote(note.id); onBack(); }} className="text-red-500">Delete Note</button>
-    </div>
+      <button onClick={() => { deleteNote(note.id); onBack(); }} className="mt-6 text-sm text-rose-400 hover:text-rose-300">Delete Note</button>
+    </WorkspacePage>
   );
 }

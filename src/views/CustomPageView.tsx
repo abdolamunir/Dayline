@@ -28,6 +28,8 @@ import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker } from '../components/DatePicker';
 import { format } from 'date-fns';
 import { TableView } from '../components/TableView';
+import { BlockEditor } from '../components/BlockEditor';
+import { WorkspacePage, WorkspaceHeader, ToolButton } from '../components/ui/DatabaseSurface';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 
@@ -65,8 +67,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
     );
   }
 
-  // If the page has tabs and columns, render the TableView
-  if (page.tabs && page.tabs.length > 0 && page.columns && page.columns.length > 0) {
+  if ((page.kind !== 'document') && page.tabs && page.tabs.length > 0 && page.columns && page.columns.length > 0) {
     return (
       <TableView 
         page={page} 
@@ -120,9 +121,28 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 lg:p-12 space-y-6 md:space-y-8">
-      <div className="flex items-start gap-4 group relative">
-        <div className="pt-2">
+    <WorkspacePage className="max-w-5xl">
+      <WorkspaceHeader
+        icon={<Icon className="h-4 w-4" />}
+        title={
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="Untitled"
+            className="w-full bg-transparent text-[22px] font-semibold leading-tight text-[#E9E6DF] outline-none placeholder:text-white/18 md:text-2xl"
+          />
+        }
+        description="Document page"
+        actions={
+          <ToolButton onClick={handleIconClick} title="Change icon">
+            Change icon
+          </ToolButton>
+        }
+      />
+
+      <div className="group relative">
+        <div className="hidden pt-2">
           <button 
             onClick={handleIconClick}
             className="p-2 hover:bg-white/5 rounded-xl text-white/60 hover:text-white transition-colors cursor-pointer"
@@ -130,16 +150,6 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
           >
             <Icon className="w-8 h-8 md:w-10 md:h-10" />
           </button>
-        </div>
-
-        <div className="flex-1">
-          <input
-            type="text"
-            value={title}
-            onChange={handleTitleChange}
-            placeholder="Untitled"
-            className="text-3xl md:text-5xl font-bold bg-transparent border-none outline-none w-full text-white/90 placeholder:text-white/20"
-          />
         </div>
 
         {isIconPickerOpen && iconPickerPos && (
@@ -191,7 +201,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         )}
       </div>
 
-      <div className="space-y-2 py-4 border-b border-white/5">
+      <div className="space-y-2 border-b border-white/[0.06] py-3">
         {page.properties.map(prop => (
           <div key={prop.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop">
             <div className="w-full sm:w-48 flex items-center gap-2 text-white/50">
@@ -246,12 +256,15 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         </div>
       </div>
 
-      <textarea
-        value={content}
-        onChange={handleContentChange}
-        placeholder="Press '/' for commands, or start typing..."
-        className="w-full h-[50vh] bg-transparent border-none outline-none text-white/80 placeholder:text-white/20 resize-none text-lg leading-relaxed"
-      />
+      <div className="min-h-[55vh] py-5 text-[#E9E6DF]">
+        <BlockEditor
+          initialContent={content}
+          onChange={(nextContent) => {
+            setContent(nextContent);
+            updateCustomPage({ ...page, content: nextContent });
+          }}
+        />
+      </div>
       
       <style>{`
         .dropdown:hover .dropdown-content {
@@ -259,7 +272,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
           opacity: 1;
         }
       `}</style>
-    </div>
+    </WorkspacePage>
   );
 }
 

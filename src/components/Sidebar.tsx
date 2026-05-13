@@ -88,12 +88,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     setEditingId(null);
   };
 
-  const handleNewPage = () => {
+  const handleNewDatabasePage = () => {
     const newId = `page-${Date.now()}`;
     addCustomPage({
       id: newId,
       title: 'Untitled',
       icon: 'File',
+      kind: 'database',
       tabs: [
         { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
         { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
@@ -106,6 +107,22 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
         { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
         { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
       ],
+      items: [],
+      properties: [],
+      content: ''
+    });
+    onViewChange(newId);
+  };
+
+  const handleNewDocumentPage = () => {
+    const newId = `page-${Date.now()}`;
+    addCustomPage({
+      id: newId,
+      title: 'Untitled doc',
+      icon: 'FileText',
+      kind: 'document',
+      tabs: [],
+      columns: [],
       items: [],
       properties: [],
       content: ''
@@ -542,13 +559,23 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       <div className="absolute bottom-full left-0 mb-2 w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
                         <button 
                           onClick={() => {
-                            handleNewPage();
+                            handleNewDatabasePage();
                             setIsNewItemMenuOpen(false);
                           }}
                           className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
                         >
-                          <File className="w-4 h-4 text-white/40" />
-                          New Page
+                          <Database className="w-4 h-4 text-white/40" />
+                          New Database
+                        </button>
+                        <button 
+                          onClick={() => {
+                            handleNewDocumentPage();
+                            setIsNewItemMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <FileText className="w-4 h-4 text-white/40" />
+                          New Document
                         </button>
                         <button 
                           onClick={handleNewFolder}
@@ -589,13 +616,23 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       <div className="absolute bottom-0 left-full ml-2 w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
                         <button 
                           onClick={() => {
-                            handleNewPage();
+                            handleNewDatabasePage();
                             setIsNewItemMenuOpen(false);
                           }}
                           className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
                         >
-                          <File className="w-4 h-4 text-white/40" />
-                          New Page
+                          <Database className="w-4 h-4 text-white/40" />
+                          New Database
+                        </button>
+                        <button 
+                          onClick={() => {
+                            handleNewDocumentPage();
+                            setIsNewItemMenuOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <FileText className="w-4 h-4 text-white/40" />
+                          New Document
                         </button>
                         <button 
                           onClick={() => {

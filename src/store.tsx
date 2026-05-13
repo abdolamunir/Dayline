@@ -76,20 +76,59 @@ interface AppState {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
+const STORAGE_KEY = 'dayline:workspace:v1';
+
+type PersistedWorkspace = Pick<AppState,
+  'tasks' | 'projects' | 'goals' | 'areas' | 'habits' | 'events' | 'journal' |
+  'moods' | 'ideas' | 'notes' | 'customPages' | 'sidebarItems' | 'trash'
+>;
+
+const defaultWorkspace: PersistedWorkspace = {
+  tasks: mockTasks,
+  projects: mockProjects,
+  goals: mockGoals,
+  areas: mockAreas,
+  habits: mockHabits,
+  events: mockEvents,
+  journal: mockJournal,
+  moods: mockMoods,
+  ideas: mockIdeas,
+  notes: mockNotes,
+  customPages: [],
+  sidebarItems: initialSidebarItems,
+  trash: [],
+};
+
+function readWorkspace(): PersistedWorkspace {
+  if (typeof window === 'undefined') return defaultWorkspace;
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultWorkspace;
+    const parsed = JSON.parse(raw);
+    if (parsed?.version !== 1 || !parsed?.workspace) return defaultWorkspace;
+    return { ...defaultWorkspace, ...parsed.workspace };
+  } catch (error) {
+    console.warn('Unable to read Dayline workspace from local storage.', error);
+    return defaultWorkspace;
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [goals, setGoals] = useState<Goal[]>(mockGoals);
-  const [areas, setAreas] = useState<Area[]>(mockAreas);
-  const [habits, setHabits] = useState<Habit[]>(mockHabits);
-  const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [journal, setJournal] = useState<JournalEntry[]>(mockJournal);
-  const [moods, setMoods] = useState<Mood[]>(mockMoods);
-  const [ideas, setIdeas] = useState<Idea[]>(mockIdeas);
-  const [notes, setNotes] = useState<Note[]>(mockNotes);
-  const [customPages, setCustomPages] = useState<CustomPage[]>([]);
-  const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>(initialSidebarItems);
-  const [trash, setTrash] = useState<TrashItem[]>([]);
+  const [workspace] = useState<PersistedWorkspace>(() => readWorkspace());
+  const [tasks, setTasks] = useState<Task[]>(workspace.tasks);
+  const [projects, setProjects] = useState<Project[]>(workspace.projects);
+  const [goals, setGoals] = useState<Goal[]>(workspace.goals);
+  const [areas, setAreas] = useState<Area[]>(workspace.areas);
+  const [habits, setHabits] = useState<Habit[]>(workspace.habits);
+  const [events, setEvents] = useState<Event[]>(workspace.events);
+  const [journal, setJournal] = useState<JournalEntry[]>(workspace.journal);
+  const [moods, setMoods] = useState<Mood[]>(workspace.moods);
+  const [ideas, setIdeas] = useState<Idea[]>(workspace.ideas);
+  const [notes, setNotes] = useState<Note[]>(workspace.notes);
+  const [customPages, setCustomPages] = useState<CustomPage[]>(workspace.customPages);
+  const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>(workspace.sidebarItems);
+  const [trash, setTrash] = useState<TrashItem[]>(workspace.trash);
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -100,6 +139,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const nextWorkspace: PersistedWorkspace = {
+      tasks, projects, goals, areas, habits, events, journal, moods, ideas,
+      notes, customPages, sidebarItems, trash
+    };
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        workspace: nextWorkspace,
+      }));
+    } catch (error) {
+      console.warn('Unable to save Dayline workspace to local storage.', error);
+    }
+  }, [tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash]);
 
   const updateTask = (updatedTask: Task) => {
     setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));

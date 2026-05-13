@@ -1,11 +1,12 @@
 import React from 'react';
-import { Calendar01Icon as CalendarIcon, CheckmarkCircle02Icon as CheckCircle2, CircleIcon as Circle, Clock01Icon as Clock } from 'hugeicons-react';
+import { Calendar01Icon as CalendarIcon, CheckmarkCircle02Icon as CheckCircle2, CircleIcon as Circle, Clock01Icon as Clock, Add01Icon as Plus } from 'hugeicons-react';
 import { useAppStore } from '../store';
 import { cn } from '../utils/cn';
 import { format } from 'date-fns';
+import { DatabasePanel, EmptyState, PrimaryButton, StatusPill, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 
 export function Today() {
-  const { tasks, updateTask } = useAppStore();
+  const { tasks, updateTask, addTask } = useAppStore();
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   
   const todayTasks = tasks.filter(t => t.dueDate === todayStr);
@@ -20,87 +21,90 @@ export function Today() {
     updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' });
   };
 
+  const handleNewTodayTask = () => {
+    addTask({
+      id: `task-${Date.now()}`,
+      title: 'Untitled task',
+      status: 'todo',
+      priority: 'medium',
+      dueDate: todayStr,
+      tags: [],
+    });
+  };
+
   return (
-    <div className="max-w-6xl mx-auto p-8 space-y-8">
-      <header className="flex items-center gap-3 border-b border-white/10 pb-6">
-        <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
-          <CalendarIcon className="w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-semibold text-white/90 tracking-tight">Today</h1>
-          <p className="text-white/50 mt-1">{format(new Date(), 'EEEE, MMMM do')}</p>
-        </div>
-      </header>
+    <WorkspacePage>
+      <WorkspaceHeader
+        icon={<CalendarIcon className="h-4 w-4 text-emerald-300" />}
+        title="Today"
+        description={format(new Date(), 'EEEE, MMMM do')}
+        count={todayTasks.length}
+        actions={<PrimaryButton onClick={handleNewTodayTask}><Plus className="h-4 w-4" /> New</PrimaryButton>}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-xl font-medium text-white/80 flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Tasks
-          </h2>
-          <div className="bg-[#202020] rounded-2xl border border-white/5 overflow-hidden">
-            <div className="divide-y divide-white/5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <DatabasePanel>
+          <table className="database-table">
+            <thead>
+              <tr>
+                <th className="w-[52%] px-3">Task</th>
+                <th className="w-[16%] px-3">Time</th>
+                <th className="w-[16%] px-3">Status</th>
+                <th className="w-[16%] px-3">Priority</th>
+              </tr>
+            </thead>
+            <tbody>
               {todayTasks.length > 0 ? todayTasks.map(task => (
-                <div key={task.id} className="p-4 flex items-center gap-4 hover:bg-white/5 transition-colors group">
-                  <button onClick={() => handleTaskToggle(task)} className="text-white/40 hover:text-emerald-500 transition-colors">
-                    {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5" />}
-                  </button>
-                  <span className={cn("text-white/80 font-medium", task.status === 'done' && "line-through text-white/40")}>
-                    {task.title}
-                  </span>
-                </div>
+                <tr key={task.id}>
+                  <td className="px-3">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleTaskToggle(task)} className="text-white/35 transition-colors hover:text-emerald-300">
+                        {task.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <Circle className="h-4 w-4" />}
+                      </button>
+                      <span className={cn("truncate font-medium", task.status === 'done' && "line-through text-white/35")}>{task.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 text-white/38">{task.startTime ? `${task.startTime}${task.endTime ? `-${task.endTime}` : ''}` : 'Anytime'}</td>
+                  <td className="px-3"><StatusPill tone={task.status === 'done' ? 'green' : task.status === 'doing' ? 'blue' : 'gray'}>{task.status}</StatusPill></td>
+                  <td className="px-3"><StatusPill tone={task.priority === 'high' ? 'red' : task.priority === 'medium' ? 'orange' : 'green'}>{task.priority}</StatusPill></td>
+                </tr>
               )) : (
-                <div className="p-12 text-center text-white/40">
-                  <CalendarIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>No tasks scheduled for today. Enjoy your free time!</p>
-                </div>
+                <tr>
+                  <td colSpan={4}>
+                    <EmptyState icon={<CalendarIcon className="h-10 w-10" />} title="No tasks for today" description="Add one to shape the day." actionLabel="New task" onAction={handleNewTodayTask} />
+                  </td>
+                </tr>
               )}
-            </div>
-          </div>
-        </div>
+            </tbody>
+          </table>
+        </DatabasePanel>
 
-        <div className="space-y-6">
-          <h2 className="text-xl font-medium text-white/80 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-emerald-500" /> Agenda
-          </h2>
-          <div className="bg-[#202020] rounded-2xl border border-white/5 p-6">
+        <DatabasePanel className="p-4">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white/60">
+            <Clock className="h-4 w-4 text-emerald-300" /> Agenda
+          </div>
             {sortedTasks.length > 0 ? (
-              <div className="relative border-l border-white/10 ml-3 space-y-8 py-2">
+              <div className="relative ml-2 space-y-5 border-l border-white/[0.08] py-1">
                 {sortedTasks.map(task => (
-                  <div key={`agenda-${task.id}`} className="relative pl-6">
+                  <div key={`agenda-${task.id}`} className="relative pl-5">
                     <div className={cn(
-                      "absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full ring-4 ring-[#202020]",
-                      task.status === 'done' ? "bg-emerald-500/50" : "bg-emerald-500"
+                      "absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-[#1C1B19]",
+                      task.status === 'done' ? "bg-emerald-500/35" : "bg-emerald-300"
                     )} />
-                    <div className={cn(
-                      "text-sm font-medium mb-2",
-                      task.status === 'done' ? "text-emerald-500/50" : "text-emerald-400"
-                    )}>
+                    <div className="mb-1 text-xs font-medium text-emerald-200/70">
                       {task.startTime ? `${task.startTime} ${task.endTime ? `- ${task.endTime}` : ''}` : 'Anytime'}
                     </div>
-                    <div className={cn(
-                      "bg-white/5 rounded-xl p-4 border border-white/5 transition-colors",
-                      task.status === 'done' && "opacity-50"
-                    )}>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => handleTaskToggle(task)} className="text-white/40 hover:text-emerald-500 transition-colors shrink-0">
-                          {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5" />}
-                        </button>
-                        <span className={cn("text-white/80 font-medium text-sm", task.status === 'done' && "line-through text-white/40")}>
-                          {task.title}
-                        </span>
-                      </div>
-                    </div>
+                    <div className={cn("text-sm font-medium text-white/70", task.status === 'done' && "line-through text-white/30")}>{task.title}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center text-white/40 py-8">
+              <div className="py-8 text-center text-sm text-white/35">
                 <p>No agenda for today.</p>
               </div>
             )}
-          </div>
-        </div>
+        </DatabasePanel>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

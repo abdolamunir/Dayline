@@ -27,7 +27,9 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
     sidebarItems, 
     addTask, 
     addNote, 
-    addGoal 
+    addGoal,
+    addProject,
+    addCustomPage
   } = useAppStore();
 
   const [search, setSearch] = useState('');
@@ -126,7 +128,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
               onSelect={() => runCommand(() => {
                 const id = `note-${Date.now()}`;
                 addNote({ id, title: 'New Note', content: '', ideaIds: [], createdAt: new Date().toISOString(), status: 'inbox', priority: 'medium', progress: 0, assignee: '' });
-                onViewChange('notes');
+                onViewChange(`note-details:${id}`);
               })}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-white/80 aria-selected:bg-white/10 aria-selected:text-white transition-colors"
             >
@@ -150,12 +152,78 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
               onSelect={() => runCommand(() => {
                 const id = `goal-${Date.now()}`;
                 addGoal({ id, title: 'New Goal', description: '', progress: 0, projectIds: [], taskIds: [], status: 'inbox', priority: 'medium', assignee: '' });
-                onViewChange('goals');
+                onViewChange(`goal-details:${id}`);
               })}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-white/80 aria-selected:bg-white/10 aria-selected:text-white transition-colors"
             >
               <Target className="w-4 h-4 text-rose-400 stroke-[1.5]" />
               <span className="flex-1">New Goal</span>
+              <span className="text-xs text-white/30">Action</span>
+            </Command.Item>
+            <Command.Item 
+              onSelect={() => runCommand(() => {
+                const id = `project-${Date.now()}`;
+                addProject({ id, name: 'New Project', description: '', status: 'planning', taskIds: [], priority: 'medium', icon: 'Folder' });
+                onViewChange('projects');
+              })}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-white/80 aria-selected:bg-white/10 aria-selected:text-white transition-colors"
+            >
+              <Folder className="w-4 h-4 text-orange-300 stroke-[1.5]" />
+              <span className="flex-1">New Project</span>
+              <span className="text-xs text-white/30">Action</span>
+            </Command.Item>
+            <Command.Item 
+              onSelect={() => runCommand(() => {
+                const id = `page-${Date.now()}`;
+                addCustomPage({
+                  id,
+                  title: 'Untitled database',
+                  icon: 'Database',
+                  kind: 'database',
+                  tabs: [
+                    { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
+                    { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
+                    { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+                  ],
+                  columns: [
+                    { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
+                    { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
+                    { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
+                    { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
+                    { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
+                  ],
+                  items: [],
+                  properties: [],
+                  content: ''
+                });
+                onViewChange(id);
+              })}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-white/80 aria-selected:bg-white/10 aria-selected:text-white transition-colors"
+            >
+              <Database className="w-4 h-4 text-teal-300 stroke-[1.5]" />
+              <span className="flex-1">New Database</span>
+              <span className="text-xs text-white/30">Action</span>
+            </Command.Item>
+            <Command.Item 
+              onSelect={() => runCommand(() => {
+                const id = `page-${Date.now()}`;
+                addCustomPage({
+                  id,
+                  title: 'Untitled doc',
+                  icon: 'FileText',
+                  kind: 'document',
+                  tabs: [],
+                  columns: [],
+                  items: [],
+                  properties: [],
+                  content: ''
+                });
+                onViewChange(id);
+              })}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer text-sm text-white/80 aria-selected:bg-white/10 aria-selected:text-white transition-colors"
+            >
+              <FileText className="w-4 h-4 text-stone-300 stroke-[1.5]" />
+              <span className="flex-1">New Document</span>
               <span className="text-xs text-white/30">Action</span>
             </Command.Item>
           </Command.Group>

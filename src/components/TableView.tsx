@@ -47,6 +47,7 @@ import { IconPicker, ALL_ICONS } from './IconPicker';
 import { DatePicker, DateConfig } from './DatePicker';
 import { format } from 'date-fns';
 import { CustomPage, CustomPageItem } from '../types';
+import { DatabasePanel, PrimaryButton, SearchButton, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from './ui/DatabaseSurface';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -156,25 +157,47 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-1 min-h-full">
-      {/* Header */}
-      <header className="flex items-center gap-3 mb-6 group relative">
-        <div 
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setIconPickerId(page.id);
-            setIconPickerType('main');
-            setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-          }}
-          className="p-1.5 bg-stone-500/10 rounded-xl text-stone-300 hover:bg-stone-500/20 transition-colors cursor-pointer"
-        >
-          {React.createElement(iconMap[page.icon] || FileIcon, { className: "w-5 h-5" })}
-        </div>
-        <h1 className="text-3xl font-bold text-[#E8E6E1] tracking-tight">{page.title}</h1>
-      </header>
+    <WorkspacePage>
+      <WorkspaceHeader
+        icon={
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setIconPickerId(page.id);
+              setIconPickerType('main');
+              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+            }}
+            className="flex h-full w-full items-center justify-center"
+          >
+            {React.createElement(iconMap[page.icon] || FileIcon, { className: "h-4 w-4" })}
+          </button>
+        }
+        title={page.title}
+        description="Database"
+        count={page.items.length}
+        actions={
+          <>
+            <SearchButton />
+            <ToolButton><FilterIcon className="h-4 w-4" /></ToolButton>
+            <ToolButton><Sort className="h-4 w-4" /></ToolButton>
+            <PrimaryButton onClick={handleNewItem}><Plus className="h-4 w-4" /> New</PrimaryButton>
+          </>
+        }
+      />
+
+      <ViewTabs
+        tabs={page.tabs.map(tab => ({
+          id: tab.id,
+          label: tab.label,
+          icon: React.createElement(iconMap[tab.icon] || Target, { className: "h-4 w-4" }),
+          count: page.items.filter(item => item.status === tab.id).length,
+        }))}
+        activeId={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Tabs & Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
+      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
         <Reorder.Group 
           as="div"
           ref={tabContainerRef}
@@ -299,9 +322,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       </div>
 
       {/* Table Container */}
-      <div className="flex-1 overflow-hidden">
+      <DatabasePanel className="flex-1">
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] table-fixed">
+          <table className="database-table min-w-[1000px] table-fixed text-left">
             <thead>
               <tr className="text-white/40 text-[12px] font-medium">
                 {page.columns.map((col, index) => (
@@ -561,7 +584,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
             </Reorder.Group>
           </table>
         </div>
-      </div>
+      </DatabasePanel>
 
       {/* Popovers */}
       <AnimatePresence>
@@ -672,6 +695,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           </>
         )}
       </AnimatePresence>
-    </div>
+    </WorkspacePage>
   );
 }
