@@ -15,3 +15,6 @@ Dayline is a local-first, keyboard-driven workspace for notes, tasks, projects, 
 2. Set any optional environment variables in `.env.local`.
 3. Run Dayline:
    `npm run dev`
+
+To run Dayline alongside another local app, set a different port:
+`PORT=3001 npm run dev`

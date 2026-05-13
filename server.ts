@@ -1,12 +1,14 @@
 import express from "express";
 import path from "path";
+import { config } from "dotenv";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: [".env.local", ".env"] });
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   console.log(`Starting server in ${process.env.NODE_ENV || 'development'} mode`);
   console.log(`__dirname: ${__dirname}`);
