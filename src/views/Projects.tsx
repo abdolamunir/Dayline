@@ -138,24 +138,24 @@ export function Projects() {
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
             <FolderKanban className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-semibold text-[#E8E6E1] tracking-tight leading-tight">Projects</h1>
-            <p className="text-white/50 -mt-0.5 text-xs md:text-sm">Containers for your tasks.</p>
+            <h1 className="text-xl md:text-2xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight">Projects</h1>
+            <p className="text-[var(--tokyo-text-muted)] -mt-0.5 text-xs md:text-sm">Containers for your tasks.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button className="p-2 text-white/40 hover:text-white transition-colors">
+          <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
             <Search className="w-5 h-5" />
           </button>
-          <button className="p-2 text-white/40 hover:text-white transition-colors">
+          <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
             <FilterIcon className="w-5 h-5" />
           </button>
           <button 
             onClick={handleNewProject}
-            className="bg-white/10 text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95"
+            className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
             New Project
@@ -164,21 +164,21 @@ export function Projects() {
       </header>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-white/5 pb-px overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-px overflow-x-auto no-scrollbar">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTabId(tab.id)}
             className={cn(
               "pl-[7px] pr-[9px] py-1.5 text-sm font-medium transition-all relative whitespace-nowrap",
-              activeTabId === tab.id ? "text-[#E8E6E1]" : "text-white/40 hover:text-white/60"
+              activeTabId === tab.id ? "text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)]"
             )}
           >
             {tab.label}
             {activeTabId === tab.id && (
               <motion.div 
                 layoutId="activeTabProject"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tokyo-yellow)]"
               />
             )}
           </button>
@@ -195,7 +195,7 @@ export function Projects() {
                   key={col.id}
                   style={{ width: col.width }}
                   className={cn(
-                    "px-4 py-2 text-left text-[11px] font-bold text-white/20 uppercase tracking-wider border-b border-white/5",
+                    "px-4 py-2 text-left text-[11px] font-bold text-white/20 uppercase tracking-wider border-b border-[var(--tokyo-border)]",
                     index === 0 && "pl-[5px]"
                   )}
                 >
@@ -257,7 +257,7 @@ export function Projects() {
                     draggingId === project.id ? "cursor-grabbing bg-white/[0.04]" : ""
                   )}
                 >
-                  <td className="h-11 pl-[5px] pr-4 border-b border-white/5">
+                  <td className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
                     <div className="flex items-center gap-1">
                       <div 
                         onClick={(e) => {
@@ -266,7 +266,7 @@ export function Projects() {
                           setIconPickerId(project.id);
                           setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                         }}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-white/30 shrink-0 cursor-pointer transition-colors"
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
                       >
                         {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-4 h-4" })}
                       </div>
@@ -281,7 +281,7 @@ export function Projects() {
                             if (e.key === 'Enter') handleRenameProject();
                             if (e.key === 'Escape') setEditingProjectId(null);
                           }}
-                          className="bg-transparent border-none outline-none text-sm text-[#E8E6E1] w-full"
+                          className="bg-transparent border-none outline-none text-sm text-[var(--tokyo-text-strong)] w-full"
                         />
                       ) : (
                         <span 
@@ -289,14 +289,14 @@ export function Projects() {
                             e.stopPropagation();
                             setLocalSelectedProjectId(project.id);
                           }}
-                          className="text-[#E8E6E1]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[#E8E6E1] transition-colors"
+                          className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
                         >
                           {project.name}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 h-11 border-b border-white/5">
+                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)]">
                     <span 
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -309,19 +309,19 @@ export function Projects() {
                       }}
                       className={cn(
                         "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                        project.status === 'completed' ? "bg-emerald-500/20 text-emerald-400" :
-                        project.status === 'active' ? "bg-blue-500/20 text-blue-400" :
+                        project.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+                        project.status === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                         project.status === 'planning' ? "bg-stone-500/20 text-stone-400" :
-                        "bg-orange-500/20 text-orange-400"
+                        "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]"
                       )}
                     >
                       {toSentenceCase(project.status)}
                     </span>
                   </td>
-                  <td className="px-4 h-11 border-b border-white/5 text-sm text-white/40">
+                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)] text-sm text-[var(--tokyo-text-faint)]">
                     {project.deadline || 'No deadline'}
                   </td>
-                  <td className="px-4 h-11 border-b border-white/5">
+                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)]">
                     <span 
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -335,14 +335,14 @@ export function Projects() {
                       className={cn(
                         "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
                         project.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                        project.priority === 'medium' ? "bg-orange-500/20 text-orange-400" :
-                        "bg-emerald-500/20 text-emerald-400"
+                        project.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
+                        "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]"
                       )}
                     >
                       {toSentenceCase(project.priority || 'medium')}
                     </span>
                   </td>
-                  <td className="px-4 h-11 border-b border-white/5 text-sm text-white/40">
+                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)] text-sm text-[var(--tokyo-text-faint)]">
                     {goal?.title || 'No goal'}
                   </td>
                 </Reorder.Item>
@@ -385,7 +385,7 @@ export function Projects() {
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[160] w-40 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 overflow-hidden"
+              className="fixed z-[160] w-40 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden"
               style={{ top: customDropdown.pos.y, left: customDropdown.pos.x }}
             >
               {(customDropdown.type === 'status' ? ['planning', 'active', 'completed', 'paused'] : ['low', 'medium', 'high']).map(val => (
@@ -397,7 +397,7 @@ export function Projects() {
                   }}
                   className={cn(
                     "w-full px-3 py-1.5 text-sm text-left transition-colors",
-                    customDropdown.currentValue === val ? "bg-white/10 text-white" : "text-white/50 hover:bg-white/5 hover:text-white"
+                    customDropdown.currentValue === val ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                   )}
                 >
                   {toSentenceCase(val)}
@@ -411,7 +411,7 @@ export function Projects() {
           <>
             <div className="fixed inset-0 z-[130]" onClick={() => setProjectContextMenu(null)} />
             <div 
-              className="fixed z-[140] w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 overflow-hidden"
+              className="fixed z-[140] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden"
               style={{ top: projectContextMenu.y, left: projectContextMenu.x }}
             >
               <button 
@@ -423,9 +423,9 @@ export function Projects() {
                   }
                   setProjectContextMenu(null);
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] transition-colors"
               >
-                <Pencil className="w-4 h-4 text-white/40" />
+                <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                 Rename
               </button>
               <button 
@@ -433,18 +433,18 @@ export function Projects() {
                   duplicateProject(projectContextMenu.id);
                   setProjectContextMenu(null);
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] transition-colors"
               >
-                <Copy className="w-4 h-4 text-white/40" />
+                <Copy className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                 Duplicate
               </button>
-              <div className="h-px bg-white/5 my-1" />
+              <div className="h-px bg-[var(--tokyo-border)] my-1" />
               <button 
                 onClick={() => {
                   deleteProject(projectContextMenu.id);
                   setProjectContextMenu(null);
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -544,22 +544,22 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
   };
 
   return (
-    <div className="min-h-full bg-[#191919] flex flex-col">
+    <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
       {/* Header */}
       <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-white/30 text-sm">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
             <button onClick={onBack} className="hover:text-white transition-colors">Projects</button>
             <span>/</span>
-            <span className="text-white/50 capitalize whitespace-nowrap">{project.status}</span>
+            <span className="text-[var(--tokyo-text-muted)] capitalize whitespace-nowrap">{project.status}</span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-white/30 hover:text-white transition-colors">
+            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
               <MoreHorizontal className="w-5 h-5" />
             </button>
             <button 
               onClick={onBack}
-              className="text-white/30 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
             >
               <X className="w-5 h-5" />
             </button>
@@ -570,7 +570,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
           type="text"
           value={project.name}
           onChange={(e) => handleUpdate({ name: e.target.value })}
-          className="w-full bg-transparent text-3xl font-bold text-[#E8E6E1] mb-8 tracking-tight outline-none placeholder:text-white/10"
+          className="w-full bg-transparent text-3xl font-bold text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
           placeholder="Untitled Project"
         />
         
@@ -578,7 +578,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
         <div className="space-y-2 mb-12 max-w-2xl">
           {/* Assigned */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Users className="w-4 h-4" />
               <span>Assigned</span>
             </div>
@@ -588,14 +588,14 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                 'https://i.pravatar.cc/150?u=4',
                 'https://i.pravatar.cc/150?u=6'
               ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[#191919] ring-1 ring-white/5" alt="avatar" />
+                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-1 ring-white/5" alt="avatar" />
               ))}
             </div>
           </div>
 
           {/* Deadline */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CalendarIcon className="w-4 h-4" />
               <span>Deadline</span>
             </div>
@@ -608,7 +608,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   currentDate: project.deadline ? new Date(project.deadline) : undefined
                 });
               }}
-              className="text-white/90 text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+              className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
             >
               {project.deadline || 'Set deadline...'}
             </div>
@@ -616,7 +616,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
 
           {/* Priority */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Zap className="w-4 h-4" />
               <span>Priority</span>
             </div>
@@ -633,7 +633,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
               className={cn(
                 "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
                 project.priority === 'high' ? "bg-red-500/20 text-red-400" : 
-                project.priority === 'medium' ? "bg-orange-500/20 text-orange-400" : 
+                project.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" : 
                 "bg-green-500/20 text-green-400"
               )}
             >
@@ -643,7 +643,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
 
           {/* Status */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CheckCircle className="w-4 h-4" />
               <span>Status</span>
             </div>
@@ -659,15 +659,15 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
               }}
               className={cn(
                 "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                project.status === 'completed' ? "bg-emerald-500/20 text-emerald-400" :
-                project.status === 'active' ? "bg-blue-500/20 text-blue-400" :
+                project.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+                project.status === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                 "bg-stone-500/20 text-stone-400"
               )}
             >
               <div className={cn(
                 "w-1.5 h-1.5 rounded-full",
-                project.status === 'completed' ? "bg-emerald-400" :
-                project.status === 'active' ? "bg-blue-400" :
+                project.status === 'completed' ? "bg-[var(--tokyo-green)]" :
+                project.status === 'active' ? "bg-[var(--tokyo-purple)]" :
                 "bg-stone-400"
               )} />
               <span>{toSentenceCase(project.status)}</span>
@@ -685,7 +685,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
 
             return (
               <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-                <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+                <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
                   <PropIcon className="w-4 h-4" />
                   <input 
                     type="text"
@@ -704,7 +704,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                     value={prop.value}
                     onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
                     placeholder="Empty"
-                    className="bg-transparent border-none p-0 text-white/90 text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
+                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
                   />
                   <button 
                     onClick={() => handleDeleteProperty(prop.id)}
@@ -719,7 +719,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
 
           <button 
             onClick={handleAddProperty}
-            className="text-orange-500/80 text-sm font-medium flex items-center gap-2 hover:text-orange-400 transition-colors mt-2"
+            className="text-[var(--tokyo-yellow)] text-sm font-medium flex items-center gap-2 hover:text-[var(--tokyo-yellow)] transition-colors mt-2"
           >
             <Plus className="w-3.5 h-3.5" />
             Add property
@@ -727,7 +727,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-white/5 pb-1">
+        <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-1">
           {[
             { id: 'Todo list', icon: List },
             { id: 'Comments', icon: MessageSquare },
@@ -738,7 +738,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "flex items-center gap-2 pl-[11px] pr-[13px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tab.id ? "bg-white/10 text-[#E8E6E1]" : "text-white/50 hover:bg-white/10 hover:text-[#E8E6E1]"
+                activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
               )}
             >
               <tab.icon className="w-4 h-4" />
@@ -753,12 +753,12 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
         {activeTab === 'Todo list' && (
           <div className="space-y-4">
             {projectTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl group hover:bg-white/[0.04] transition-all">
+              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all">
                 <button 
                   onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
                   className={cn(
                     "w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all",
-                    task.status === 'done' ? "bg-orange-500 border-orange-500" : "border-white/10 group-hover:border-white/20"
+                    task.status === 'done' ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]" : "border-[var(--tokyo-border-strong)] group-hover:border-white/20"
                   )}
                 >
                   {task.status === 'done' && <CheckCircle className="w-4 h-4 text-white" />}
@@ -770,14 +770,14 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   placeholder="Task description..."
                   className={cn(
                     "bg-transparent border-none outline-none flex-1 text-base transition-all placeholder:text-white/10",
-                    task.status === 'done' ? "text-white/30 line-through" : "text-white/80"
+                    task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
                   )}
                 />
               </div>
             ))}
             <button 
               onClick={handleAddTask}
-              className="flex items-center gap-3 p-4 text-orange-500 hover:text-orange-400 transition-colors"
+              className="flex items-center gap-3 p-4 text-[var(--tokyo-yellow)] hover:text-[var(--tokyo-yellow)] transition-colors"
             >
               <Plus className="w-5 h-5" />
               <span className="font-medium">Add new task</span>
@@ -787,18 +787,18 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
 
         {activeTab === 'Comments' && (
           <div className="space-y-6">
-            <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-6">
+            <div className="bg-white/[0.03] border border-[var(--tokyo-border)] rounded-2xl p-6">
               <textarea 
                 rows={3}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder="Add your comment..." 
-                className="w-full bg-transparent border-none focus:ring-0 text-[#E8E6E1] placeholder:text-white/20 text-base resize-none mb-4"
+                className="w-full bg-transparent border-none focus:ring-0 text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-base resize-none mb-4"
               />
               <div className="flex justify-end">
                 <button 
                   onClick={handleAddComment}
-                  className="bg-orange-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-orange-500 transition-colors"
+                  className="bg-[var(--tokyo-yellow-dim)] text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-[var(--tokyo-yellow)] transition-colors"
                 >
                   Comment
                 </button>
@@ -811,10 +811,10 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   <img src={comment.avatar} className="w-10 h-10 rounded-full" alt="avatar" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[#E8E6E1] font-bold">{comment.name}</span>
-                      <span className="text-white/30 text-xs">{comment.time}</span>
+                      <span className="text-[var(--tokyo-text-strong)] font-bold">{comment.name}</span>
+                      <span className="text-[var(--tokyo-text-faint)] text-xs">{comment.time}</span>
                     </div>
-                    <p className="text-white/80">{comment.text}</p>
+                    <p className="text-[var(--tokyo-text)]">{comment.text}</p>
                   </div>
                 </div>
               ))}
@@ -824,7 +824,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
 
         {activeTab === 'Activity' && (
           <div className="space-y-6">
-            <div className="flex items-center gap-4 text-sm text-white/40">
+            <div className="flex items-center gap-4 text-sm text-[var(--tokyo-text-faint)]">
               <Activity className="w-4 h-4" />
               <span>No recent activity</span>
             </div>
@@ -841,28 +841,28 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl p-2 w-64"
+              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl p-2 w-64"
               style={{ top: propertyPickerPos.y, left: propertyPickerPos.x }}
             >
-              <div className="px-3 py-2 text-xs font-bold text-white/30 tracking-wider">Basic properties</div>
+              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">Basic properties</div>
               <div className="space-y-0.5">
                 {[
                   { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
                   { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
                   { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
-                  { id: 'date', label: 'Date', icon: CalendarIcon, desc: 'Calendar date' },
+                  { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
                 ].map((type) => (
                   <button
                     key={type.id}
                     onClick={() => confirmAddProperty(type.id as any)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left group"
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/60 group-hover:text-white">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white">
                       <type.icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-white/90 group-hover:text-white">{type.label}</div>
-                      <div className="text-xs text-white/30">{type.desc}</div>
+                      <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
+                      <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
                     </div>
                   </button>
                 ))}

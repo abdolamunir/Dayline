@@ -197,7 +197,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       />
 
       {/* Tabs & Toolbar */}
-      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
+      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)] pb-1">
         <Reorder.Group 
           as="div"
           ref={tabContainerRef}
@@ -213,7 +213,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 key={tab.id}
                 value={tab}
                 data-tab-id={tab.id}
+                layout="position"
                 drag="x"
+                dragElastic={0.04}
                 dragConstraints={{ top: 0, bottom: 0 }}
                 onDragStart={() => {
                   setDraggingId(tab.id);
@@ -235,9 +237,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 }}
                 className={cn(
                   "flex items-center gap-1 pl-[7px] pr-[9px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap group relative",
-                  activeTab === tab.id ? "bg-white/10 text-[#E8E6E1]" : "text-white/50 hover:bg-white/10 hover:text-[#E8E6E1]",
+                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
                   draggingId === tab.id ? "cursor-grabbing" : "cursor-pointer"
                 )}
+                whileDrag={{ scale: 1.03, y: -1 }}
+                transition={{
+                  layout: { duration: 0.08, ease: "easeOut" },
+                  scale: { duration: 0.08, ease: "easeOut" },
+                  y: { duration: 0.08, ease: "easeOut" },
+                }}
               >
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
@@ -248,7 +256,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     setIconPickerType('tab');
                     setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                   }}
-                  className="hover:bg-white/10 rounded p-0.5 transition-colors cursor-pointer"
+                  className="hover:bg-[var(--tokyo-hover)] rounded p-0.5 transition-colors cursor-pointer"
                 >
                   <Icon className="w-4 h-4" />
                 </button>
@@ -290,13 +298,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 onChange={(e) => setNewTabName(e.target.value)}
                 onBlur={() => handleAddTab()}
                 placeholder="Tab name..."
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm font-medium text-white outline-none focus:border-blue-500/50 w-32"
+                className="bg-[var(--tokyo-hover)] border border-[var(--tokyo-border-strong)] rounded-lg px-3 py-1.5 text-sm font-medium text-white outline-none focus:border-blue-500/50 w-32"
               />
             </form>
           ) : (
             <button 
               onClick={() => setIsAddingTab(true)}
-              className="w-[34px] h-[34px] flex items-center justify-center text-white/30 hover:text-white/60 transition-colors rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+              className="w-[34px] h-[34px] flex items-center justify-center text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] transition-colors rounded-lg hover:bg-[var(--tokyo-hover)] cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -304,7 +312,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
         </Reorder.Group>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-white/40">
+          <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)]">
             <button className="p-1.5 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
             <button className="p-1.5 hover:text-white transition-colors"><Sort className="w-4 h-4" /></button>
             <button className="p-1.5 hover:text-white transition-colors"><Lightning className="w-4 h-4" /></button>
@@ -313,7 +321,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           </div>
           <button 
             onClick={handleNewItem}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="bg-[var(--tokyo-yellow-dim)] hover:bg-[var(--tokyo-yellow)] text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
           >
             New
             <ChevronDown className="w-4 h-4 opacity-60" />
@@ -326,17 +334,17 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
           <table className="database-table min-w-[1000px] table-fixed text-left">
             <thead>
-              <tr className="text-white/40 text-[12px] font-medium">
+              <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
                 {page.columns.map((col, index) => (
                   <th 
                     key={col.id} 
                     style={{ width: col.width }}
                     className={cn(
-                      "px-4 py-2 border-b border-white/5 group/header whitespace-nowrap overflow-hidden",
+                      "px-4 py-2 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-hidden",
                       index === 0 && "pl-[5px]"
                     )}
                   >
-                    <div className="flex items-center gap-1 w-full overflow-hidden">
+                    <div className="flex items-center gap-0.5 w-full overflow-hidden">
                       <button
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -344,9 +352,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           setIconPickerType('column');
                           setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                         }}
-                        className="w-6 h-6 rounded-lg transition-colors text-white/30 hover:text-white/60 flex items-center justify-center cursor-pointer shrink-0"
+                        className="w-5 h-5 rounded-md transition-colors text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
                       >
-                        {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4" })}
+                        {React.createElement(iconMap[col.icon] || Target, { className: "w-3.5 h-3.5" })}
                       </button>
                       {editingColumnId === col.id ? (
                         <input
@@ -363,11 +371,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             setEditingColumnId(null);
                           }}
                           onKeyDown={(e) => e.key === 'Enter' && setEditingColumnId(null)}
-                          className="bg-white/10 text-white pl-[7px] pr-[9px] h-8 rounded-lg outline-none text-sm font-medium border-none w-fit min-w-[60px]"
+                          className="bg-[var(--tokyo-yellow-dim)] text-white pl-[7px] pr-[9px] h-8 rounded-lg outline-none text-sm font-medium border-none w-fit min-w-[60px]"
                         />
                       ) : (
                         <span 
-                          className="capitalize cursor-pointer hover:bg-white/10 hover:text-[#E8E6E1] pl-[7px] pr-[9px] h-8 rounded-lg transition-colors text-sm font-medium inline-flex items-center whitespace-nowrap overflow-hidden text-ellipsis w-fit"
+                          className="capitalize cursor-pointer hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1.5 h-8 rounded-lg transition-colors text-sm font-medium inline-flex items-center whitespace-nowrap overflow-hidden text-ellipsis w-fit"
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingColumnId(col.id);
@@ -380,7 +388,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     </div>
                   </th>
                 ))}
-                <th className="px-6 py-2 border-b border-white/5 w-16 whitespace-nowrap text-right">
+                <th className="px-6 py-2 border-b border-[var(--tokyo-border)] w-16 whitespace-nowrap text-right">
                 </th>
               </tr>
             </thead>
@@ -445,7 +453,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                       key={col.id}
                       style={{ width: col.width }}
                       className={cn(
-                        "h-11 border-b border-white/5 whitespace-nowrap",
+                        "h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap",
                         idx === 0 ? "pl-[5px] pr-4" : "px-4",
                         idx === 0 && "rounded-l-lg",
                         idx === page.columns.length - 1 && "rounded-r-lg"
@@ -461,7 +469,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               setIconPickerType('item');
                               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                             }}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white/30 shrink-0 cursor-pointer transition-colors"
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
                           >
                             {React.createElement(iconMap[item.icon || 'File'] || FileIcon, { className: "w-4 h-4" })}
                           </div>
@@ -474,7 +482,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               onBlur={handleRenameItem}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.key === 'Enter' && handleRenameItem()}
-                              className="bg-transparent border-none outline-none text-sm text-[#E8E6E1] w-full"
+                              className="bg-transparent border-none outline-none text-sm text-[var(--tokyo-text-strong)] w-full"
                             />
                           ) : (
                             <span 
@@ -483,7 +491,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                                 setEditingItemId(item.id);
                                 setEditingItemTitle(item.title);
                               }}
-                              className="text-[#E8E6E1]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[#E8E6E1] transition-colors"
+                              className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
                             >
                               {item.title}
                             </span>
@@ -504,8 +512,8 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             }}
                             className={cn(
                               "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                              item.status === 'completed' ? "bg-emerald-500/20 text-emerald-400" :
-                              item.status === 'in-progress' || item.status === 'inbox' ? "bg-blue-500/20 text-blue-400" :
+                              item.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+                              item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                               "bg-stone-500/20 text-stone-400"
                             )}
                           >
@@ -528,7 +536,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             className={cn(
                               "px-2 py-1 rounded-md font-medium text-xs cursor-pointer hover:opacity-80 transition-opacity",
                               item.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                              item.priority === 'medium' ? "bg-orange-500/20 text-orange-400" :
+                              item.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
                               "bg-green-500/20 text-green-400"
                             )}
                           >
@@ -546,7 +554,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               currentDate: item.date ? new Date(item.date) : undefined
                             });
                           }}
-                          className="relative flex items-center gap-1 text-white/40 text-[13px] cursor-pointer hover:text-white/60 transition-colors"
+                          className="relative flex items-center gap-1 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
                         >
                           <div className="w-6 h-6 flex items-center justify-center shrink-0">
                             <CalendarIcon className="w-4 h-4" />
@@ -555,15 +563,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                         </div>
                       ) : col.id === 'progress' ? (
                         <div className="flex items-center gap-1">
-                          <div className="w-6 h-6 flex items-center justify-center shrink-0 text-yellow-500/60">
+                          <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60">
                             <Circle className="w-4 h-4" />
                           </div>
-                          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-950/30 text-yellow-500">
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
                             <span className="text-xs font-medium">{item.progress}%</span>
                           </div>
                         </div>
                       ) : (
-                        <span className="text-white/40 text-sm">{item.properties[col.id] || ''}</span>
+                        <span className="text-[var(--tokyo-text-faint)] text-sm">{item.properties[col.id] || ''}</span>
                       )}
                     </td>
                   ))}
@@ -571,15 +579,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               ))}
               <tr className="group">
                 <td 
-                  className="h-11 pl-[5px] pr-4 border-b border-white/5 whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors rounded-l-lg"
+                  className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors rounded-l-lg"
                   onClick={handleNewItem}
                 >
-                  <div className="flex items-center gap-1 text-white/30 group-hover:text-white/50">
+                  <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">
                     <Plus className="w-4 h-4" />
                     <span className="text-[14px]">New page</span>
                   </div>
                 </td>
-                <td colSpan={page.columns.length} className="h-11 border-b border-white/5 rounded-r-lg"></td>
+                <td colSpan={page.columns.length} className="h-11 border-b border-[var(--tokyo-border)] rounded-r-lg"></td>
               </tr>
             </Reorder.Group>
           </table>
@@ -595,13 +603,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[140] bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
               style={{ 
                 top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
                 left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
               }}
             >
-              <div className="px-2.5 py-1.5 text-xs font-bold text-white/30 tracking-wider">
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Select {toSentenceCase(customDropdown.type)}
               </div>
               <div className="space-y-0.5">
@@ -616,13 +624,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                       setCustomDropdown(null);
                     }}
                     className={cn(
-                      "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                      customDropdown.currentValue === option ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                      customDropdown.currentValue === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                     )}
                   >
                     <span>{toSentenceCase(option)}</span>
                     {customDropdown.currentValue === option && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
                     )}
                   </button>
                 ))}

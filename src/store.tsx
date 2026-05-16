@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Task, Project, Goal, Area, Habit, Event, JournalEntry, Mood, Idea, Note, CustomPage, SidebarItem, TrashItem } from './types';
-import { mockTasks, mockProjects, mockGoals, mockAreas, mockHabits, mockEvents, mockJournal, mockMoods, mockIdeas, mockNotes } from './data/mockData';
-import { auth } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 const initialSidebarItems: SidebarItem[] = [
   { id: 'notes', label: 'Notes', icon: 'Pencil', type: 'system' },
@@ -29,6 +29,7 @@ interface AppState {
   customPages: CustomPage[];
   sidebarItems: SidebarItem[];
   trash: TrashItem[];
+  viewSettings: Record<string, any>;
   user: any | null;
   loading: boolean;
   
@@ -69,53 +70,89 @@ interface AppState {
   deleteSidebarItem: (id: string) => void;
   updateSidebarItem: (id: string, label: string, icon?: string) => void;
   duplicateSidebarItem: (id: string) => void;
+  updateViewSettings: (viewId: string, settings: Record<string, any>) => void;
   addFolder: (folder: SidebarItem) => void;
   toggleFolderExpansion: (id: string) => void;
   moveSidebarItem: (id: string, parentId: string | undefined) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
-
-const STORAGE_KEY = 'dayline:workspace:v1';
+const LEGACY_STORAGE_KEY = 'dayline:workspace:v1';
+const USER_CACHE_PREFIX = 'dayline:user-workspace:v1:';
 
 type PersistedWorkspace = Pick<AppState,
   'tasks' | 'projects' | 'goals' | 'areas' | 'habits' | 'events' | 'journal' |
-  'moods' | 'ideas' | 'notes' | 'customPages' | 'sidebarItems' | 'trash'
+  'moods' | 'ideas' | 'notes' | 'customPages' | 'sidebarItems' | 'trash' | 'viewSettings'
 >;
 
-const defaultWorkspace: PersistedWorkspace = {
-  tasks: mockTasks,
-  projects: mockProjects,
-  goals: mockGoals,
-  areas: mockAreas,
-  habits: mockHabits,
-  events: mockEvents,
-  journal: mockJournal,
-  moods: mockMoods,
-  ideas: mockIdeas,
-  notes: mockNotes,
+const createEmptyWorkspace = (): PersistedWorkspace => ({
+  tasks: [],
+  projects: [],
+  goals: [],
+  areas: [],
+  habits: [],
+  events: [],
+  journal: [],
+  moods: [],
+  ideas: [],
+  notes: [],
   customPages: [],
   sidebarItems: initialSidebarItems,
   trash: [],
-};
+  viewSettings: {},
+});
 
-function readWorkspace(): PersistedWorkspace {
-  if (typeof window === 'undefined') return defaultWorkspace;
+function readLegacyWorkspace(): Partial<PersistedWorkspace> | null {
+  if (typeof window === 'undefined') return null;
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultWorkspace;
+    const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed?.version !== 1 || !parsed?.workspace) return defaultWorkspace;
-    return { ...defaultWorkspace, ...parsed.workspace };
+    if (parsed?.version !== 1 || !parsed?.workspace) return null;
+    return parsed.workspace;
   } catch (error) {
-    console.warn('Unable to read Dayline workspace from local storage.', error);
-    return defaultWorkspace;
+    console.warn('Unable to read legacy Dayline workspace from local storage.', error);
+    return null;
+  }
+}
+
+function clearLegacyWorkspace() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+function readCachedWorkspace(uid: string): Partial<PersistedWorkspace> | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(`${USER_CACHE_PREFIX}${uid}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.version !== 1 || !parsed?.workspace) return null;
+    return parsed.workspace;
+  } catch (error) {
+    console.warn('Unable to read cached Dayline workspace.', error);
+    return null;
+  }
+}
+
+function writeCachedWorkspace(uid: string, workspace: PersistedWorkspace) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(`${USER_CACHE_PREFIX}${uid}`, JSON.stringify({
+      version: 1,
+      savedAt: new Date().toISOString(),
+      workspace,
+    }));
+  } catch (error) {
+    console.warn('Unable to cache Dayline workspace.', error);
   }
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [workspace] = useState<PersistedWorkspace>(() => readWorkspace());
+  const [workspace] = useState<PersistedWorkspace>(() => createEmptyWorkspace());
   const [tasks, setTasks] = useState<Task[]>(workspace.tasks);
   const [projects, setProjects] = useState<Project[]>(workspace.projects);
   const [goals, setGoals] = useState<Goal[]>(workspace.goals);
@@ -129,35 +166,125 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [customPages, setCustomPages] = useState<CustomPage[]>(workspace.customPages);
   const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>(workspace.sidebarItems);
   const [trash, setTrash] = useState<TrashItem[]>(workspace.trash);
-  const [user, setUser] = useState<any | null>(null);
+  const [viewSettings, setViewSettings] = useState<Record<string, any>>(workspace.viewSettings);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
+  const workspaceReadyRef = useRef(false);
+  const hasLocalChangesBeforeRemoteRef = useRef(false);
+  const isHydratingWorkspaceRef = useRef(false);
+
+  const applyWorkspace = (nextWorkspace: Partial<PersistedWorkspace>) => {
+    isHydratingWorkspaceRef.current = true;
+    const normalizedWorkspace = { ...createEmptyWorkspace(), ...nextWorkspace };
+    setTasks(normalizedWorkspace.tasks);
+    setProjects(normalizedWorkspace.projects);
+    setGoals(normalizedWorkspace.goals);
+    setAreas(normalizedWorkspace.areas);
+    setHabits(normalizedWorkspace.habits);
+    setEvents(normalizedWorkspace.events);
+    setJournal(normalizedWorkspace.journal);
+    setMoods(normalizedWorkspace.moods);
+    setIdeas(normalizedWorkspace.ideas);
+    setNotes(normalizedWorkspace.notes);
+    setCustomPages(normalizedWorkspace.customPages);
+    setSidebarItems(normalizedWorkspace.sidebarItems);
+    setTrash(normalizedWorkspace.trash);
+    setViewSettings(normalizedWorkspace.viewSettings);
+    window.setTimeout(() => {
+      isHydratingWorkspaceRef.current = false;
+    }, 250);
+  };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      setLoading(true);
+      setWorkspaceReady(false);
+      workspaceReadyRef.current = false;
+      hasLocalChangesBeforeRemoteRef.current = false;
+      setUser(nextUser);
+
+      if (!nextUser) {
+        applyWorkspace(createEmptyWorkspace());
+        setLoading(false);
+        return;
+      }
+
+      const cachedWorkspace = readCachedWorkspace(nextUser.uid);
+      const legacyWorkspace = readLegacyWorkspace();
+      const immediateWorkspace = { ...createEmptyWorkspace(), ...legacyWorkspace, ...cachedWorkspace };
+
+      applyWorkspace(immediateWorkspace);
       setLoading(false);
+
+      try {
+        const workspaceRef = doc(db, 'workspaces', nextUser.uid);
+        const snapshot = await getDoc(workspaceRef);
+        const loadedWorkspace = snapshot.exists()
+          ? snapshot.data().workspace as Partial<PersistedWorkspace> | undefined
+          : undefined;
+        const migratedWorkspace = snapshot.exists() ? undefined : legacyWorkspace;
+        const nextWorkspace = { ...createEmptyWorkspace(), ...migratedWorkspace, ...cachedWorkspace, ...loadedWorkspace };
+
+        if (!hasLocalChangesBeforeRemoteRef.current) {
+          applyWorkspace(nextWorkspace);
+          writeCachedWorkspace(nextUser.uid, nextWorkspace);
+        }
+
+        if (!snapshot.exists()) {
+          await setDoc(workspaceRef, {
+            ownerId: nextUser.uid,
+            ownerEmail: nextUser.email || null,
+            workspace: hasLocalChangesBeforeRemoteRef.current ? immediateWorkspace : nextWorkspace,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+          clearLegacyWorkspace();
+        }
+
+        setWorkspaceReady(true);
+        workspaceReadyRef.current = true;
+      } catch (error) {
+        console.error('Unable to load Dayline workspace from Firebase.', error);
+        setWorkspaceReady(true);
+        workspaceReadyRef.current = true;
+      }
     });
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!user) return;
 
     const nextWorkspace: PersistedWorkspace = {
       tasks, projects, goals, areas, habits, events, journal, moods, ideas,
-      notes, customPages, sidebarItems, trash
+      notes, customPages, sidebarItems, trash, viewSettings
     };
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 1,
-        savedAt: new Date().toISOString(),
-        workspace: nextWorkspace,
-      }));
-    } catch (error) {
-      console.warn('Unable to save Dayline workspace to local storage.', error);
+    writeCachedWorkspace(user.uid, nextWorkspace);
+
+    if (!workspaceReady) {
+      if (!isHydratingWorkspaceRef.current) {
+        hasLocalChangesBeforeRemoteRef.current = true;
+      }
+      return;
     }
-  }, [tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash]);
+
+    const saveTimeout = window.setTimeout(async () => {
+      try {
+        await setDoc(doc(db, 'workspaces', user.uid), {
+          ownerId: user.uid,
+          ownerEmail: user.email || null,
+          workspace: nextWorkspace,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      } catch (error) {
+        console.error('Unable to save Dayline workspace to Firebase.', error);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(saveTimeout);
+  }, [tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash, viewSettings, user, workspaceReady]);
 
   const updateTask = (updatedTask: Task) => {
     setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
@@ -424,14 +551,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const duplicateSidebarItem = (id: string) => {
     const item = sidebarItems.find(i => i.id === id);
+    if (!item) {
+      return;
+    }
+
+    const createBlankCustomPage = (sourceItem: SidebarItem, newId: string, label: string): CustomPage => ({
+      id: newId,
+      title: label,
+      icon: sourceItem.icon,
+      kind: 'document',
+      tabs: [],
+      columns: [],
+      items: [],
+      properties: [],
+      content: '',
+    });
+
+    if (item.type === 'folder') {
+      const idMap = new Map<string, string>([[id, `folder-${Date.now()}`]]);
+      const collectDescendants = (parentId: string): SidebarItem[] => {
+        const children = sidebarItems.filter(sidebarItem => sidebarItem.parentId === parentId);
+        return children.flatMap(child => [child, ...collectDescendants(child.id)]);
+      };
+      const sourceItems = [item, ...collectDescendants(id)];
+      const duplicatedItems = sourceItems.map((sourceItem, index) => {
+        const newId = idMap.get(sourceItem.id) || `${sourceItem.type === 'folder' ? 'folder' : 'page'}-${Date.now()}-${index}`;
+        idMap.set(sourceItem.id, newId);
+        const newParentId = sourceItem.parentId ? idMap.get(sourceItem.parentId) : sourceItem.parentId;
+
+        return {
+          ...sourceItem,
+          id: newId,
+          parentId: sourceItem.id === id ? sourceItem.parentId : newParentId,
+          label: sourceItem.id === id ? `${sourceItem.label} (Copy)` : sourceItem.label,
+          isExpanded: sourceItem.type === 'folder' ? true : sourceItem.isExpanded,
+        };
+      });
+
+      const duplicatedPages = customPages
+        .filter(page => idMap.has(page.id))
+        .map(page => ({
+          ...page,
+          id: idMap.get(page.id)!,
+        }));
+      const duplicatedSystemPages = sourceItems
+        .filter(sourceItem => sourceItem.type !== 'folder' && sourceItem.type !== 'custom')
+        .map(sourceItem => createBlankCustomPage(sourceItem, idMap.get(sourceItem.id)!, sourceItem.label));
+
+      setCustomPages([...customPages, ...duplicatedPages, ...duplicatedSystemPages]);
+      setSidebarItems([...sidebarItems, ...duplicatedItems.map(duplicatedItem => (
+        duplicatedItem.type === 'folder' ? duplicatedItem : { ...duplicatedItem, type: 'custom' as const }
+      ))]);
+      return;
+    }
+
     const page = customPages.find(p => p.id === id);
-    if (item && page) {
+    if (item.type === 'custom' && page) {
       const newId = `page-${Date.now()}`;
       const newPage = { ...page, id: newId, title: `${page.title} (Copy)` };
       const newItem = { ...item, id: newId, label: `${item.label} (Copy)` };
       setCustomPages([...customPages, newPage]);
       setSidebarItems([...sidebarItems, newItem]);
+      return;
     }
+
+    const newId = `page-${Date.now()}`;
+    const newLabel = `${item.label} (Copy)`;
+    setCustomPages([...customPages, createBlankCustomPage(item, newId, newLabel)]);
+    setSidebarItems([...sidebarItems, { ...item, id: newId, label: newLabel, type: 'custom' }]);
+  };
+
+  const updateViewSettings = (viewId: string, settings: Record<string, any>) => {
+    setViewSettings(currentSettings => ({
+      ...currentSettings,
+      [viewId]: {
+        ...(currentSettings[viewId] || {}),
+        ...settings,
+      },
+    }));
   };
 
   const addFolder = (folder: SidebarItem) => {
@@ -452,14 +649,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash, user, loading,
+      tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash, viewSettings, user, loading,
       updateTask, addTask, deleteTask, updateHabit, addHabit, addMood, addGoal, updateGoal, deleteGoal, duplicateGoal, reorderGoals,
       addProject, updateProject, deleteProject, duplicateProject, reorderProjects,
       addArea, updateArea, deleteArea, duplicateArea, reorderAreas,
       addJournalEntry, addIdea, addNote, updateNote, deleteNote, reorderNotes, addCustomPage, updateCustomPage, 
       moveToTrash, restoreFromTrash, emptyTrash,
       reorderSidebarItems, deleteSidebarItem, updateSidebarItem, duplicateSidebarItem,
-      addFolder, toggleFolderExpansion, moveSidebarItem
+      updateViewSettings, addFolder, toggleFolderExpansion, moveSidebarItem
     }}>
       {children}
     </AppContext.Provider>

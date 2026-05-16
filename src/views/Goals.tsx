@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GripVertical, Minus } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Goal } from '../types';
@@ -24,9 +24,7 @@ import {
   ListViewIcon as List,
   FilterIcon,
   Sorting01Icon as Sort,
-  FlashIcon as Lightning,
   Search01Icon as Search,
-  Settings01Icon as Settings,
   ArrowDown01Icon as ChevronDown,
   Layers01Icon as Layers,
   TextIcon as Text,
@@ -64,8 +62,38 @@ const toSentenceCase = (str: string) => {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1).toLowerCase();
 };
 
+const GOAL_STATUS_OPTIONS = ['planning', 'active', 'completed', 'paused'];
+const DEFAULT_GOAL_TABS = [
+  { id: 'planning', label: 'Planning', icon: 'Clock' },
+  { id: 'active', label: 'Active', icon: 'Target' },
+  { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+  { id: 'paused', label: 'Paused', icon: 'Circle' },
+];
+const DEFAULT_GOAL_COLUMNS = [
+  { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
+  { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
+  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
+  { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
+  { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+];
+
+const normalizeGoalStatus = (status: string) => {
+  if (status === 'in-progress' || status === 'inbox') return 'active';
+  return status;
+};
+
+const getGoalStatusClasses = (status: string) => {
+  const normalizedStatus = normalizeGoalStatus(status);
+  return normalizedStatus === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+    normalizedStatus === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
+    normalizedStatus === 'planning' ? "bg-stone-500/20 text-stone-400" :
+    "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]";
+};
+
 export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: string) => void, selectedGoalId?: string }) {
-  const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, updateSidebarItem, deleteSidebarItem } = useAppStore();
+  const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, updateSidebarItem, deleteSidebarItem, viewSettings, updateViewSettings } = useAppStore();
+  const savedGoalSettings = viewSettings.goals || {};
   const [localSelectedGoalId, setLocalSelectedGoalId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
@@ -76,24 +104,15 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingGoalTitle, setEditingGoalTitle] = useState('');
   const tabContainerRef = useRef<HTMLDivElement>(null);
+  const titleEditRef = useRef<HTMLHeadingElement>(null);
+  const descriptionEditRef = useRef<HTMLParagraphElement>(null);
   const isDraggingRef = useRef(false);
   
-  const [tabs, setTabs] = useState([
-    { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
-    { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
-    { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
-  ]);
+  const [tabs, setTabs] = useState(savedGoalSettings.tabs || DEFAULT_GOAL_TABS);
 
-  const [columns, setColumns] = useState([
-    { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
-    { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
-    { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
-    { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
-    { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
-    { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
-  ]);
+  const [columns, setColumns] = useState(savedGoalSettings.columns || DEFAULT_GOAL_COLUMNS);
 
-  const [activeTab, setActiveTab] = useState<string>('in-progress');
+  const [activeTab, setActiveTab] = useState<string>(savedGoalSettings.activeTab || 'active');
   const [isAddingTab, setIsAddingTab] = useState(false);
   const [newTabName, setNewTabName] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -103,9 +122,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleValue, setTitleValue] = useState('Goals');
+  const [titleValue, setTitleValue] = useState(savedGoalSettings.title || 'Goals');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [descriptionValue, setDescriptionValue] = useState('Track and manage your long-term objectives.');
+  const [descriptionValue, setDescriptionValue] = useState(savedGoalSettings.description || 'Track and manage your long-term objectives.');
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority' | 'area';
@@ -121,6 +140,39 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   const effectiveSelectedGoalId = selectedGoalId || localSelectedGoalId;
   const selectedGoal = effectiveSelectedGoalId ? goals.find(g => g.id === effectiveSelectedGoalId) : null;
+  const currentPageTitle = sidebarItems.find(i => i.id === 'goals')?.label || 'Goals';
+
+  useEffect(() => {
+    const settings = viewSettings.goals;
+    if (!settings) return;
+    if (settings.tabs) setTabs(settings.tabs);
+    if (settings.columns) setColumns(settings.columns);
+    if (settings.activeTab) setActiveTab(settings.activeTab);
+    if (settings.title) setTitleValue(settings.title);
+    if (settings.description) setDescriptionValue(settings.description);
+  }, [viewSettings.goals]);
+
+  useEffect(() => {
+    updateViewSettings('goals', {
+      tabs,
+      columns,
+      activeTab,
+      title: titleValue,
+      description: descriptionValue,
+    });
+  }, [tabs, columns, activeTab, titleValue, descriptionValue]);
+
+  useEffect(() => {
+    const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;
+    if (!element) return;
+    element.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [isEditingTitle, isEditingDescription]);
 
   if (selectedGoal) {
     return (
@@ -204,7 +256,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     setIsEditingDescription(false);
   };
 
-  const filteredGoals = goals.filter(g => g.status === activeTab);
+  const filteredGoals = goals.filter(g => normalizeGoalStatus(g.status) === activeTab);
 
   const handleNewGoal = () => {
     const id = `g${Date.now()}`;
@@ -230,7 +282,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   return (
     <div 
-      className="max-w-6xl mx-auto p-4 md:p-8 flex flex-col gap-4 md:gap-6 min-h-full"
+      className="max-w-6xl mx-auto p-4 md:p-8 flex flex-col gap-4 min-h-full"
     >
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -242,79 +294,72 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               setIconPickerType('main');
               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
             }}
-            className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/40 cursor-pointer hover:bg-white/10 transition-colors"
+            className="w-12 h-12 rounded-2xl bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-[var(--tokyo-hover)] transition-colors"
           >
             {React.createElement(iconMap[sidebarItems.find(i => i.id === 'goals')?.icon || 'Target'] || Target, { className: "w-6 h-6" })}
           </div>
-          <div className="flex-1">
-            {isEditingTitle ? (
-              <input
-                autoFocus
-                type="text"
-                value={titleValue}
-                onChange={(e) => setTitleValue(e.target.value)}
-                onBlur={handleRenamePage}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRenamePage();
-                  if (e.key === 'Escape') setIsEditingTitle(false);
-                }}
-                className="text-xl md:text-2xl font-semibold text-[#E8E6E1] tracking-tight leading-tight bg-transparent border-none outline-none w-full"
-              />
-            ) : (
-              <h1 
-                className="text-xl md:text-2xl font-semibold text-[#E8E6E1] tracking-tight leading-tight cursor-text"
-                onDoubleClick={() => {
-                  setTitleValue(sidebarItems.find(i => i.id === 'goals')?.label || 'Goals');
+          <div className="flex-1 min-w-0">
+            <h1 
+              ref={titleEditRef}
+              contentEditable={isEditingTitle}
+              suppressContentEditableWarning
+              className="text-xl md:text-2xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight cursor-text outline-none"
+              onClick={() => {
+                if (!isEditingTitle) {
+                  setTitleValue(currentPageTitle);
                   setIsEditingTitle(true);
-                }}
-              >
-                {sidebarItems.find(i => i.id === 'goals')?.label || 'Goals'}
-              </h1>
-            )}
-            {isEditingDescription ? (
-              <input
-                autoFocus
-                type="text"
-                value={descriptionValue}
-                onChange={(e) => setDescriptionValue(e.target.value)}
-                onBlur={handleUpdateDescription}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleUpdateDescription();
-                  if (e.key === 'Escape') setIsEditingDescription(false);
-                }}
-                className="text-white/50 -mt-0.5 text-xs md:text-sm bg-transparent border-none outline-none w-full"
-              />
-            ) : (
-              <p 
-                className="text-white/50 -mt-0.5 text-xs md:text-sm cursor-text"
-                onDoubleClick={() => setIsEditingDescription(true)}
-              >
-                {descriptionValue}
-              </p>
-            )}
+                }
+              }}
+              onInput={(e) => setTitleValue(e.currentTarget.textContent || '')}
+              onBlur={() => {
+                if (isEditingTitle) handleRenamePage();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleRenamePage();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setTitleValue(currentPageTitle);
+                  setIsEditingTitle(false);
+                }
+              }}
+            >
+              {isEditingTitle ? titleValue : currentPageTitle}
+            </h1>
+            <p 
+              ref={descriptionEditRef}
+              contentEditable={isEditingDescription}
+              suppressContentEditableWarning
+              className="text-[var(--tokyo-text-muted)] -mt-0.5 text-xs md:text-sm leading-normal cursor-text outline-none"
+              onClick={() => {
+                if (!isEditingDescription) setIsEditingDescription(true);
+              }}
+              onInput={(e) => setDescriptionValue(e.currentTarget.textContent || '')}
+              onBlur={() => {
+                if (isEditingDescription) handleUpdateDescription();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleUpdateDescription();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setIsEditingDescription(false);
+                }
+              }}
+            >
+              {descriptionValue}
+            </p>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-white/40">
-            <button className="p-2 hover:text-white transition-colors"><Search className="w-5 h-5" /></button>
-            <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-5 h-5" /></button>
-            <button className="p-2 hover:text-white transition-colors"><Sort className="w-5 h-5" /></button>
-            <button className="p-2 hover:text-white transition-colors"><Lightning className="w-5 h-5" /></button>
-            <button className="p-2 hover:text-white transition-colors"><Settings className="w-5 h-5" /></button>
-          </div>
-          <button 
-            onClick={handleNewGoal}
-            className="bg-white/10 text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            New Goal
-          </button>
         </div>
       </header>
 
-      <div className="flex flex-col gap-2 md:gap-3 flex-1 overflow-hidden">
+      <div className="flex flex-col gap-0 flex-1 overflow-hidden">
         {/* Tabs & Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--tokyo-border)] pb-2">
         {/* Mobile/Tablet Dropdown */}
         <div className="sm:hidden relative">
           <button 
@@ -336,7 +381,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full left-0 right-0 mt-2 bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                  className="absolute top-full left-0 right-0 mt-2 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl z-50 overflow-hidden"
                 >
                   {tabs.map(tab => (
                     <button
@@ -347,7 +392,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       }}
                       className={cn(
                         "flex items-center gap-3 w-full px-4 py-3 text-sm transition-colors",
-                        activeTab === tab.id ? "bg-white/10 text-[#E8E6E1]" : "text-white/50 hover:bg-white/5 hover:text-[#E8E6E1]"
+                        activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
                       )}
                     >
                       {React.createElement(iconMap[tab.icon] || Target, { className: "w-4 h-4" })}
@@ -367,7 +412,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           axis="x" 
           values={tabs} 
           onReorder={setTabs}
-          className="hidden sm:flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
+          className="hidden sm:flex min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
         >
           {tabs.map(tab => {
             const Icon = iconMap[tab.icon] || Target;
@@ -376,7 +421,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 key={tab.id}
                 value={tab}
                 data-tab-id={tab.id}
+                layout="position"
                 drag="x"
+                dragElastic={0.04}
                 dragConstraints={{ top: 0, bottom: 0 }}
                 onDragStart={() => {
                   setDraggingId(tab.id);
@@ -399,15 +446,16 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 }}
                 className={cn(
                   "flex items-center gap-1 pl-[7px] pr-[9px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap group relative",
-                  activeTab === tab.id ? "bg-white/10 text-[#E8E6E1]" : "text-white/50 hover:bg-white/10 hover:text-[#E8E6E1]",
+                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
                   draggingId === tab.id ? "cursor-grabbing" : "cursor-pointer",
-                  hoveredTabId === tab.id && tab.id === 'inbox' && "bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50",
-                  hoveredTabId === tab.id && tab.id === 'in-progress' && "bg-pink-500/20 text-pink-400 ring-1 ring-pink-500/50",
-                  hoveredTabId === tab.id && tab.id === 'completed' && "bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/50",
-                  hoveredTabId === tab.id && !['inbox', 'in-progress', 'completed'].includes(tab.id) && "bg-yellow-500/20 text-yellow-400 ring-1 ring-yellow-500/50"
+                  hoveredTabId === tab.id && getGoalStatusClasses(tab.id)
                 )}
-                animate={draggingId === tab.id ? { scale: 1.05, y: -2 } : { scale: 1, y: 0 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                whileDrag={{ scale: 1.03, y: -1 }}
+                transition={{
+                  layout: { duration: 0.08, ease: "easeOut" },
+                  scale: { duration: 0.08, ease: "easeOut" },
+                  y: { duration: 0.08, ease: "easeOut" },
+                }}
               >
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
@@ -418,7 +466,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     setIconPickerType('tab');
                     setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                   }}
-                  className="hover:bg-white/10 rounded p-0.5 transition-colors cursor-pointer"
+                  className="hover:bg-[var(--tokyo-hover)] rounded p-0.5 transition-colors cursor-pointer"
                 >
                   <Icon className="w-4 h-4" />
                 </button>
@@ -452,13 +500,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 onChange={(e) => setNewTabName(e.target.value)}
                 onBlur={() => handleAddTab()}
                 placeholder="Tab name..."
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm font-medium text-white outline-none focus:border-blue-500/50 w-32"
+                className="bg-[var(--tokyo-hover)] border border-[var(--tokyo-border-strong)] rounded-lg px-3 py-1.5 text-sm font-medium text-white outline-none focus:border-blue-500/50 w-32"
               />
             </form>
           ) : (
             <button 
               onClick={() => setIsAddingTab(true)}
-              className="w-[34px] h-[34px] flex items-center justify-center text-white/30 hover:text-white/60 transition-colors rounded-lg hover:bg-white/5 cursor-pointer shrink-0"
+              className="w-[34px] h-[34px] flex items-center justify-center text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] transition-colors rounded-lg hover:bg-[var(--tokyo-hover)] cursor-pointer shrink-0"
               title="Add new tab"
             >
               <Plus className="w-4 h-4" />
@@ -466,26 +514,36 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           )}
         </Reorder.Group>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-end gap-1 text-[var(--tokyo-text-faint)]">
+          <button className="p-2 hover:text-white transition-colors"><Search className="w-5 h-5" /></button>
+          <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-5 h-5" /></button>
+          <button className="p-2 hover:text-white transition-colors"><Sort className="w-5 h-5" /></button>
+          <button 
+            onClick={handleNewGoal}
+            className="ml-3 bg-[var(--tokyo-yellow-dim)] text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            New Goal
+          </button>
         </div>
       </div>
 
       {/* Table Container */}
       <div className="flex-1 overflow-hidden">
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <table className="w-full text-left border-separate border-spacing-0 min-w-[1000px] table-fixed">
+          <table className="w-full text-left border-separate border-spacing-0 min-w-[1200px] table-fixed">
             <thead>
-              <tr className="text-white/40 text-[12px] font-medium">
+              <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
                 {columns.map((col, index) => (
                   <th 
                     key={col.id} 
                     style={{ width: col.width }}
                     className={cn(
-                      "px-4 py-2 border-b border-white/5 group/header whitespace-nowrap overflow-hidden",
+                      "px-4 py-1.5 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-hidden",
                       index === 0 && "pl-[5px]"
                     )}
                   >
-                    <div className="flex items-center gap-1 w-full overflow-hidden">
+                    <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden">
                       <button
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -493,9 +551,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                           setIconPickerType('column');
                           setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                         }}
-                        className="w-6 h-6 rounded-lg transition-colors text-white/30 hover:text-white/60 flex items-center justify-center cursor-pointer shrink-0"
+                        className="w-5 h-5 rounded-md transition-colors text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
                       >
-                        {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4" })}
+                        {React.createElement(iconMap[col.icon] || Target, { className: "w-3.5 h-3.5" })}
                       </button>
                       {editingColumnId === col.id ? (
                         <input
@@ -519,11 +577,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                               setEditingColumnId(null);
                             }
                           }}
-                          className="bg-white/10 text-white pl-[7px] pr-[9px] h-8 rounded-lg outline-none text-sm font-medium border-none w-fit min-w-[60px]"
+                          className="bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)] px-2 h-7 rounded-md outline-none text-sm font-medium border border-[var(--tokyo-border)] min-w-0 w-full"
                         />
                       ) : (
                         <span 
-                          className="capitalize cursor-pointer hover:bg-white/10 hover:text-[#E8E6E1] pl-[7px] pr-[9px] h-8 rounded-lg transition-colors text-sm font-medium inline-flex items-center whitespace-nowrap overflow-hidden text-ellipsis w-fit"
+                          className="capitalize cursor-pointer hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1.5 h-7 rounded-md transition-colors text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis"
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingColumnId(col.id);
@@ -619,7 +677,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     >
                       <td 
                         style={{ width: columns[0].width }}
-                        className="h-11 pl-[5px] pr-4 border-b border-white/5 whitespace-nowrap"
+                        className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap"
                       >
                         <div className="flex items-center gap-1">
                           <div 
@@ -630,7 +688,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                               setIconPickerType('goal');
                               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                             }}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white/30 shrink-0 cursor-pointer transition-colors"
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
                           >
                             {React.createElement(iconMap[goal.icon || 'Target'] || Target, { className: "w-4 h-4" })}
                           </div>
@@ -646,7 +704,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                                 if (e.key === 'Enter') handleRenameGoal();
                                 if (e.key === 'Escape') setEditingGoalId(null);
                               }}
-                              className="bg-transparent border-none outline-none text-sm text-[#E8E6E1] w-full"
+                              className="bg-transparent border-none outline-none text-[14px] leading-5 font-medium tracking-tight text-[var(--tokyo-text-strong)]/60 w-full"
                             />
                           ) : (
                             <span 
@@ -655,7 +713,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                                 setEditingGoalId(goal.id);
                                 setEditingGoalTitle(goal.title);
                               }}
-                              className="text-[#E8E6E1]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[#E8E6E1] transition-colors"
+                              className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
                             >
                               {goal.title}
                             </span>
@@ -664,7 +722,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       </td>
                     <td 
                       style={{ width: columns[1].width }}
-                      className="px-4 h-11 border-b border-white/5 whitespace-nowrap"
+                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
                     >
                       <div className="relative flex items-center">
                         <span 
@@ -679,19 +737,17 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             });
                           }}
                           className={cn(
-                            "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                            goal.status === 'completed' ? "bg-emerald-500/20 text-emerald-400" :
-                            goal.status === 'in-progress' || goal.status === 'inbox' ? "bg-blue-500/20 text-blue-400" :
-                            "bg-stone-500/20 text-stone-400"
+                            "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                            getGoalStatusClasses(goal.status)
                           )}
                         >
-                          {toSentenceCase(goal.status)}
+                          <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
                         </span>
                       </div>
                     </td>
                     <td 
                       style={{ width: columns[2].width }}
-                      className="px-4 h-11 border-b border-white/5 whitespace-nowrap"
+                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
                     >
                       <div className="relative flex items-center">
                         <span 
@@ -706,9 +762,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             });
                           }}
                           className={cn(
-                            "px-2 py-1 rounded-md font-medium text-xs cursor-pointer hover:opacity-80 transition-opacity",
+                            "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
                             goal.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                            goal.priority === 'medium' ? "bg-orange-500/20 text-orange-400" :
+                            goal.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
                             "bg-green-500/20 text-green-400"
                           )}
                         >
@@ -718,7 +774,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     </td>
                     <td 
                       style={{ width: columns[3].width }}
-                      className="px-4 h-11 border-b border-white/5 whitespace-nowrap"
+                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
                     >
                       <div className="relative flex items-center">
                         <span 
@@ -733,17 +789,17 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             });
                           }}
                           className={cn(
-                            "flex items-center px-2 py-1 rounded-md text-xs font-medium cursor-pointer hover:bg-stone-800 transition-colors",
-                            "bg-stone-800/50 text-stone-400"
+                            "inline-flex max-w-full items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                            "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]"
                           )}
                         >
-                          {area?.name ? area.name.split('&')[0].trim() : 'No Area'}
+                          <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : 'No Area'}</span>
                         </span>
                       </div>
                     </td>
                     <td 
                       style={{ width: columns[4].width }}
-                      className="px-4 h-11 border-b border-white/5 whitespace-nowrap"
+                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
                     >
                       <div 
                         onClick={(e) => {
@@ -761,7 +817,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             }
                           });
                         }}
-                        className="relative flex items-center gap-1 text-white/40 text-[13px] cursor-pointer hover:text-white/60 transition-colors"
+                        className="relative flex items-center gap-1 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
                       >
                         <div className="w-6 h-6 flex items-center justify-center shrink-0">
                           <CalendarIcon className="w-4 h-4" />
@@ -771,7 +827,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     </td>
                     <td 
                       style={{ width: columns[5].width }}
-                      className="px-4 h-11 border-b border-white/5 whitespace-nowrap"
+                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
                     >
                       <div 
                         onClick={(e) => {
@@ -779,10 +835,10 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         }}
                         className="flex items-center gap-1 cursor-pointer group/progress"
                       >
-                        <div className="w-6 h-6 flex items-center justify-center shrink-0 text-yellow-500/60 group-hover/progress:text-yellow-500 transition-colors">
+                        <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60 group-hover/progress:text-[var(--tokyo-yellow)] transition-colors">
                           <Circle className="w-4 h-4" />
                         </div>
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-950/30 text-yellow-500 hover:bg-yellow-900/40 transition-colors">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] hover:bg-[var(--tokyo-yellow-soft)] transition-colors">
                           <span className="text-xs font-medium">{goal.progress}</span>
                           <span className="text-xs font-medium">%</span>
                         </div>
@@ -795,17 +851,17 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               <tr className="group">
                 <td 
                   style={{ width: columns[0].width }}
-                  className="h-11 pl-[5px] pr-4 border-b border-white/5 whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors"
+                  className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors"
                   onClick={handleNewGoal}
                 >
-                  <div className="flex items-center gap-1 text-white/30 group-hover:text-white/50">
+                  <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">
                     <div className="w-6 h-6 flex items-center justify-center shrink-0">
                       <Plus className="w-4 h-4" />
                     </div>
                     <span className="text-[14px]">New page</span>
                   </div>
                 </td>
-                <td colSpan={6} className="h-11 border-b border-white/5"></td>
+                <td colSpan={6} className="h-11 border-b border-[var(--tokyo-border)]"></td>
               </tr>
             </Reorder.Group>
           </table>
@@ -824,18 +880,18 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[140] bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-lg shadow-2xl p-1 w-48 overflow-hidden"
               style={{ 
                 top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
                 left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
               }}
             >
-              <div className="px-2.5 py-1.5 text-xs font-bold text-white/30 tracking-wider">
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-normal">
                 Select {toSentenceCase(customDropdown.type)}
               </div>
               <div className="space-y-0.5">
                 {customDropdown.type === 'status' ? (
-                  ['inbox', 'in-progress', 'completed'].map((option) => (
+                  GOAL_STATUS_OPTIONS.map((option) => (
                     <button
                       key={option}
                       onClick={() => {
@@ -844,13 +900,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         setCustomDropdown(null);
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                        customDropdown.currentValue === option ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                        normalizeGoalStatus(customDropdown.currentValue) === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
                       <span>{toSentenceCase(option)}</span>
-                      {customDropdown.currentValue === option && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      {normalizeGoalStatus(customDropdown.currentValue) === option && (
+                        <span className="text-[11px] text-current">✓</span>
                       )}
                     </button>
                   ))
@@ -864,13 +920,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         setCustomDropdown(null);
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                        customDropdown.currentValue === option ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                        customDropdown.currentValue === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
                       <span>{toSentenceCase(option)}</span>
                       {customDropdown.currentValue === option && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
                       )}
                     </button>
                   ))
@@ -883,13 +939,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         setCustomDropdown(null);
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                        !customDropdown.currentValue ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                        !customDropdown.currentValue ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
                       <span>No Area</span>
                       {!customDropdown.currentValue && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
                       )}
                     </button>
                     {areas.map((area) => (
@@ -901,13 +957,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                           setCustomDropdown(null);
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                          customDropdown.currentValue === area.id ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                          "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                          customDropdown.currentValue === area.id ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                         )}
                       >
-                        <span>{area.name}</span>
+                        <span className="min-w-0 truncate">{area.name}</span>
                         {customDropdown.currentValue === area.id && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
                         )}
                       </button>
                     ))}
@@ -1033,7 +1089,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             }}
           />
           <div 
-            className="fixed z-[140] w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[140] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
             style={{ 
               top: Math.min(tabContextMenu.y, window.innerHeight - 100), 
               left: Math.min(tabContextMenu.x, window.innerWidth - 200) 
@@ -1048,19 +1104,19 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 }
                 setTabContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
             >
-              <Pencil className="w-4 h-4 text-white/40" />
+              <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Rename
             </button>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-[var(--tokyo-border)] my-1" />
             <button 
               onClick={() => {
                 handleDeleteTab(tabContextMenu.id);
                 setTabContextMenu(null);
               }}
               disabled={tabs.length <= 1}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
               Delete
@@ -1081,10 +1137,10 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             }}
           />
           <div 
-            className="fixed z-[140] w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[140] w-60 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
             style={{ 
-              top: Math.min(goalContextMenu.y, window.innerHeight - 200), 
-              left: Math.min(goalContextMenu.x, window.innerWidth - 200) 
+              top: Math.min(goalContextMenu.y, window.innerHeight - 220), 
+              left: Math.min(goalContextMenu.x, window.innerWidth - 252) 
             }}
           >
             <button 
@@ -1096,9 +1152,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 }
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Pencil className="w-4 h-4 text-white/40" />
+              <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Rename
             </button>
             <button 
@@ -1108,42 +1164,42 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 setIconPickerPos({ x: goalContextMenu.x, y: goalContextMenu.y });
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Smile className="w-4 h-4 text-white/40" />
+              <Smile className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Change Icon
             </button>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-[var(--tokyo-border)] my-1" />
             <button 
               onClick={() => {
                 const goal = goals.find(g => g.id === goalContextMenu.id);
                 if (goal) {
-                  updateGoal({ ...goal, status: goal.status === 'Completed' ? 'In Progress' : 'Completed' });
+                  updateGoal({ ...goal, status: normalizeGoalStatus(goal.status) === 'completed' ? 'active' : 'completed' });
                 }
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
-              <CheckCircle className="w-4 h-4 text-white/40" />
-              {goals.find(g => g.id === goalContextMenu.id)?.status === 'Completed' ? 'Mark as In Progress' : 'Mark as Completed'}
+              <CheckCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+              {normalizeGoalStatus(goals.find(g => g.id === goalContextMenu.id)?.status || '') === 'completed' ? 'Mark as Active' : 'Mark as Completed'}
             </button>
             <button 
               onClick={() => {
                 duplicateGoal(goalContextMenu.id);
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Copy className="w-4 h-4 text-white/40" />
+              <Copy className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Duplicate Goal
             </button>
-            <div className="h-px bg-white/5 my-1" />
+            <div className="h-px bg-[var(--tokyo-border)] my-1" />
             <button 
               onClick={() => {
                 deleteGoal(goalContextMenu.id);
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] transition-colors cursor-pointer whitespace-nowrap"
             >
               <Trash2 className="w-4 h-4" />
               Delete Goal
@@ -1176,7 +1232,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
   ]);
   
   const priorities = ['low', 'medium', 'high'];
-  const statuses = ['inbox', 'in-progress', 'completed'];
+  const statuses = GOAL_STATUS_OPTIONS;
 
   const handleUpdate = (updates: Partial<Goal>) => {
     updateGoal({ ...goal, ...updates });
@@ -1249,22 +1305,22 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
   };
 
   return (
-    <div className="min-h-full bg-[#191919] flex flex-col">
+    <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
       {/* Header */}
       <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-white/30 text-sm">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
             <button onClick={onBack} className="hover:text-white transition-colors">Goals</button>
             <span>/</span>
-            <span className="text-white/50 capitalize whitespace-nowrap">{goal.status}</span>
+            <span className="text-[var(--tokyo-text-muted)] capitalize whitespace-nowrap">{goal.status}</span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-white/30 hover:text-white transition-colors">
+            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
               <MoreHorizontal className="w-5 h-5" />
             </button>
             <button 
               onClick={onBack}
-              className="text-white/30 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
             >
               <X className="w-5 h-5" />
             </button>
@@ -1275,7 +1331,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           type="text"
           value={goal.title}
           onChange={(e) => handleUpdate({ title: e.target.value })}
-          className="w-full bg-transparent text-4xl font-bold text-[#E8E6E1] mb-8 tracking-tight outline-none placeholder:text-white/10"
+          className="w-full bg-transparent text-4xl font-bold text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
           placeholder="Untitled Goal"
         />
         
@@ -1283,7 +1339,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         <div className="space-y-2 mb-12 max-w-2xl">
           {/* Assigned */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Users className="w-4 h-4" />
               <span>Assigned</span>
             </div>
@@ -1293,14 +1349,14 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 'https://i.pravatar.cc/150?u=4',
                 'https://i.pravatar.cc/150?u=6'
               ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[#191919] ring-1 ring-white/5" alt="avatar" />
+                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-1 ring-white/5" alt="avatar" />
               ))}
             </div>
           </div>
 
           {/* Due date */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CalendarIcon className="w-4 h-4" />
               <span>Due date</span>
             </div>
@@ -1319,7 +1375,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   }
                 });
               }}
-              className="text-white/90 text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+              className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
             >
               {goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'Set date...'}
             </div>
@@ -1327,7 +1383,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
 
           {/* Priority */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Zap className="w-4 h-4" />
               <span>Priority</span>
             </div>
@@ -1345,7 +1401,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 className={cn(
                   "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
                   goal.priority === 'high' ? "bg-red-500/20 text-red-400" : 
-                  goal.priority === 'medium' ? "bg-orange-500/20 text-orange-400" : 
+                  goal.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" : 
                   "bg-green-500/20 text-green-400"
                 )}
               >
@@ -1356,7 +1412,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
 
           {/* Status */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CheckCircle className="w-4 h-4" />
               <span>Status</span>
             </div>
@@ -1372,32 +1428,24 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   });
                 }}
                 className={cn(
-                  "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                  goal.status === 'completed' ? "bg-emerald-500/20 text-emerald-400" :
-                  goal.status === 'in-progress' || goal.status === 'inbox' ? "bg-blue-500/20 text-blue-400" :
-                  "bg-stone-500/20 text-stone-400"
+                  "flex items-center px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                  getGoalStatusClasses(goal.status)
                 )}
               >
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(96,165,250,0.5)]",
-                  goal.status === 'completed' ? "bg-emerald-400" :
-                  goal.status === 'in-progress' || goal.status === 'inbox' ? "bg-blue-400" :
-                  "bg-stone-400"
-                )} />
-                <span>{toSentenceCase(goal.status)}</span>
+                <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
               </div>
             </div>
           </div>
 
           {/* Creator */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <User className="w-4 h-4" />
               <span>Creator</span>
             </div>
             <div className="flex items-center gap-2">
               <img src="https://i.pravatar.cc/150?u=4" className="w-5 h-5 rounded-full ring-1 ring-white/10" alt="creator" />
-              <span className="text-white/80 text-[13px] font-medium">Stephen Robert</span>
+              <span className="text-[var(--tokyo-text)] text-[13px] font-medium">Stephen Robert</span>
             </div>
           </div>
 
@@ -1412,7 +1460,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
 
             return (
               <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-                <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+                <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
                   <PropIcon className="w-4 h-4" />
                   <input 
                     type="text"
@@ -1436,7 +1484,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-white/90 text-[13px] font-medium cursor-pointer hover:text-white transition-colors flex-1"
+                      className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors flex-1"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>
@@ -1446,7 +1494,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                       value={prop.value}
                       onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
                       placeholder="Empty"
-                      className="bg-transparent border-none p-0 text-white/90 text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
+                      className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
                     />
                   )}
                   <button 
@@ -1464,7 +1512,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           <div className="flex items-center h-8">
             <button 
               onClick={handleAddProperty}
-              className="text-orange-500/80 text-sm font-medium flex items-center gap-2 hover:text-orange-400 transition-colors"
+              className="text-[var(--tokyo-yellow)] text-sm font-medium flex items-center gap-2 hover:text-[var(--tokyo-yellow)] transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               Add property
@@ -1473,7 +1521,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)] pb-1">
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
             {[
               { id: 'Todo list', icon: List },
@@ -1485,7 +1533,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   "flex items-center gap-2 pl-[11px] pr-[13px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                  activeTab === tab.id ? "bg-white/10 text-[#E8E6E1]" : "text-white/50 hover:bg-white/10 hover:text-[#E8E6E1]"
+                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
                 )}
               >
                 <div className="p-0.5">
@@ -1503,12 +1551,12 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         {activeTab === 'Todo list' && (
           <div className="space-y-4">
             {goalTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl group hover:bg-white/[0.04] transition-all">
+              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all">
                 <button 
                   onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
                   className={cn(
                     "w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all",
-                    task.status === 'done' ? "bg-orange-500 border-orange-500" : "border-white/10 group-hover:border-white/20"
+                    task.status === 'done' ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]" : "border-[var(--tokyo-border-strong)] group-hover:border-white/20"
                   )}
                 >
                   {task.status === 'done' && <CheckCircle className="w-4 h-4 text-white" />}
@@ -1520,14 +1568,14 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   placeholder="Task description..."
                   className={cn(
                     "bg-transparent border-none outline-none flex-1 text-base transition-all placeholder:text-white/10",
-                    task.status === 'done' ? "text-white/30 line-through" : "text-white/80"
+                    task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
                   )}
                 />
               </div>
             ))}
             <button 
               onClick={handleAddTask}
-              className="flex items-center gap-3 p-4 text-orange-500 hover:text-orange-400 transition-colors"
+              className="flex items-center gap-3 p-4 text-[var(--tokyo-yellow)] hover:text-[var(--tokyo-yellow)] transition-colors"
             >
               <Plus className="w-5 h-5" />
               <span className="font-medium">Add new task</span>
@@ -1538,7 +1586,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         {activeTab === 'Comments' && (
           <>
             {/* Comment Input */}
-            <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-6">
+            <div className="bg-white/[0.03] border border-[var(--tokyo-border)] rounded-2xl p-6">
               <div className="flex gap-4 mb-6">
                 <img src="https://i.pravatar.cc/150?u=4" className="w-10 h-10 rounded-full" alt="me" />
                 <textarea 
@@ -1546,11 +1594,11 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Add your comment..." 
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-[#E8E6E1] placeholder:text-white/20 text-base resize-none"
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-base resize-none"
                 />
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6 text-white/30">
+                <div className="flex items-center gap-6 text-[var(--tokyo-text-faint)]">
                   <button className="hover:text-white transition-colors"><Smile className="w-5 h-5" /></button>
                   <button className="hover:text-white transition-colors"><AtSign className="w-5 h-5" /></button>
                   <button className="hover:text-white transition-colors"><Link className="w-5 h-5" /></button>
@@ -1559,7 +1607,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 </div>
                 <button 
                   onClick={handleAddComment}
-                  className="bg-orange-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-orange-500 transition-colors shadow-lg shadow-orange-900/20"
+                  className="bg-[var(--tokyo-yellow-dim)] text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
                 >
                   Comment
                 </button>
@@ -1574,26 +1622,26 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-[#E8E6E1] font-bold text-base">{comment.name}</span>
+                        <span className="text-[var(--tokyo-text-strong)] font-bold text-base">{comment.name}</span>
                         <span className="text-white/20 text-xs">•</span>
-                        <span className="text-white/30 text-sm">{comment.time}</span>
+                        <span className="text-[var(--tokyo-text-faint)] text-sm">{comment.time}</span>
                       </div>
-                      <button className="text-white/10 group-hover:text-white/30 transition-colors">
+                      <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
                         <MoreHorizontal className="w-5 h-5" />
                       </button>
                     </div>
-                    <p className="text-white/80 text-lg leading-relaxed">
+                    <p className="text-[var(--tokyo-text)] text-lg leading-relaxed">
                       {comment.text}
                     </p>
                     <div className="flex items-center gap-6 pt-2">
-                      <button className="text-white/30 hover:text-white transition-colors"><Smile className="w-5 h-5" /></button>
+                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-5 h-5" /></button>
                       {comment.reactions?.map((r, ri) => (
-                        <button key={ri} className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/5 text-sm">
+                        <button key={ri} className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-sm">
                           <span>{r.emoji}</span>
-                          <span className="text-white/40">{r.count}</span>
+                          <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
                         </button>
                       ))}
-                      <button className="text-white/60 text-sm font-bold hover:text-white transition-colors">Reply</button>
+                      <button className="text-[var(--tokyo-text-muted)] text-sm font-bold hover:text-white transition-colors">Reply</button>
                     </div>
                   </div>
                 </div>
@@ -1614,13 +1662,13 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="fixed z-[120] bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl p-2 w-64"
+                className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl p-2 w-64"
                 style={{ 
                   top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
                   left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
                 }}
               >
-                <div className="px-3 py-2 text-xs font-bold text-white/30 tracking-wider">
+                <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                   Basic properties
                 </div>
                 <div className="space-y-0.5">
@@ -1628,19 +1676,19 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                     { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
                     { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
                     { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
-                    { id: 'date', label: 'Date', icon: CalendarIcon, desc: 'Calendar date' },
+                    { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
                   ].map((type) => (
                     <button
                       key={type.id}
                       onClick={() => confirmAddProperty(type.id as any)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left group"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/60 group-hover:text-white transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
                         <type.icon className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-white/90 group-hover:text-white">{type.label}</div>
-                        <div className="text-xs text-white/30">{type.desc}</div>
+                        <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
+                        <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
                       </div>
                     </button>
                   ))}
@@ -1660,11 +1708,11 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
               <div key={i} className="flex items-center gap-4 text-sm">
                 <img src="https://i.pravatar.cc/150?u=4" className="w-8 h-8 rounded-full" alt="avatar" />
                 <div className="flex items-center gap-2">
-                  <span className="text-[#E8E6E1] font-medium">{activity.user}</span>
-                  <span className="text-white/40">{activity.action}</span>
-                  {activity.value && <span className="text-[#E8E6E1] font-medium">{activity.value}</span>}
+                  <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.user}</span>
+                  <span className="text-[var(--tokyo-text-faint)]">{activity.action}</span>
+                  {activity.value && <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.value}</span>}
                   <span className="text-white/20">•</span>
-                  <span className="text-white/30">{activity.time}</span>
+                  <span className="text-[var(--tokyo-text-faint)]">{activity.time}</span>
                 </div>
               </div>
             ))}
@@ -1674,4 +1722,3 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
     </div>
   );
 }
-

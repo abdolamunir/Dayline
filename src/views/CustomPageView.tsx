@@ -112,11 +112,11 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
 
   const getPropIcon = (type: string) => {
     switch(type) {
-      case 'text': return <Type className="w-4 h-4 text-white/40" />;
-      case 'number': return <Hash className="w-4 h-4 text-white/40" />;
-      case 'select': return <List className="w-4 h-4 text-white/40" />;
-      case 'date': return <CalendarIcon className="w-4 h-4 text-white/40" />;
-      default: return <FileIcon className="w-4 h-4 text-white/40" />;
+      case 'text': return <Type className="w-4 h-4 text-[var(--tokyo-text-faint)]" />;
+      case 'number': return <Hash className="w-4 h-4 text-[var(--tokyo-text-faint)]" />;
+      case 'select': return <List className="w-4 h-4 text-[var(--tokyo-text-faint)]" />;
+      case 'date': return <CalendarIcon className="w-4 h-4 text-[var(--tokyo-text-faint)]" />;
+      default: return <FileIcon className="w-4 h-4 text-[var(--tokyo-text-faint)]" />;
     }
   };
 
@@ -130,7 +130,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
             value={title}
             onChange={handleTitleChange}
             placeholder="Untitled"
-            className="w-full bg-transparent text-[22px] font-semibold leading-tight text-[#E9E6DF] outline-none placeholder:text-white/18 md:text-2xl"
+            className="w-full bg-transparent text-[22px] font-semibold leading-tight text-[var(--tokyo-text-strong)] outline-none placeholder:text-white/18 md:text-2xl"
           />
         }
         description="Document page"
@@ -145,7 +145,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         <div className="hidden pt-2">
           <button 
             onClick={handleIconClick}
-            className="p-2 hover:bg-white/5 rounded-xl text-white/60 hover:text-white transition-colors cursor-pointer"
+            className="p-2 hover:bg-[var(--tokyo-hover)] rounded-xl text-[var(--tokyo-text-muted)] hover:text-white transition-colors cursor-pointer"
             title="Change icon"
           >
             <Icon className="w-8 h-8 md:w-10 md:h-10" />
@@ -204,13 +204,13 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
       <div className="space-y-2 border-b border-white/[0.06] py-3">
         {page.properties.map(prop => (
           <div key={prop.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop">
-            <div className="w-full sm:w-48 flex items-center gap-2 text-white/50">
+            <div className="w-full sm:w-48 flex items-center gap-2 text-[var(--tokyo-text-muted)]">
               {getPropIcon(prop.type)}
               <input
                 type="text"
                 value={prop.name}
                 onChange={(e) => updateProperty(prop.id, 'name', e.target.value)}
-                className="bg-transparent border-none outline-none text-sm w-full hover:bg-white/5 px-1 py-0.5 rounded"
+                className="bg-transparent border-none outline-none text-sm w-full hover:bg-[var(--tokyo-hover)] px-1 py-0.5 rounded"
               />
             </div>
             <div className="flex-1">
@@ -224,7 +224,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
                       currentDate: prop.value ? new Date(prop.value) : undefined
                     });
                   }}
-                  className="text-sm w-full text-white/80 hover:bg-white/5 px-2 py-1 rounded cursor-pointer transition-colors"
+                  className="text-sm w-full text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] px-2 py-1 rounded cursor-pointer transition-colors"
                 >
                   {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                 </div>
@@ -234,7 +234,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
                   value={prop.value}
                   onChange={(e) => updateProperty(prop.id, 'value', e.target.value)}
                   placeholder="Empty"
-                  className="bg-transparent border-none outline-none text-sm w-full text-white/80 placeholder:text-white/20 hover:bg-white/5 px-2 py-1 rounded"
+                  className="bg-transparent border-none outline-none text-sm w-full text-[var(--tokyo-text)] placeholder:text-white/20 hover:bg-[var(--tokyo-hover)] px-2 py-1 rounded"
                 />
               )}
             </div>
@@ -243,20 +243,20 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         
         <div className="pt-2">
           <div className="dropdown relative inline-block">
-            <button className="flex items-center gap-2 text-sm text-white/40 hover:text-white/80 hover:bg-white/5 px-2 py-1 rounded transition-colors cursor-pointer">
+            <button className="flex items-center gap-2 text-sm text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] px-2 py-1 rounded transition-colors cursor-pointer">
               <Plus className="w-4 h-4" /> Add a property
             </button>
-            <div className="dropdown-content absolute left-0 mt-1 w-48 bg-[#2F2F2F] rounded-md shadow-xl border border-white/10 hidden opacity-0 z-10 py-1">
-              <button onClick={() => addProperty('text')} className="w-full text-left px-4 py-1.5 text-sm text-white/80 hover:bg-white/5 flex items-center gap-2 cursor-pointer"><Type className="w-4 h-4" /> Text</button>
-              <button onClick={() => addProperty('number')} className="w-full text-left px-4 py-1.5 text-sm text-white/80 hover:bg-white/5 flex items-center gap-2 cursor-pointer"><Hash className="w-4 h-4" /> Number</button>
-              <button onClick={() => addProperty('select')} className="w-full text-left px-4 py-1.5 text-sm text-white/80 hover:bg-white/5 flex items-center gap-2 cursor-pointer"><List className="w-4 h-4" /> Select</button>
-              <button onClick={() => addProperty('date')} className="w-full text-left px-4 py-1.5 text-sm text-white/80 hover:bg-white/5 flex items-center gap-2 cursor-pointer"><CalendarIcon className="w-4 h-4" /> Date</button>
+            <div className="dropdown-content absolute left-0 mt-1 w-48 bg-[var(--tokyo-panel-2)] rounded-md shadow-xl border border-[var(--tokyo-border-strong)] hidden opacity-0 z-10 py-1">
+              <button onClick={() => addProperty('text')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><Type className="w-4 h-4" /> Text</button>
+              <button onClick={() => addProperty('number')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><Hash className="w-4 h-4" /> Number</button>
+              <button onClick={() => addProperty('select')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><List className="w-4 h-4" /> Select</button>
+              <button onClick={() => addProperty('date')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><CalendarIcon className="w-4 h-4" /> Date</button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="min-h-[55vh] py-5 text-[#E9E6DF]">
+      <div className="min-h-[55vh] py-5 text-[var(--tokyo-text-strong)]">
         <BlockEditor
           initialContent={content}
           onChange={(nextContent) => {
@@ -312,22 +312,22 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
   };
 
   return (
-    <div className="min-h-full bg-[#191919] flex flex-col">
+    <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
       {/* Header */}
       <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-white/30 text-sm">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
             <button onClick={onBack} className="hover:text-white transition-colors">{page.title}</button>
             <span>/</span>
-            <span className="text-white/50 capitalize whitespace-nowrap">{item.status}</span>
+            <span className="text-[var(--tokyo-text-muted)] capitalize whitespace-nowrap">{item.status}</span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="text-white/30 hover:text-white transition-colors">
+            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
               <MoreHorizontal className="w-5 h-5" />
             </button>
             <button 
               onClick={onBack}
-              className="text-white/30 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
             >
               <X className="w-5 h-5" />
             </button>
@@ -338,7 +338,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           type="text"
           value={item.title}
           onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
-          className="w-full bg-transparent text-4xl font-bold text-[#E8E6E1] mb-8 tracking-tight outline-none placeholder:text-white/10"
+          className="w-full bg-transparent text-4xl font-bold text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
           placeholder="Untitled Item"
         />
         
@@ -346,7 +346,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         <div className="space-y-2 mb-12 max-w-2xl">
           {/* Status */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CheckCircle className="w-4 h-4" />
               <span>Status</span>
             </div>
@@ -361,15 +361,15 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               }}
               className={cn(
                 "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                item.status === 'completed' ? "bg-emerald-500/20 text-emerald-400" :
-                item.status === 'in-progress' || item.status === 'inbox' ? "bg-blue-500/20 text-blue-400" :
+                item.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+                item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                 "bg-stone-500/20 text-stone-400"
               )}
             >
               <div className={cn(
                 "w-1.5 h-1.5 rounded-full",
-                item.status === 'completed' ? "bg-emerald-400" :
-                item.status === 'in-progress' || item.status === 'inbox' ? "bg-blue-400" :
+                item.status === 'completed' ? "bg-[var(--tokyo-green)]" :
+                item.status === 'in-progress' || item.status === 'inbox' ? "bg-[var(--tokyo-purple)]" :
                 "bg-stone-400"
               )} />
               <span>{toSentenceCase(item.status)}</span>
@@ -378,7 +378,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
 
           {/* Priority */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Zap className="w-4 h-4" />
               <span>Priority</span>
             </div>
@@ -394,7 +394,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               className={cn(
                 "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
                 item.priority === 'high' ? "bg-red-500/20 text-red-400" : 
-                item.priority === 'medium' ? "bg-orange-500/20 text-orange-400" : 
+                item.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" : 
                 "bg-green-500/20 text-green-400"
               )}
             >
@@ -404,7 +404,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
 
           {/* Date */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CalendarIcon className="w-4 h-4" />
               <span>Date</span>
             </div>
@@ -416,7 +416,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   currentDate: item.date ? new Date(item.date) : undefined
                 });
               }}
-              className="text-white/90 text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+              className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
             >
               {item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'Set date...'}
             </div>
@@ -424,11 +424,11 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
 
           {/* Progress */}
           <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Circle className="w-4 h-4" />
               <span>Progress</span>
             </div>
-            <div className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-yellow-950/30 text-yellow-500">
+            <div className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
               <span className="text-[13px] font-medium">{item.progress}%</span>
             </div>
           </div>
@@ -436,7 +436,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           {/* Custom Properties */}
           {page.properties.map(prop => (
             <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
-              <div className="flex items-center gap-3 w-40 shrink-0 text-white/30 text-[13px] font-medium">
+              <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
                 {prop.type === 'date' ? <CalendarIcon className="w-4 h-4" /> :
                  prop.type === 'number' ? <Hash className="w-4 h-4" /> :
                  prop.type === 'select' ? <List className="w-4 h-4" /> :
@@ -454,7 +454,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-white/90 text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
                   >
                     {item.properties[prop.id] ? format(new Date(item.properties[prop.id]), 'MMM d, yyyy') : 'Set date...'}
                   </div>
@@ -469,7 +469,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-white/90 text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
                   >
                     {item.properties[prop.id] || 'Select...'}
                   </div>
@@ -479,7 +479,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                     value={item.properties[prop.id] || ''}
                     onChange={(e) => updateProperty(prop.id, e.target.value)}
                     placeholder="Empty"
-                    className="bg-transparent border-none outline-none text-[13px] font-medium w-full text-white/90 placeholder:text-white/10 hover:bg-white/5 px-2 py-0.5 rounded transition-colors"
+                    className="bg-transparent border-none outline-none text-[13px] font-medium w-full text-[var(--tokyo-text-strong)] placeholder:text-white/10 hover:bg-[var(--tokyo-hover)] px-2 py-0.5 rounded transition-colors"
                   />
                 )}
               </div>
@@ -488,7 +488,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-white/5 pb-1">
+        <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-1">
           {[
             { id: 'Overview', icon: LayoutGrid },
             { id: 'Comments', icon: MessageSquare },
@@ -499,7 +499,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "flex items-center gap-2 pl-[11px] pr-[13px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tab.id ? "bg-white/10 text-[#E8E6E1]" : "text-white/50 hover:bg-white/10 hover:text-[#E8E6E1]"
+                activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
               )}
             >
               <tab.icon className="w-4 h-4" />
@@ -514,12 +514,12 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         {activeTab === 'Overview' && (
           <div className="space-y-8">
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-white/30 uppercase tracking-wider">Description</h3>
+              <h3 className="text-sm font-semibold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Description</h3>
               <textarea
                 value={item.properties.description || ''}
                 onChange={(e) => updateProperty('description', e.target.value)}
                 placeholder="Add a description..."
-                className="w-full min-h-[200px] bg-transparent border-none outline-none text-[#E8E6E1] placeholder:text-white/10 resize-none text-lg leading-relaxed"
+                className="w-full min-h-[200px] bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/10 resize-none text-lg leading-relaxed"
               />
             </div>
           </div>
@@ -535,13 +535,13 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[140] bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
               style={{ 
                 top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
                 left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
               }}
             >
-              <div className="px-2.5 py-1.5 text-xs font-bold text-white/30 tracking-wider">
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Select {toSentenceCase(customDropdown.type === 'custom-select' ? 'Option' : customDropdown.type)}
               </div>
               <div className="space-y-0.5">
@@ -560,13 +560,13 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                       setCustomDropdown(null);
                     }}
                     className={cn(
-                      "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                      customDropdown.currentValue === option ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                      customDropdown.currentValue === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                     )}
                   >
                     <span>{toSentenceCase(option)}</span>
                     {customDropdown.currentValue === option && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
                     )}
                   </button>
                 ))}

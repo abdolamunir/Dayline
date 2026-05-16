@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '../store';
 import { 
   PencilEdit01Icon as Pencil, 
@@ -36,8 +36,21 @@ const iconMap: Record<string, React.ElementType> = {
   Target: Target,
 };
 
+const DEFAULT_NOTE_TABS = [
+  { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
+  { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
+  { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+];
+
+const DEFAULT_NOTE_COLUMNS = [
+  { id: 'title', label: 'Title', icon: 'Pencil', width: '400px' },
+  { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
+  { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
+];
+
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
-  const { notes, updateNote, reorderNotes, addNote } = useAppStore();
+  const { notes, updateNote, reorderNotes, addNote, viewSettings, updateViewSettings } = useAppStore();
+  const savedNoteSettings = viewSettings.notes || {};
   const [localSelectedNoteId, setLocalSelectedNoteId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [customDropdown, setCustomDropdown] = useState<{
@@ -49,24 +62,32 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
-  const [tabs, setTabs] = useState([
-    { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
-    { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
-    { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
-  ]);
+  const [tabs, setTabs] = useState(savedNoteSettings.tabs || DEFAULT_NOTE_TABS);
 
-  const [activeTab, setActiveTab] = useState<string>('in-progress');
+  const [activeTab, setActiveTab] = useState<string>(savedNoteSettings.activeTab || 'in-progress');
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
-  const [columns, setColumns] = useState([
-    { id: 'title', label: 'Title', icon: 'Pencil', width: '400px' },
-    { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
-    { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
-  ]);
+  const [columns, setColumns] = useState(savedNoteSettings.columns || DEFAULT_NOTE_COLUMNS);
 
   const filteredNotes = notes.filter(note => note.status === activeTab);
 
   const effectiveSelectedNoteId = selectedNoteId || localSelectedNoteId;
   const selectedNote = effectiveSelectedNoteId ? notes.find(n => n.id === effectiveSelectedNoteId) : null;
+
+  useEffect(() => {
+    const settings = viewSettings.notes;
+    if (!settings) return;
+    if (settings.tabs) setTabs(settings.tabs);
+    if (settings.columns) setColumns(settings.columns);
+    if (settings.activeTab) setActiveTab(settings.activeTab);
+  }, [viewSettings.notes]);
+
+  useEffect(() => {
+    updateViewSettings('notes', {
+      tabs,
+      columns,
+      activeTab,
+    });
+  }, [tabs, columns, activeTab]);
 
   if (selectedNote) {
     return (
@@ -118,7 +139,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       />
 
       {/* Tabs & Toolbar */}
-      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-1">
+      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)] pb-1">
         {/* Mobile/Tablet Dropdown */}
         <div className="sm:hidden relative">
           <button 
@@ -140,7 +161,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full left-0 right-0 mt-2 bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                  className="absolute top-full left-0 right-0 mt-2 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl z-50 overflow-hidden"
                 >
                   {tabs.map(tab => (
                     <button
@@ -151,7 +172,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                       }}
                       className={cn(
                         "flex items-center gap-3 w-full px-4 py-3 text-sm transition-colors",
-                        activeTab === tab.id ? "bg-white/10 text-white" : "text-white/50 hover:bg-white/5 hover:text-white"
+                        activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
                       {React.createElement(iconMap[tab.icon] || Target, { className: "w-4 h-4" })}
@@ -181,7 +202,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                 value={tab}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-                  activeTab === tab.id ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
+                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)]"
                 )}
                 onClick={() => setActiveTab(tab.id)}
               >
@@ -198,13 +219,13 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
           <table className="database-table min-w-[600px] text-left">
             <thead>
-              <tr className="text-white/40 text-[12px] font-medium">
+              <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
                 {columns.map((col, index) => (
                   <th 
                     key={col.id} 
                     style={{ width: col.width }}
                     className={cn(
-                      "py-2 border-b border-white/5 group/header whitespace-nowrap",
+                      "py-2 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap",
                       index === 0 ? "pl-0" : "px-4"
                     )}
                   >
@@ -213,7 +234,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                     </div>
                   </th>
                 ))}
-                <th className="py-2 pr-6 border-b border-white/5 w-16 whitespace-nowrap text-right">
+                <th className="py-2 pr-6 border-b border-[var(--tokyo-border)] w-16 whitespace-nowrap text-right">
                   <MoreHorizontal className="w-4 h-4 text-white/10 ml-auto" />
                 </th>
               </tr>
@@ -246,7 +267,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-white/[0.03] flex items-center justify-center text-white/30 shrink-0">
+                      <div className="w-6 h-6 rounded-lg bg-white/[0.03] flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0">
                         <Pencil className="w-3.5 h-3.5" />
                       </div>
                       <span className="text-white font-medium text-[14px] tracking-tight w-full cursor-pointer">
@@ -270,11 +291,11 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                       {note.priority}
                     </StatusPill>
                   </td>
-                  <td className="px-4 py-2 border-b border-white/[0.01] text-[11px] font-medium text-white/50 whitespace-nowrap">
+                  <td className="px-4 py-2 border-b border-white/[0.01] text-[11px] font-medium text-[var(--tokyo-text-muted)] whitespace-nowrap">
                     {note.createdAt}
                   </td>
                   <td className="py-2 pr-6 border-b border-white/[0.01] text-right whitespace-nowrap">
-                    <button className="p-2 text-white/40 hover:text-white/80 hover:bg-white/10 rounded-md transition-all cursor-pointer">
+                    <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] rounded-md transition-all cursor-pointer">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </td>
@@ -303,13 +324,13 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[140] bg-[#1C1C1C] border border-white/10 rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              className="fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
               style={{ 
                 top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
                 left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
               }}
             >
-              <div className="px-2.5 py-1.5 text-xs font-bold text-white/30 tracking-wider">
+              <div className="px-2.5 py-1.5 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Select {customDropdown.type.charAt(0).toUpperCase() + customDropdown.type.slice(1)}
               </div>
               <div className="space-y-0.5">
@@ -328,12 +349,12 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                     }}
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left group",
-                      customDropdown.currentValue === option ? "bg-white/10 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                      customDropdown.currentValue === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                     )}
                   >
                     <span className="capitalize">{option}</span>
                     {customDropdown.currentValue === option && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
                     )}
                   </button>
                 ))}
@@ -356,13 +377,13 @@ function NoteDetailsPage({ note, onBack }: { note: any, onBack: () => void }) {
         type="text"
         value={note.title}
         onChange={(e) => updateNote({ ...note, title: e.target.value })}
-        className="mb-4 w-full bg-transparent text-3xl font-semibold text-[#E9E6DF] outline-none placeholder:text-white/18"
+        className="mb-4 w-full bg-transparent text-3xl font-semibold text-[var(--tokyo-text-strong)] outline-none placeholder:text-white/18"
       />
       <BlockEditor
         initialContent={note.content}
         onChange={(content) => updateNote({ ...note, content })}
       />
-      <button onClick={() => { deleteNote(note.id); onBack(); }} className="mt-6 text-sm text-rose-400 hover:text-rose-300">Delete Note</button>
+      <button onClick={() => { deleteNote(note.id); onBack(); }} className="mt-6 text-sm text-[var(--tokyo-pink)] hover:text-[var(--tokyo-pink)]">Delete Note</button>
     </WorkspacePage>
   );
 }

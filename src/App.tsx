@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Sidebar, ViewType } from './components/Sidebar';
 import { ContextPanel } from './components/ContextPanel';
 import { CommandPalette } from './components/CommandPalette';
+import { LandingPage } from './components/LandingPage';
 import { AppProvider, useAppStore } from './store';
 import { Dashboard } from './views/Dashboard';
 import { Tasks } from './views/Tasks';
@@ -35,7 +36,7 @@ function AppContent() {
   const [commandPaletteMode, setCommandPaletteMode] = useState<'default' | 'create'>('default');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { customPages } = useAppStore();
+  const { customPages, user, loading } = useAppStore();
 
   const openCommandPalette = (initialValue?: string | React.MouseEvent, mode: 'default' | 'create' = 'default') => {
     setCommandPaletteInitialValue(typeof initialValue === 'string' ? initialValue : '');
@@ -83,15 +84,30 @@ function AppContent() {
         return <Tasks title="Logbook" description="Completed tasks." hideFilters customFilter={(t) => t.status === 'done'} />;
       default: 
         return (
-          <div className="flex items-center justify-center h-full text-white/40">
+          <div className="flex items-center justify-center h-full text-[var(--tokyo-text-faint)]">
             <p>View "{currentView}" is under construction.</p>
           </div>
         );
     }
   };
 
+  if (loading) {
+    return (
+      <div className="grid h-screen place-items-center bg-[#07070a] font-sans text-[var(--tokyo-text)]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[rgba(214,204,219,0.16)] border-t-[var(--tokyo-yellow)]" />
+          <p className="text-sm font-bold text-[var(--tokyo-text-muted)]">Opening your Dayline workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LandingPage />;
+  }
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[#181715] font-sans text-white/90 selection:bg-[#D7CCC0]/25">
+    <div className="flex h-screen overflow-hidden bg-[var(--tokyo-bg)] font-sans text-[var(--tokyo-text)] selection:bg-[var(--tokyo-yellow-soft)]">
       <Sidebar 
         currentView={currentView} 
         onViewChange={(view) => {
@@ -105,16 +121,16 @@ function AppContent() {
         onToggleSidebar={() => setIsCollapsed(!isCollapsed)}
       />
       
-      <main className="relative flex flex-1 flex-col overflow-y-auto bg-[#181715]">
+      <main className="relative flex flex-1 flex-col overflow-y-auto bg-[var(--tokyo-bg)] pb-8">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between p-3 border-b border-white/[0.06] bg-[#181715]/95 backdrop-blur sticky top-0 z-30">
-          <button onClick={() => setIsMobileMenuOpen(true)} className="text-white/70 hover:text-white transition-colors cursor-pointer">
+        <div className="md:hidden flex items-center justify-between p-3 border-b border-[var(--tokyo-border)] bg-[var(--tokyo-sidebar)]/95 backdrop-blur sticky top-0 z-30">
+          <button onClick={() => setIsMobileMenuOpen(true)} className="text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)] transition-colors cursor-pointer">
             <Menu className="w-6 h-6" />
           </button>
-          <span className="font-medium capitalize text-white/90 truncate max-w-[150px] text-center">
+          <span className="font-bold capitalize text-[var(--tokyo-text-strong)] truncate max-w-[150px] text-center">
             {currentView.startsWith('page-') ? customPages.find(p => p.id === currentView)?.title || 'Page' : currentView.replace('-', ' ')}
           </span>
-          <button onClick={() => openCommandPalette()} className="text-white/70 hover:text-white transition-colors cursor-pointer">
+          <button onClick={() => openCommandPalette()} className="text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)] transition-colors cursor-pointer">
             <SearchIcon className="w-5 h-5" />
           </button>
         </div>
@@ -129,7 +145,7 @@ function AppContent() {
         onClose={() => setIsContextOpen(false)}
         title="Details"
       >
-        <div className="text-white/50 text-sm">
+        <div className="text-[var(--tokyo-text-muted)] text-sm">
           Select an item to view details.
         </div>
       </ContextPanel>
@@ -141,6 +157,20 @@ function AppContent() {
         initialValue={commandPaletteInitialValue}
         mode={commandPaletteMode}
       />
+
+      <div className="fixed inset-x-0 bottom-0 z-[60] hidden h-8 items-center justify-between overflow-hidden border-t border-[var(--tokyo-border)] bg-[var(--tokyo-panel-2)]/95 px-2 text-[12px] font-bold leading-none text-[var(--tokyo-text-muted)] backdrop-blur md:flex">
+        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+          <span className="shrink-0"><kbd className="rounded bg-[rgba(214,204,219,0.12)] px-1 py-0.5 text-[var(--tokyo-text)]">⌘P</kbd> Commands</span>
+          <span className="shrink-0"><kbd className="rounded bg-[rgba(214,204,219,0.12)] px-1 py-0.5 text-[var(--tokyo-text)]">⌘K</kbd> Jump To</span>
+          <span className="shrink-0"><kbd className="rounded bg-[rgba(214,204,219,0.12)] px-1 py-0.5 text-[var(--tokyo-text)]">⌃N</kbd> New page ...</span>
+          <span className="shrink-0"><kbd className="rounded bg-[rgba(214,204,219,0.12)] px-1 py-0.5 text-[var(--tokyo-text)]">⌘⇧F</kbd> Search...</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="hidden lg:inline">Arrow Keys Navigate</span>
+          <span><kbd className="rounded bg-[rgba(214,204,219,0.12)] px-1 py-0.5 text-[var(--tokyo-text)]">↵</kbd> Focus</span>
+          <span className="text-[var(--tokyo-yellow)]">●</span>
+        </div>
+      </div>
     </div>
   );
 }

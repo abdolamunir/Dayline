@@ -50,16 +50,16 @@ export function IconPicker({ currentIcon, onSelect, onClose, onRemove }: IconPic
   };
 
   return (
-    <div className="flex flex-col w-64 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="flex flex-col w-64 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-        <div className="text-xs font-medium text-white/50">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--tokyo-border)]">
+        <div className="text-xs font-medium text-[var(--tokyo-text-muted)]">
           Icons
         </div>
         {onRemove && (
           <button 
             onClick={onRemove}
-            className="text-xs font-medium text-white/30 hover:text-rose-400 transition-colors cursor-pointer"
+            className="text-xs font-medium text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
           >
             Remove
           </button>
@@ -75,13 +75,13 @@ export function IconPicker({ currentIcon, onSelect, onClose, onRemove }: IconPic
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#2A2A2A] border border-white/5 rounded-md py-1 pl-6 pr-2 text-xs text-white placeholder:text-white/10 focus:outline-none focus:ring-1 focus:ring-blue-500/30"
+            className="w-full bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border)] rounded-md py-1 pl-6 pr-2 text-xs text-[var(--tokyo-text-strong)] placeholder:text-[var(--tokyo-text-faint)] focus:outline-none focus:ring-1 focus:ring-[var(--tokyo-yellow)]/30"
             autoFocus
           />
         </div>
         <button 
           onClick={handleRandomize}
-          className="p-1.5 bg-[#2A2A2A] border border-white/5 rounded-md text-white/30 hover:text-white/80 hover:bg-[#333333] transition-colors cursor-pointer"
+          className="p-1.5 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border)] rounded-md text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)] hover:bg-[var(--tokyo-panel-3)] transition-colors cursor-pointer"
           title="Randomize"
         >
           <Shuffle className="w-3.5 h-3.5" />
@@ -97,7 +97,7 @@ export function IconPicker({ currentIcon, onSelect, onClose, onRemove }: IconPic
               onClick={() => onSelect(name)}
               className={cn(
                 "p-1.5 rounded-md flex items-center justify-center transition-all cursor-pointer",
-                currentIcon === name ? "bg-white/10 text-white" : "text-white/20 hover:bg-white/5 hover:text-white/60"
+                currentIcon === name ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
               )}
               title={name}
             >

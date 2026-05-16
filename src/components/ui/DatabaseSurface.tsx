@@ -24,25 +24,25 @@ export function WorkspaceHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="mb-4 flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <header className="mb-4 flex flex-col gap-3 border-b border-[var(--tokyo-border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="flex min-w-0 items-center gap-3">
         {icon && (
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.035] text-white/45">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-panel-2)] text-[var(--tokyo-yellow)]">
             {icon}
           </div>
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-[22px] font-semibold leading-tight tracking-normal text-[#E9E6DF] md:text-2xl">
+            <h1 className="truncate text-[22px] font-extrabold leading-tight tracking-normal text-[var(--tokyo-text-strong)] md:text-2xl">
               {title}
             </h1>
             {typeof count === 'number' && (
-              <span className="rounded-md border border-white/[0.06] bg-white/[0.035] px-1.5 py-0.5 text-[11px] font-medium text-white/35">
+              <span className="rounded border border-[var(--tokyo-border)] bg-[var(--tokyo-panel-2)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--tokyo-text-faint)]">
                 {count}
               </span>
             )}
           </div>
-          {description && <p className="mt-1 text-sm text-white/42">{description}</p>}
+          {description && <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">{description}</p>}
         </div>
       </div>
       {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
@@ -60,8 +60,8 @@ export function ToolButton({
     <button
       {...props}
       className={cn(
-        "inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-transparent px-2.5 text-sm font-medium text-white/45 transition-colors hover:border-white/[0.06] hover:bg-white/[0.045] hover:text-white/80 disabled:pointer-events-none disabled:opacity-40",
-        active && "border-white/[0.08] bg-white/[0.07] text-white/85",
+        "inline-flex h-8 items-center justify-center gap-2 rounded-md border border-transparent px-2.5 text-sm font-bold text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-border)] hover:bg-[var(--tokyo-panel-2)] hover:text-[var(--tokyo-text-strong)] disabled:pointer-events-none disabled:opacity-40",
+        active && "border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-3)] text-[var(--tokyo-text-strong)]",
         className
       )}
     >
@@ -75,7 +75,7 @@ export function PrimaryButton({ children, className, ...props }: React.ButtonHTM
     <button
       {...props}
       className={cn(
-        "inline-flex h-8 items-center justify-center gap-2 rounded-lg bg-[#D7CCC0] px-3 text-sm font-semibold text-[#171513] transition-colors hover:bg-[#EEE5D8] active:bg-[#C8BAAC]",
+        "inline-flex h-8 items-center justify-center gap-2 rounded-md bg-[var(--tokyo-yellow-dim)] px-3 text-sm font-extrabold text-[var(--tokyo-text-strong)] transition-colors hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] active:bg-[var(--tokyo-yellow-dim)]",
         className
       )}
     >
@@ -86,7 +86,7 @@ export function PrimaryButton({ children, className, ...props }: React.ButtonHTM
 
 export function DatabasePanel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("overflow-hidden rounded-lg border border-white/[0.06] bg-[#1C1B19]", className)}>
+    <div className={cn("overflow-hidden rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)]", className)}>
       {children}
     </div>
   );
@@ -102,20 +102,20 @@ export function ViewTabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="mb-3 flex items-center gap-1 overflow-x-auto border-b border-white/[0.06] pb-px">
+    <div className="mb-3 flex items-center gap-1 overflow-x-auto border-b border-[var(--tokyo-border)] pb-px">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "relative flex h-8 shrink-0 items-center gap-1.5 px-2.5 text-sm font-medium text-white/42 transition-colors hover:text-white/70",
-            activeId === tab.id && "text-[#E9E6DF]"
+            "relative flex h-8 shrink-0 items-center gap-1.5 px-2.5 text-sm font-bold text-[var(--tokyo-text-muted)] transition-colors hover:text-[var(--tokyo-text-strong)]",
+            activeId === tab.id && "text-[var(--tokyo-text-strong)]"
           )}
         >
           {tab.icon}
           <span>{tab.label}</span>
-          {typeof tab.count === 'number' && <span className="text-[11px] text-white/28">{tab.count}</span>}
-          {activeId === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-px bg-[#D7CCC0]" />}
+          {typeof tab.count === 'number' && <span className="text-[11px] text-[var(--tokyo-text-faint)]">{tab.count}</span>}
+          {activeId === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-[var(--tokyo-yellow)]" />}
         </button>
       ))}
     </div>
@@ -137,13 +137,13 @@ export function EmptyState({
 }) {
   return (
     <div className="flex min-h-[260px] flex-col items-center justify-center gap-3 p-8 text-center">
-      {icon && <div className="text-white/18">{icon}</div>}
+      {icon && <div className="text-[var(--tokyo-text-faint)]">{icon}</div>}
       <div>
-        <h3 className="text-sm font-semibold text-white/62">{title}</h3>
-        {description && <p className="mt-1 max-w-sm text-sm text-white/32">{description}</p>}
+        <h3 className="text-sm font-bold text-[var(--tokyo-text)]">{title}</h3>
+        {description && <p className="mt-1 max-w-sm text-sm text-[var(--tokyo-text-faint)]">{description}</p>}
       </div>
       {actionLabel && onAction && (
-        <ToolButton onClick={onAction} className="mt-1 border-white/[0.06] bg-white/[0.035]">
+        <ToolButton onClick={onAction} className="mt-1 border-[var(--tokyo-border)] bg-[var(--tokyo-panel-2)]">
           <Plus className="h-4 w-4" />
           {actionLabel}
         </ToolButton>
@@ -162,19 +162,19 @@ export function SearchButton(props: React.ButtonHTMLAttributes<HTMLButtonElement
 
 export function StatusPill({ tone, children, onClick }: { tone: 'green' | 'blue' | 'orange' | 'red' | 'gray' | 'yellow'; children: React.ReactNode; onClick?: React.MouseEventHandler }) {
   const tones = {
-    green: "bg-emerald-500/12 text-emerald-300 ring-emerald-400/10",
-    blue: "bg-sky-500/12 text-sky-300 ring-sky-400/10",
-    orange: "bg-orange-500/12 text-orange-300 ring-orange-400/10",
-    red: "bg-rose-500/12 text-rose-300 ring-rose-400/10",
-    gray: "bg-white/[0.045] text-white/45 ring-white/[0.06]",
-    yellow: "bg-yellow-500/12 text-yellow-200 ring-yellow-300/10",
+    green: "bg-[rgba(166,227,125,0.13)] text-[var(--tokyo-green)] ring-[rgba(166,227,125,0.18)]",
+    blue: "bg-[rgba(198,140,255,0.13)] text-[var(--tokyo-purple)] ring-[rgba(198,140,255,0.18)]",
+    orange: "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] ring-[rgba(255,225,0,0.12)]",
+    red: "bg-[rgba(255,77,125,0.14)] text-[var(--tokyo-pink)] ring-[rgba(255,77,125,0.18)]",
+    gray: "bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-muted)] ring-[var(--tokyo-border)]",
+    yellow: "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] ring-[var(--tokyo-border-strong)]",
   };
 
   return (
     <span
       onClick={onClick}
       className={cn(
-        "inline-flex h-6 items-center rounded-md px-2 text-[12px] font-medium ring-1 transition-opacity",
+        "inline-flex h-6 items-center rounded px-2 text-[12px] font-bold ring-1 transition-opacity",
         onClick && "cursor-pointer hover:opacity-80",
         tones[tone]
       )}

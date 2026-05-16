@@ -110,6 +110,10 @@ service cloud.firestore {
     // ===============================================================
     // Rules
     // ===============================================================
+    match /workspaces/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
     match /tasks/{taskId} {
       allow read: if isDocOwner();
       allow create: if isAuthenticated() && isValidTask(request.resource.data) && uidUnchanged();

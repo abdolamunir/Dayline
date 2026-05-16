@@ -76,17 +76,17 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
   };
 
   return (
-    <div className="flex flex-col w-72 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="flex flex-col w-72 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
       {/* Calendar Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <div className="text-sm font-bold text-white/90">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--tokyo-border)]">
+        <div className="text-sm font-bold text-[var(--tokyo-text-strong)]">
           {format(currentMonth, 'MMMM yyyy')}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={prevMonth} className="p-1 hover:bg-white/5 rounded-md text-white/40 hover:text-white transition-colors">
+          <button onClick={prevMonth} className="p-1 hover:bg-[var(--tokyo-hover)] rounded-md text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button onClick={nextMonth} className="p-1 hover:bg-white/5 rounded-md text-white/40 hover:text-white transition-colors">
+          <button onClick={nextMonth} className="p-1 hover:bg-[var(--tokyo-hover)] rounded-md text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -114,9 +114,9 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
                 className={cn(
                   "h-8 flex items-center justify-center rounded-md text-xs transition-all cursor-pointer",
                   !isCurrentMonth && "text-white/10",
-                  isCurrentMonth && !isSelected && "text-white/60 hover:bg-white/5 hover:text-white",
-                  isSelected && "bg-blue-600 text-white font-bold",
-                  isToday && !isSelected && "text-blue-400 font-bold underline underline-offset-4"
+                  isCurrentMonth && !isSelected && "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
+                  isSelected && "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)] font-bold",
+                  isToday && !isSelected && "text-[var(--tokyo-yellow)] font-bold underline underline-offset-4"
                 )}
               >
                 {format(day, 'd')}
@@ -127,10 +127,10 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
       </div>
 
       {/* Settings Section */}
-      <div className="px-3 pb-3 space-y-3 border-t border-white/5 pt-3 bg-white/[0.01]">
+      <div className="px-3 pb-3 space-y-3 border-t border-[var(--tokyo-border)] pt-3 bg-white/[0.01]">
         {/* Time */}
         <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
-          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)] transition-colors">
             <Clock className="w-3.5 h-3.5" />
             <span className="text-xs font-bold tracking-widest">Time</span>
           </div>
@@ -138,20 +138,20 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
             type="time" 
             value={config.time}
             onChange={(e) => setConfig({ ...config, time: e.target.value })}
-            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer [color-scheme:dark]"
+            className="bg-transparent text-[var(--tokyo-text-strong)] text-xs border-none outline-none focus:text-white cursor-pointer [color-scheme:dark]"
           />
         </div>
 
         {/* Reminder */}
         <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
-          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)] transition-colors">
             <Bell className="w-3.5 h-3.5" />
             <span className="text-xs font-bold tracking-widest">Reminder</span>
           </div>
           <select 
             value={config.reminder}
             onChange={(e) => setConfig({ ...config, reminder: e.target.value })}
-            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
+            className="bg-transparent text-[var(--tokyo-text-strong)] text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
           >
             <option value="none">None</option>
             <option value="at-time">At time</option>
@@ -163,14 +163,14 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
 
         {/* Repeat */}
         <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
-          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)] transition-colors">
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="text-xs font-bold tracking-widest">Repeat</span>
           </div>
           <select 
             value={config.repeat}
             onChange={(e) => setConfig({ ...config, repeat: e.target.value })}
-            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
+            className="bg-transparent text-[var(--tokyo-text-strong)] text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
           >
             <option value="none">Don't repeat</option>
             <option value="daily">Daily</option>
@@ -181,14 +181,14 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
 
         {/* Alerts */}
         <div className="flex items-center justify-between group px-2 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors">
-          <div className="flex items-center gap-2 text-white/40 group-hover:text-white/60 transition-colors">
+          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)] transition-colors">
             <AlertCircle className="w-3.5 h-3.5" />
             <span className="text-xs font-bold tracking-widest">Alerts</span>
           </div>
           <select 
             value={config.alert}
             onChange={(e) => setConfig({ ...config, alert: e.target.value })}
-            className="bg-transparent text-white/90 text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
+            className="bg-transparent text-[var(--tokyo-text-strong)] text-xs border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
           >
             <option value="none">Off</option>
             <option value="on">On</option>
@@ -197,16 +197,16 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
       </div>
 
       {/* Footer */}
-      <div className="p-2 bg-white/[0.02] border-t border-white/5 flex gap-2">
+      <div className="p-2 bg-white/[0.02] border-t border-[var(--tokyo-border)] flex gap-2">
         <button 
           onClick={onClose}
-          className="flex-1 py-1.5 rounded-md text-xs font-bold tracking-wider text-white/30 hover:bg-white/5 hover:text-white transition-all"
+          className="flex-1 py-1.5 rounded-md text-xs font-bold tracking-wider text-[var(--tokyo-text-faint)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-all"
         >
           Cancel
         </button>
         <button 
           onClick={handleSave}
-          className="flex-1 py-1.5 rounded-md text-xs font-bold tracking-wider bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
+          className="flex-1 py-1.5 rounded-md text-xs font-bold tracking-wider bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)] hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all shadow-lg shadow-black/25"
         >
           Done
         </button>

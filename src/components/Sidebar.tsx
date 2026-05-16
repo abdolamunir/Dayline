@@ -4,6 +4,7 @@ import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell,
 import { cn } from '../utils/cn';
 import { useAppStore } from '../store';
 import { IconPicker, ALL_ICONS } from './IconPicker';
+import { logout, signInWithGoogle } from '../firebase';
 
 export type ViewType = string;
 
@@ -24,6 +25,7 @@ const iconMap: Record<string, React.ElementType> = {
 
 export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleSidebar }: SidebarProps) {
   const { 
+    customPages,
     sidebarItems, 
     reorderSidebarItems, 
     addCustomPage, 
@@ -44,6 +46,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isNewItemMenuOpen, setIsNewItemMenuOpen] = useState(false);
+  const [isAuthBusy, setIsAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const newItemMenuRef = useRef<HTMLDivElement>(null);
@@ -73,7 +77,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const x = rect.left + 32;
     let y = rect.bottom;
     
-    const menuHeight = type === 'item' ? 120 : 80;
+    const menuHeight = type === 'item' ? 160 : 80;
     if (y + menuHeight > window.innerHeight) {
       y = rect.top - menuHeight;
     }
@@ -86,6 +90,61 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       updateSidebarItem(id, editValue.trim());
     }
     setEditingId(null);
+  };
+
+  const handleProfileClick = async () => {
+    if (user) {
+      setIsProfileOpen(!isProfileOpen);
+      return;
+    }
+
+    if (isAuthBusy) {
+      return;
+    }
+
+    try {
+      setIsAuthBusy(true);
+      setAuthError('');
+      await signInWithGoogle();
+      setIsProfileOpen(false);
+    } catch (error: any) {
+      console.error('Unable to sign in with Google.', error);
+      const currentDomain = window.location.hostname;
+      setAuthError(error?.code === 'auth/unauthorized-domain'
+        ? `Add ${currentDomain} in Firebase Auth domains.`
+        : 'Google sign-in could not start. Try again.');
+    } finally {
+      setIsAuthBusy(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (isAuthBusy) {
+      return;
+    }
+
+    try {
+      setIsAuthBusy(true);
+      setAuthError('');
+      await logout();
+      setIsProfileOpen(false);
+    } finally {
+      setIsAuthBusy(false);
+    }
+  };
+
+  const getDuplicateLabel = (id: string) => {
+    const item = sidebarItems.find(sidebarItem => sidebarItem.id === id);
+    if (item?.type === 'folder') {
+      return 'Duplicate Folder';
+    }
+
+    const page = item?.type === 'custom' ? customPages.find(customPage => customPage.id === id) : null;
+    if (page?.kind === 'database') {
+      return 'Duplicate Database';
+    }
+
+    return 'Duplicate Page';
   };
 
   const handleNewDatabasePage = () => {
@@ -104,7 +163,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
         { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
         { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
         { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
-        { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
+        { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '140px' },
         { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
       ],
       items: [],
@@ -271,13 +330,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       )}
 
       <div className={cn(
-        "fixed md:relative z-50 bg-[#202020] border-r border-white/5 h-screen flex flex-col text-[#D4D4D4] select-none transition-all duration-300 overflow-hidden",
+        "fixed md:relative z-50 bg-[var(--tokyo-sidebar)] border-r border-[var(--tokyo-border)] h-screen flex flex-col text-[var(--tokyo-text)] select-none transition-[width,transform] duration-100 ease-out overflow-hidden",
         isCollapsed ? "w-16" : "w-64",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto custom-scrollbar" ref={containerRef}>
-            <div className="relative z-20 bg-[#202020] shrink-0">
+          <div className="flex-1 overflow-y-auto no-scrollbar pb-8" ref={containerRef}>
+            <div className="relative z-20 bg-[var(--tokyo-sidebar)] shrink-0">
               {/* Top Section - Design Match */}
               {!isCollapsed && (
                 <div className="px-4 pt-4 pb-1 space-y-2">
@@ -285,68 +344,73 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="flex items-center justify-between gap-2">
                     <div className="relative flex-1 min-w-0">
                       <button 
-                        onClick={() => user ? setIsProfileOpen(!isProfileOpen) : undefined}
+                        onClick={handleProfileClick}
+                        disabled={isAuthBusy}
                         className={cn(
-                          "w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group",
-                          isProfileOpen && "bg-white/5"
+                          "w-full flex items-center gap-2 p-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors cursor-pointer group disabled:cursor-wait disabled:opacity-70",
+                          isProfileOpen && "bg-[var(--tokyo-hover)]"
                         )}
                       >
                         <img 
-                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'User'}&background=0D8ABC&color=fff`} 
-                          alt={user?.displayName || 'User'} 
-                          className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0"
+                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email || 'User')}&background=0D8ABC&color=fff`} 
+                          alt={user?.displayName || user?.email || 'User'} 
+                          className="w-8 h-8 rounded-full object-cover border border-[var(--tokyo-border-strong)] shrink-0"
                           referrerPolicy="no-referrer"
                         />
                         <div className="flex flex-col min-w-0 flex-1 text-left gap-0.5">
-                          <span className="text-[14px] font-semibold text-[#E8E6E1] truncate leading-tight">
-                            {user?.displayName || 'Sign In'}
+                          <span className="text-[14px] font-semibold text-[var(--tokyo-text-strong)] truncate leading-tight">
+                            {user?.displayName || (user ? user.email : isAuthBusy ? 'Signing in...' : 'Sign In')}
                           </span>
-                          <span className="text-[12px] text-white/40 truncate leading-tight">
-                            {user?.email || 'Click to login'}
+                          <span className="text-[12px] text-[var(--tokyo-text-faint)] truncate leading-tight">
+                            {user?.email || 'Click to login with Google'}
                           </span>
                         </div>
-                          {user && <ChevronDown className={cn("w-3.5 h-3.5 text-white/40 transition-transform shrink-0", isProfileOpen && "rotate-180")} />}
+                          {user && <ChevronDown className={cn("w-3.5 h-3.5 text-[var(--tokyo-text-faint)] transition-transform shrink-0", isProfileOpen && "rotate-180")} />}
                       </button>
+                      {authError && (
+                        <p className="mt-1 px-1 text-[10px] leading-4 text-[var(--tokyo-pink)]">
+                          {authError}
+                        </p>
+                      )}
 
                       {isProfileOpen && (
                           <div 
                             className={cn(
-                              "absolute top-full left-0 mt-2 w-56 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                              "absolute top-full left-0 mt-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
                             )}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="px-3 py-2 border-b border-white/5 mb-1">
-                              <p className="text-xs font-medium text-white/30">Account</p>
+                            <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
+                              <p className="text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
                             </div>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
-                              <User className="w-4 h-4 text-white/40" />
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                              <User className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Profile
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
-                              <Settings className="w-4 h-4 text-white/40" />
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                              <Settings className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Settings
                             </button>
-                            <div className="h-px bg-white/5 my-1.5" />
+                            <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
                               onClick={() => {
                                 setIsShortcutsOpen(true);
                                 setIsProfileOpen(false);
                               }}
-                              className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                              className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                             >
-                              <Keyboard className="w-4 h-4 text-white/40" />
+                              <Keyboard className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Shortcuts
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
-                              <HelpCircle className="w-4 h-4 text-white/40" />
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                              <HelpCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Help
                             </button>
-                            <div className="h-px bg-white/5 my-1.5" />
+                            <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
-                              onClick={() => {
-                                setIsProfileOpen(false);
-                              }}
-                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+                              onClick={handleLogout}
+                              disabled={isAuthBusy}
+                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
                             >
                               <LogOut className="w-4 h-4" />
                               Logout
@@ -356,7 +420,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </div>
                     <button 
                       onClick={onToggleSidebar}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#2A2A2A] text-white/60 hover:text-white hover:bg-[#3A3A3A] transition-colors cursor-pointer p-1.5 shrink-0"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-panel-3)] transition-colors cursor-pointer p-1.5 shrink-0"
                       title="Toggle Sidebar"
                     >
                       <SidebarIcon className="w-4 h-4" />
@@ -367,10 +431,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="flex items-center">
                     <button 
                       onClick={() => onOpenCommandPalette()}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 bg-transparent border border-white/5 rounded-lg text-white/30 hover:text-white/50 hover:bg-white/5 transition-colors cursor-pointer group"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 bg-transparent border border-[var(--tokyo-border)] rounded-lg text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] transition-colors cursor-pointer group"
                     >
                       <span className="text-sm font-medium flex-1 text-left">Quick actions</span>
-                      <div className="flex items-center gap-0.5 px-1 py-0.5 rounded border border-white/10 bg-transparent">
+                      <div className="flex items-center gap-0.5 px-1 py-0.5 rounded border border-[var(--tokyo-border-strong)] bg-transparent">
                         <span className="text-xs font-sans">⌘</span>
                         <span className="text-xs font-sans">K</span>
                       </div>
@@ -385,7 +449,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="flex flex-col items-center gap-2">
                     <button 
                       onClick={onToggleSidebar}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#2A2A2A] text-white/60 hover:text-white hover:bg-[#3A3A3A] transition-colors cursor-pointer p-1.5"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-panel-3)] transition-colors cursor-pointer p-1.5"
                       title="Toggle Sidebar"
                     >
                       <SidebarIcon className="w-4 h-4" />
@@ -393,12 +457,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     
                     <div className="relative">
                       <button 
-                        onClick={() => user ? setIsProfileOpen(!isProfileOpen) : undefined}
-                        className="w-8 h-8 rounded-full overflow-hidden border border-white/10 hover:border-white/30 transition-colors cursor-pointer"
+                        onClick={handleProfileClick}
+                        disabled={isAuthBusy}
+                        className="w-8 h-8 rounded-full overflow-hidden border border-[var(--tokyo-border-strong)] hover:border-white/30 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-70"
                       >
                         <img 
-                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'User'}&background=0D8ABC&color=fff`} 
-                          alt={user?.displayName || 'User'} 
+                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email || 'User')}&background=0D8ABC&color=fff`} 
+                          alt={user?.displayName || user?.email || 'User'} 
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
@@ -406,41 +471,40 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
                       {isProfileOpen && (
                           <div 
-                            className="absolute top-0 left-full ml-2 w-56 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200"
+                            className="absolute top-0 left-full ml-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="px-3 py-2 border-b border-white/5 mb-1">
-                              <p className="text-xs font-medium text-white/30">Account</p>
+                            <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
+                              <p className="text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
                             </div>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
-                              <User className="w-4 h-4 text-white/40" />
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                              <User className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Profile
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
-                              <Settings className="w-4 h-4 text-white/40" />
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                              <Settings className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Settings
                             </button>
-                            <div className="h-px bg-white/5 my-1.5" />
+                            <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
                               onClick={() => {
                                 setIsShortcutsOpen(true);
                                 setIsProfileOpen(false);
                               }}
-                              className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                              className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                             >
-                              <Keyboard className="w-4 h-4 text-white/40" />
+                              <Keyboard className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Shortcuts
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer">
-                              <HelpCircle className="w-4 h-4 text-white/40" />
+                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                              <HelpCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Help
                             </button>
-                            <div className="h-px bg-white/5 my-1.5" />
+                            <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
-                              onClick={() => {
-                                setIsProfileOpen(false);
-                              }}
-                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+                              onClick={handleLogout}
+                              disabled={isAuthBusy}
+                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
                             >
                               <LogOut className="w-4 h-4" />
                               Logout
@@ -452,7 +516,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
                   <button 
                     onClick={() => onOpenCommandPalette()}
-                    className="w-full flex items-center justify-center bg-transparent border border-white/5 hover:bg-white/5 text-white/50 hover:text-white/80 rounded-md py-1.5 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center bg-transparent border border-[var(--tokyo-border)] hover:bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text)] rounded-md py-1.5 transition-colors cursor-pointer"
                     title="Quick actions"
                   >
                     <Search className="w-4 h-4 shrink-0" />
@@ -461,42 +525,42 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
               )}
 
               <div className="px-4 mt-1 space-y-0.5">
-                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'inbox' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
-                    <Inbox className="w-4 h-4 text-blue-400 shrink-0" />
+                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'inbox' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                    <Inbox className="w-4 h-4 text-[#45aaff] shrink-0" />
                     {!isCollapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 text-left">Inbox</span>
-                        <span className="text-xs font-medium text-white/40 group-hover:text-white/60">2</span>
+                        <span className="text-xs font-medium text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">2</span>
                       </>
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'today' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
-                    <Star className="w-4 h-4 text-yellow-400 shrink-0" />
+                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'today' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                    <Star className="w-4 h-4 text-[var(--tokyo-yellow)] shrink-0" />
                     {!isCollapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 text-left">Today</span>
-                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500 text-white text-xs font-bold">1</span>
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--tokyo-pink)] text-white text-xs font-bold">1</span>
                       </>
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'upcoming' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
-                    <CalendarIcon className="w-4 h-4 text-rose-400 shrink-0" />
+                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'upcoming' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                    <CalendarIcon className="w-4 h-4 text-[var(--tokyo-pink)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Upcoming</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'someday' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
-                    <Clock className="w-4 h-4 text-purple-400 shrink-0" />
+                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'someday' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                    <Clock className="w-4 h-4 text-[var(--tokyo-purple)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Someday</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'logbook' ? "bg-white/10 text-white" : "text-white/80 hover:bg-white/5")}>
-                    <BookCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'logbook' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                    <BookCheck className="w-4 h-4 text-[var(--tokyo-green)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Logbook</span>}
                   </button>
                 </div>
-                <div className="h-px bg-white/5 my-4 mx-4" />
+                <div className="h-px bg-[var(--tokyo-border)] my-4 mx-4" />
             </div>
 
             {/* Main Section */}
@@ -549,22 +613,22 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12px] leading-5 font-medium text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3.5 h-3.5" />
                       New Item
                     </button>
                     
                     {isNewItemMenuOpen && (
-                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
                         <button 
                           onClick={() => {
                             handleNewDatabasePage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Database className="w-4 h-4 text-white/40" />
+                          <Database className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                           New Database
                         </button>
                         <button 
@@ -572,16 +636,16 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             handleNewDocumentPage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <FileText className="w-4 h-4 text-white/40" />
+                          <FileText className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                           New Document
                         </button>
                         <button 
                           onClick={handleNewFolder}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Folder className="w-4 h-4 text-white/40" />
+                          <Folder className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                           New Folder
                         </button>
                       </div>
@@ -590,14 +654,14 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <button 
                     onClick={() => onViewChange('trash')}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer group",
-                      currentView === 'trash' ? "bg-white/10 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
+                      "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12px] leading-5 font-medium transition-colors cursor-pointer group",
+                      currentView === 'trash' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)]"
                     )}
                   >
-                    <Trash2 className="w-4 h-4 shrink-0" />
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
                     <span className="flex-1 text-left">Trash</span>
                     {trash.length > 0 && (
-                      <span className="text-xs font-medium text-white/30 group-hover:text-white/50">{trash.length}</span>
+                      <span className="text-xs font-medium text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">{trash.length}</span>
                     )}
                   </button>
                 </>
@@ -606,22 +670,22 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="p-2 text-white/40 hover:text-white transition-colors cursor-pointer" 
+                      className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors cursor-pointer" 
                       title="New Item"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                     
                     {isNewItemMenuOpen && (
-                      <div className="absolute bottom-0 left-full ml-2 w-48 bg-[#2A2A2A] border border-white/10 shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
+                      <div className="absolute bottom-0 left-full ml-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
                         <button 
                           onClick={() => {
                             handleNewDatabasePage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Database className="w-4 h-4 text-white/40" />
+                          <Database className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                           New Database
                         </button>
                         <button 
@@ -629,9 +693,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             handleNewDocumentPage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <FileText className="w-4 h-4 text-white/40" />
+                          <FileText className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                           New Document
                         </button>
                         <button 
@@ -639,15 +703,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             handleNewFolder();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Folder className="w-4 h-4 text-white/40" />
+                          <Folder className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                           New Folder
                         </button>
                       </div>
                     )}
                   </div>
-                  <button onClick={() => onViewChange('trash')} className={cn("p-2 rounded-md transition-colors cursor-pointer", currentView === 'trash' ? "bg-white/10 text-white" : "text-white/40 hover:text-white")} title="Trash">
+                  <button onClick={() => onViewChange('trash')} className={cn("p-2 rounded-md transition-colors cursor-pointer", currentView === 'trash' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-white")} title="Trash">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -664,20 +728,20 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
           className="fixed inset-0" 
           onClick={() => setIsShortcutsOpen(false)}
         />
-        <div className="relative w-full max-w-lg bg-[#1C1C1C] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-          <div className="p-6 border-b border-white/5 flex items-center justify-between">
+        <div className="relative w-full max-w-lg bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="p-6 border-b border-[var(--tokyo-border)] flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-                <Keyboard className="w-5 h-5 text-white/80" />
+              <div className="w-10 h-10 rounded-xl bg-[var(--tokyo-hover)] flex items-center justify-center">
+                <Keyboard className="w-5 h-5 text-[var(--tokyo-text)]" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-white/90">Keyboard Shortcuts</h2>
-                <p className="text-sm text-white/40">Boost your productivity with quick keys</p>
+                <h2 className="text-lg font-semibold text-[var(--tokyo-text-strong)]">Keyboard Shortcuts</h2>
+                <p className="text-sm text-[var(--tokyo-text-faint)]">Boost your productivity with quick keys</p>
               </div>
             </div>
             <button 
               onClick={() => setIsShortcutsOpen(false)}
-              className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-white transition-colors cursor-pointer"
+              className="p-2 hover:bg-[var(--tokyo-hover)] rounded-lg text-[var(--tokyo-text-faint)] hover:text-white transition-colors cursor-pointer"
             >
               <Plus className="w-5 h-5 rotate-45" />
             </button>
@@ -718,9 +782,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
             </div>
           </div>
 
-          <div className="p-4 bg-white/5 text-center">
-            <p className="text-xs text-white/30">
-              Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 font-sans mx-1">?</kbd> anywhere to show this menu
+          <div className="p-4 bg-[var(--tokyo-hover)] text-center">
+            <p className="text-xs text-[var(--tokyo-text-faint)]">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-muted)] font-sans mx-1">?</kbd> anywhere to show this menu
             </p>
           </div>
         </div>
@@ -743,7 +807,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
             }}
           />
           <div 
-            className="fixed bg-[#2A2A2A] border border-white/10 shadow-xl rounded-lg py-1 w-48 z-[100]"
+            className="sidebar-context-menu fixed bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-xl rounded-lg py-1 w-48 z-[100]"
             style={{ top: contextMenu.y, left: contextMenu.x }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
@@ -755,7 +819,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
               {contextMenu.type === 'item' ? (
             <>
               <button 
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                 onClick={() => {
                   const item = sidebarItems.find(i => i.id === contextMenu.id);
                   if (item) {
@@ -765,23 +829,21 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   setContextMenu(null);
                 }}
               >
-                <Edit2 className="w-4 h-4" />
+                <Edit2 className="w-3.5 h-3.5" />
                 Rename
               </button>
-              {sidebarItems.find(i => i.id === contextMenu.id)?.type === 'custom' && (
-                <button 
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                  onClick={() => {
-                    duplicateSidebarItem(contextMenu.id);
-                    setContextMenu(null);
-                  }}
-                >
-                  <Copy className="w-4 h-4" />
-                  Duplicate
-                </button>
-              )}
               <button 
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                onClick={() => {
+                  duplicateSidebarItem(contextMenu.id);
+                  setContextMenu(null);
+                }}
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {getDuplicateLabel(contextMenu.id)}
+              </button>
+              <button 
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                 onClick={() => {
                   const item = sidebarItems.find(i => i.id === contextMenu.id);
                   if (item) {
@@ -791,12 +853,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   setContextMenu(null);
                 }}
               >
-                <Smile className="w-4 h-4" />
+                <Smile className="w-3.5 h-3.5" />
                 Change Icon
               </button>
-              <div className="h-px bg-white/5 my-1" />
+              <div className="h-px bg-[var(--tokyo-border)] my-1" />
               <button 
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
                 onClick={() => {
                   deleteSidebarItem(contextMenu.id);
                   if (currentView === contextMenu.id) {
@@ -805,7 +867,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   setContextMenu(null);
                 }}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
                 Delete
               </button>
             </>
@@ -856,11 +918,11 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 function ShortcutRow({ label, keys }: { label: string, keys: string[] }) {
   return (
     <div className="flex items-center justify-between group">
-      <span className="text-sm text-white/70 group-hover:text-white/90 transition-colors">{label}</span>
+      <span className="text-sm text-white/70 group-hover:text-[var(--tokyo-text-strong)] transition-colors">{label}</span>
       <div className="flex items-center gap-1.5">
         {keys.map((key, i) => (
           <React.Fragment key={i}>
-            <kbd className="min-w-[24px] h-6 px-1.5 flex items-center justify-center rounded bg-white/5 border border-white/10 text-xs font-medium text-white/60 font-sans shadow-sm">
+            <kbd className="min-w-[24px] h-6 px-1.5 flex items-center justify-center rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border-strong)] text-xs font-medium text-[var(--tokyo-text-muted)] font-sans shadow-sm">
               {key}
             </kbd>
             {i < keys.length - 1 && <span className="text-xs text-white/20">+</span>}
@@ -915,7 +977,7 @@ function SidebarItem({
           "w-full flex items-center rounded-md py-1.5 transition-all group relative select-none",
           "cursor-pointer",
           isCollapsed ? "justify-center" : "px-3 gap-3",
-          isActive ? "bg-white/10 text-[#E8E6E1]" : "text-white/80 hover:bg-white/5",
+          isActive ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
           isFolder && "font-semibold",
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
         )}
@@ -932,10 +994,10 @@ function SidebarItem({
         }}
       >
         {isDraggingOver && dropPosition === 'top' && (
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 z-20 rounded-full" />
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--tokyo-border-strong)] z-20 rounded-full" />
         )}
         {isDraggingOver && dropPosition === 'bottom' && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 z-20 rounded-full" />
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tokyo-border-strong)] z-20 rounded-full" />
         )}
         <div className="flex items-center">
           <button
@@ -946,9 +1008,12 @@ function SidebarItem({
               setIconPickerId(item.id);
               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
             }}
-            className="hover:bg-white/10 rounded p-0.5 transition-colors cursor-pointer"
+            className="hover:bg-[var(--tokyo-hover)] rounded p-0.5 transition-colors cursor-pointer"
           >
-            <Icon className={cn("w-4 h-4 shrink-0 stroke-[1.5]", isActive ? "opacity-100" : "opacity-70")} />
+            <Icon className={cn(
+              "w-4 h-4 shrink-0 stroke-[1.5]",
+              isActive ? "opacity-100" : "opacity-70"
+            )} />
           </button>
         </div>
         {!isCollapsed && (
@@ -963,7 +1028,7 @@ function SidebarItem({
                 if (e.key === 'Enter') handleRenameSubmit(item.id);
                 if (e.key === 'Escape') setEditingId(null);
               }}
-              className="flex-1 bg-transparent outline-none text-[#E8E6E1] text-sm font-medium cursor-text"
+              className="flex-1 bg-transparent outline-none text-[var(--tokyo-text-strong)] text-sm font-medium cursor-text"
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             />
@@ -973,10 +1038,10 @@ function SidebarItem({
               {isFolder && (
                 <motion.div
                   animate={{ rotate: item.isExpanded ? 90 : 0 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.08 }}
                   className="shrink-0 ml-2"
                 >
-                  <ChevronRight className="w-3 h-3 text-white/40" />
+                  <ChevronRight className="w-3 h-3 text-[var(--tokyo-text-faint)]" />
                 </motion.div>
               )}
             </div>
@@ -991,7 +1056,7 @@ function SidebarItem({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="ml-4 border-l border-white/5 pl-2 space-y-0.5 overflow-hidden"
+            className="ml-4 border-l border-[var(--tokyo-border)] pl-2 space-y-0.5 overflow-hidden"
           >
             {children.map((child: any) => {
               const ChildIcon = iconMap[child.icon] || File;

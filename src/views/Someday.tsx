@@ -15,29 +15,29 @@ export function Someday() {
 
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-8">
-      <header className="flex items-center gap-3 border-b border-white/10 pb-6">
+      <header className="flex items-center gap-3 border-b border-[var(--tokyo-border-strong)] pb-6">
         <div className="p-2 bg-amber-500/20 rounded-lg text-amber-400">
           <PackageOpen className="w-6 h-6" />
         </div>
         <div>
-          <h1 className="text-3xl font-semibold text-white/90 tracking-tight">Someday</h1>
-          <p className="text-white/50 mt-1">Things you want to do, eventually.</p>
+          <h1 className="text-3xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight">Someday</h1>
+          <p className="text-[var(--tokyo-text-muted)] mt-1">Things you want to do, eventually.</p>
         </div>
       </header>
 
-      <div className="bg-[#202020] rounded-2xl border border-white/5 overflow-hidden">
+      <div className="bg-[var(--tokyo-sidebar)] rounded-2xl border border-[var(--tokyo-border)] overflow-hidden">
         <div className="divide-y divide-white/5">
           {somedayTasks.length > 0 ? somedayTasks.map(task => (
-            <div key={task.id} className="p-4 flex items-center gap-4 hover:bg-white/5 transition-colors group">
-              <button onClick={() => handleTaskToggle(task)} className="text-white/40 hover:text-amber-500 transition-colors">
+            <div key={task.id} className="p-4 flex items-center gap-4 hover:bg-[var(--tokyo-hover)] transition-colors group">
+              <button onClick={() => handleTaskToggle(task)} className="text-[var(--tokyo-text-faint)] hover:text-amber-500 transition-colors">
                 {task.status === 'done' ? <CheckCircle2 className="w-5 h-5 text-amber-500" /> : <Circle className="w-5 h-5" />}
               </button>
-              <span className={cn("text-white/80 font-medium", task.status === 'done' && "line-through text-white/40")}>
+              <span className={cn("text-[var(--tokyo-text)] font-medium", task.status === 'done' && "line-through text-[var(--tokyo-text-faint)]")}>
                 {task.title}
               </span>
             </div>
           )) : (
-            <div className="p-12 text-center text-white/40">
+            <div className="p-12 text-center text-[var(--tokyo-text-faint)]">
               <PackageOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
               <p>Nothing saved for someday yet.</p>
             </div>

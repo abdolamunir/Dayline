@@ -50,10 +50,10 @@ const integrations = [
 
 export function Integrations() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-8 md:p-16 lg:p-24 overflow-y-auto custom-scrollbar">
+    <div className="min-h-screen bg-[var(--tokyo-bg-deep)] text-white p-8 md:p-16 lg:p-24 overflow-y-auto custom-scrollbar">
       <div className="max-w-7xl mx-auto">
         <div className="mb-16">
-          <p className="text-xs text-white/30 tracking-[0.3em] mb-6 flex items-center gap-2">
+          <p className="text-xs text-[var(--tokyo-text-faint)] tracking-[0.3em] mb-6 flex items-center gap-2">
             <span className="opacity-50">#</span>
             Seamless connectivity
             <span className="opacity-50">#</span>
@@ -65,7 +65,7 @@ export function Integrations() {
           {integrations.map((item) => (
             <div 
               key={item.name}
-              className="bg-[#141414] border border-white/[0.03] rounded-[2.5rem] p-10 flex flex-col hover:bg-white/[0.02] transition-all duration-500 group cursor-pointer"
+              className="bg-[var(--tokyo-panel)] border border-white/[0.03] rounded-[2.5rem] p-10 flex flex-col hover:bg-white/[0.02] transition-all duration-500 group cursor-pointer"
             >
               <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center mb-10 overflow-hidden shadow-2xl shadow-white/5">
                 <img 
@@ -76,13 +76,13 @@ export function Integrations() {
                 />
               </div>
               
-              <h3 className="text-2xl font-bold mb-4 text-white/90 group-hover:text-white transition-colors">{item.name}</h3>
+              <h3 className="text-2xl font-bold mb-4 text-[var(--tokyo-text-strong)] group-hover:text-white transition-colors">{item.name}</h3>
               
-              <p className="text-[15px] text-white/40 leading-relaxed mb-12 flex-1 group-hover:text-white/50 transition-colors">
+              <p className="text-[15px] text-[var(--tokyo-text-faint)] leading-relaxed mb-12 flex-1 group-hover:text-[var(--tokyo-text-muted)] transition-colors">
                 {item.description}
               </p>
               
-              <button className="text-[13px] font-bold flex items-center gap-1.5 text-white/90 group-hover:text-white transition-all">
+              <button className="text-[13px] font-bold flex items-center gap-1.5 text-[var(--tokyo-text-strong)] group-hover:text-white transition-all">
                 Enable Source 
                 <span className="text-lg leading-none opacity-60 group-hover:opacity-100 transition-opacity">›</span>
               </button>

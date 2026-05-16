@@ -82,15 +82,15 @@ export function Upcoming() {
     const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
-      <div className="flex flex-col h-full bg-[#1C1C1C]">
-        <div className="grid grid-cols-7 border-b border-white/10 bg-[#202020]">
+      <div className="flex flex-col h-full bg-[var(--tokyo-panel)]">
+        <div className="grid grid-cols-7 border-b border-[var(--tokyo-border-strong)] bg-[var(--tokyo-sidebar)]">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} className="py-3 text-center text-xs font-semibold text-white/50 tracking-wider">
+            <div key={d} className="py-3 text-center text-xs font-semibold text-[var(--tokyo-text-muted)] tracking-wider">
               {d}
             </div>
           ))}
         </div>
-        <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-px bg-white/5">
+        <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-px bg-[var(--tokyo-hover)]">
           {daysInMonth.map((d) => {
             const dayTasks = tasks.filter(t => t.dueDate === format(d, 'yyyy-MM-dd'));
             const isCurrentMonth = isSameMonth(d, monthStart);
@@ -100,14 +100,14 @@ export function Upcoming() {
               <div 
                 key={d.toString()} 
                 className={cn(
-                  "min-h-[120px] bg-[#1C1C1C] p-2 transition-colors hover:bg-[#222222] flex flex-col",
-                  !isCurrentMonth && "bg-[#181818]"
+                  "min-h-[120px] bg-[var(--tokyo-panel)] p-2 transition-colors hover:bg-[var(--tokyo-panel-2)] flex flex-col",
+                  !isCurrentMonth && "bg-[var(--tokyo-bg-deep)]"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={cn(
                     "text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full",
-                    isTodayDate ? "bg-purple-500 text-white" : isCurrentMonth ? "text-white/80" : "text-white/30"
+                    isTodayDate ? "bg-[var(--tokyo-purple)] text-white" : isCurrentMonth ? "text-[var(--tokyo-text)]" : "text-[var(--tokyo-text-faint)]"
                   )}>
                     {format(d, 'd')}
                   </span>
@@ -120,8 +120,8 @@ export function Upcoming() {
                       className={cn(
                         "text-xs px-2 py-1 rounded truncate border cursor-pointer",
                         task.status === 'done' 
-                          ? "bg-white/5 text-white/40 border-transparent line-through hover:bg-white/10" 
-                          : "bg-purple-500/10 text-purple-300 border-purple-500/20 hover:bg-purple-500/20"
+                          ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] border-transparent line-through hover:bg-[var(--tokyo-hover)]" 
+                          : "bg-[rgba(198,140,255,0.12)] text-[var(--tokyo-purple)] border-[rgba(198,140,255,0.2)] hover:bg-[rgba(198,140,255,0.2)]"
                       )}
                       title={task.title}
                     >
@@ -149,20 +149,20 @@ export function Upcoming() {
     const currentTimeTop = (currentHours + currentMinutes / 60) * 80;
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#111]">
-        <div className="flex border-b border-white/5 bg-[#111]">
-          <div className="w-16 shrink-0 border-r border-white/5" />
+      <div className="flex flex-col h-full overflow-hidden bg-[var(--tokyo-bg-deep)]">
+        <div className="flex border-b border-[var(--tokyo-border)] bg-[var(--tokyo-bg-deep)]">
+          <div className="w-16 shrink-0 border-r border-[var(--tokyo-border)]" />
           <div className="flex-1 grid grid-cols-7">
             {days.map(d => {
               const isTodayDate = isToday(d);
               return (
-                <div key={d.toString()} className="py-4 text-center border-r border-white/5 last:border-r-0 flex items-center justify-center gap-2">
-                  <span className="text-sm font-medium text-white/80">
+                <div key={d.toString()} className="py-4 text-center border-r border-[var(--tokyo-border)] last:border-r-0 flex items-center justify-center gap-2">
+                  <span className="text-sm font-medium text-[var(--tokyo-text)]">
                     {format(d, 'EEE')}
                   </span>
                   <span className={cn(
                     "w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium",
-                    isTodayDate ? "bg-[#F85149] text-white" : "text-white/80"
+                    isTodayDate ? "bg-[var(--tokyo-pink)] text-white" : "text-[var(--tokyo-text)]"
                   )}>
                     {format(d, 'd')}
                   </span>
@@ -191,8 +191,8 @@ export function Upcoming() {
                           className={cn(
                             "rounded-lg px-3 py-2 text-xs truncate border cursor-pointer transition-colors",
                             task.status === 'done' 
-                              ? "bg-[#1A1A1A] text-white/40 border-white/5 line-through hover:bg-[#222]" 
-                              : "bg-gradient-to-b from-white/10 to-transparent text-white/90 border-white/10 hover:border-white/20"
+                              ? "bg-[var(--tokyo-panel)] text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] line-through hover:bg-[var(--tokyo-panel-2)]" 
+                              : "bg-gradient-to-b from-white/10 to-transparent text-[var(--tokyo-text-strong)] border-[var(--tokyo-border-strong)] hover:border-white/20"
                           )}
                           title={task.title}
                         >
@@ -222,9 +222,9 @@ export function Upcoming() {
                           className={cn(
                             "absolute left-1 right-1 rounded-xl p-3 overflow-hidden border z-20 cursor-pointer transition-colors flex flex-col gap-1",
                             task.status === 'done' 
-                              ? "bg-[#1A1A1A] text-white/40 border-white/5 hover:bg-[#222]" 
+                              ? "bg-[var(--tokyo-panel)] text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] hover:bg-[var(--tokyo-panel-2)]" 
                               : "bg-gradient-to-b from-white/5 to-transparent hover:from-white/10",
-                            isCurrent && task.status !== 'done' ? "border-[#F85149]" : "border-white/10"
+                            isCurrent && task.status !== 'done' ? "border-[var(--tokyo-pink)]" : "border-[var(--tokyo-border-strong)]"
                           )}
                           style={{ top: `${top}px`, height: `${Math.max(height, 40)}px` }}
                         >
@@ -235,11 +235,11 @@ export function Upcoming() {
                               task.priority === 'medium' ? "border-yellow-400" :
                               "border-green-400"
                             )} />
-                            <div className={cn("text-xs font-semibold text-white/90 leading-tight", task.status === 'done' && "line-through text-white/40")}>
+                            <div className={cn("text-xs font-semibold text-[var(--tokyo-text-strong)] leading-tight", task.status === 'done' && "line-through text-[var(--tokyo-text-faint)]")}>
                               {task.title}
                             </div>
                           </div>
-                          <div className="text-xs text-white/50 pl-5">
+                          <div className="text-xs text-[var(--tokyo-text-muted)] pl-5">
                             {task.startTime} {task.endTime && `- ${task.endTime}`}
                           </div>
                         </div>
@@ -262,22 +262,22 @@ export function Upcoming() {
     const timedTasks = dayTasks.filter(t => t.startTime);
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#1C1C1C]">
-        <div className="p-4 border-b border-white/10 bg-[#202020] flex items-center justify-between">
+      <div className="flex flex-col h-full overflow-hidden bg-[var(--tokyo-panel)]">
+        <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-[var(--tokyo-sidebar)] flex items-center justify-between">
           <div>
-            <div className="text-2xl font-bold text-white/90">{format(currentDate, 'EEEE')}</div>
-            <div className="text-white/50">{format(currentDate, 'MMMM d, yyyy')}</div>
+            <div className="text-2xl font-bold text-[var(--tokyo-text-strong)]">{format(currentDate, 'EEEE')}</div>
+            <div className="text-[var(--tokyo-text-muted)]">{format(currentDate, 'MMMM d, yyyy')}</div>
           </div>
           {isToday(currentDate) && (
-            <div className="px-3 py-1 rounded-full bg-purple-500/20 text-purple-400 text-xs font-medium">
+            <div className="px-3 py-1 rounded-full bg-[rgba(198,140,255,0.2)] text-[var(--tokyo-purple)] text-xs font-medium">
               Today
             </div>
           )}
         </div>
         
         {allDayTasks.length > 0 && (
-          <div className="p-4 border-b border-white/10 bg-[#1A1A1A] space-y-2">
-            <div className="text-xs font-medium text-white/40 mb-2">All Day</div>
+          <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] space-y-2">
+            <div className="text-xs font-medium text-[var(--tokyo-text-faint)] mb-2">All Day</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {allDayTasks.map(task => (
                 <div 
@@ -286,8 +286,8 @@ export function Upcoming() {
                   className={cn(
                     "rounded-lg p-3 text-sm border cursor-pointer transition-colors",
                     task.status === 'done' 
-                      ? "bg-[#2A2A2A] text-white/40 border-white/5 line-through hover:bg-[#333]" 
-                      : "bg-purple-500/10 text-purple-300 border-purple-500/20 hover:bg-purple-500/20"
+                      ? "bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] line-through hover:bg-[var(--tokyo-panel-3)]" 
+                      : "bg-[rgba(198,140,255,0.12)] text-[var(--tokyo-purple)] border-[rgba(198,140,255,0.2)] hover:bg-[rgba(198,140,255,0.2)]"
                   )}
                 >
                   <div className="font-medium">{task.title}</div>
@@ -299,10 +299,10 @@ export function Upcoming() {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="flex min-h-[1920px]"> {/* 24 hours * 80px */}
-            <div className="w-20 shrink-0 border-r border-white/10 bg-[#1C1C1C]">
+            <div className="w-20 shrink-0 border-r border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)]">
               {hours.map(h => (
                 <div key={h} className="h-[80px] relative">
-                  <span className="absolute -top-2.5 right-4 text-xs font-medium text-white/40">
+                  <span className="absolute -top-2.5 right-4 text-xs font-medium text-[var(--tokyo-text-faint)]">
                     {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
                   </span>
                 </div>
@@ -312,7 +312,7 @@ export function Upcoming() {
               {/* Grid lines */}
               <div className="absolute inset-0 pointer-events-none">
                 {hours.map(h => (
-                  <div key={h} className="h-[80px] border-b border-white/5" />
+                  <div key={h} className="h-[80px] border-b border-[var(--tokyo-border)]" />
                 ))}
               </div>
               
@@ -333,8 +333,8 @@ export function Upcoming() {
                     className={cn(
                       "absolute left-4 right-4 rounded-xl p-3 text-sm overflow-hidden border shadow-lg z-10 cursor-pointer transition-colors",
                       task.status === 'done' 
-                        ? "bg-[#2A2A2A]/90 text-white/40 border-white/10 hover:bg-[#333]/90" 
-                        : "bg-purple-500/20 text-purple-300 border-purple-500/40 backdrop-blur-md hover:bg-purple-500/30"
+                        ? "bg-[var(--tokyo-panel-2)]/90 text-[var(--tokyo-text-faint)] border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-3)]/90" 
+                        : "bg-[rgba(198,140,255,0.2)] text-[var(--tokyo-purple)] border-[rgba(198,140,255,0.4)] backdrop-blur-md hover:bg-[rgba(198,140,255,0.3)]"
                     )}
                     style={{ top: `${top}px`, height: `${Math.max(height, 40)}px` }}
                   >
@@ -354,22 +354,22 @@ export function Upcoming() {
   };
 
   return (
-    <div className="h-full flex flex-col w-full bg-[#111] text-white">
+    <div className="h-full flex flex-col w-full bg-[var(--tokyo-bg-deep)] text-white">
       <header className="flex flex-col gap-4 mb-6 px-6 pt-6">
         <h1 className="text-4xl font-bold text-white tracking-tight">Sprint 🏃🏻‍♂️</h1>
         
         <div className="flex items-center justify-between">
-          <div className="text-lg font-medium text-white/80">
+          <div className="text-lg font-medium text-[var(--tokyo-text)]">
             {getHeaderDateText()}
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-[#222] rounded-md border border-white/10 p-0.5 mr-4">
+            <div className="flex items-center bg-[var(--tokyo-panel-2)] rounded-md border border-[var(--tokyo-border-strong)] p-0.5 mr-4">
               <button
                 onClick={() => setViewMode('week')}
                 className={cn(
                   "px-3 py-1 text-sm font-medium rounded transition-colors",
-                  viewMode === 'week' ? "bg-[#333] text-white" : "text-white/40 hover:text-white/80"
+                  viewMode === 'week' ? "bg-[var(--tokyo-panel-3)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                 )}
               >
                 Week
@@ -378,33 +378,33 @@ export function Upcoming() {
                 onClick={() => setViewMode('month')}
                 className={cn(
                   "px-3 py-1 text-sm font-medium rounded transition-colors",
-                  viewMode === 'month' ? "bg-[#333] text-white" : "text-white/40 hover:text-white/80"
+                  viewMode === 'month' ? "bg-[var(--tokyo-panel-3)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                 )}
               >
                 Month
               </button>
             </div>
 
-            <button onClick={prev} className="p-1.5 rounded bg-transparent border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors">
+            <button onClick={prev} className="p-1.5 rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button onClick={today} className="px-3 py-1.5 rounded bg-transparent border border-white/10 text-white/80 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium">
+            <button onClick={today} className="px-3 py-1.5 rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors text-sm font-medium">
               Today
             </button>
-            <button onClick={next} className="p-1.5 rounded bg-transparent border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-colors">
+            <button onClick={next} className="p-1.5 rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 bg-[#111] overflow-hidden">
+      <div className="flex-1 min-h-0 bg-[var(--tokyo-bg-deep)] overflow-hidden">
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
       </div>
 
-      <button className="fixed bottom-6 right-6 w-10 h-10 bg-[#222] hover:bg-[#333] border border-white/10 rounded-full flex items-center justify-center text-white/60 hover:text-white transition-colors shadow-lg z-50">
+      <button className="fixed bottom-6 right-6 w-10 h-10 bg-[var(--tokyo-panel-2)] hover:bg-[var(--tokyo-panel-3)] border border-[var(--tokyo-border-strong)] rounded-full flex items-center justify-center text-[var(--tokyo-text-muted)] hover:text-white transition-colors shadow-lg z-50">
         <span className="font-medium text-sm">?</span>
       </button>
 

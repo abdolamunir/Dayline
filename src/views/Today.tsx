@@ -35,7 +35,7 @@ export function Today() {
   return (
     <WorkspacePage>
       <WorkspaceHeader
-        icon={<CalendarIcon className="h-4 w-4 text-emerald-300" />}
+        icon={<CalendarIcon className="h-4 w-4 text-[var(--tokyo-green)]" />}
         title="Today"
         description={format(new Date(), 'EEEE, MMMM do')}
         count={todayTasks.length}
@@ -58,8 +58,8 @@ export function Today() {
                 <tr key={task.id}>
                   <td className="px-3">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleTaskToggle(task)} className="text-white/35 transition-colors hover:text-emerald-300">
-                        {task.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <Circle className="h-4 w-4" />}
+                      <button onClick={() => handleTaskToggle(task)} className="text-white/35 transition-colors hover:text-[var(--tokyo-green)]">
+                        {task.status === 'done' ? <CheckCircle2 className="h-4 w-4 text-[var(--tokyo-green)]" /> : <Circle className="h-4 w-4" />}
                       </button>
                       <span className={cn("truncate font-medium", task.status === 'done' && "line-through text-white/35")}>{task.title}</span>
                     </div>
@@ -80,21 +80,21 @@ export function Today() {
         </DatabasePanel>
 
         <DatabasePanel className="p-4">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white/60">
-            <Clock className="h-4 w-4 text-emerald-300" /> Agenda
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[var(--tokyo-text-muted)]">
+            <Clock className="h-4 w-4 text-[var(--tokyo-green)]" /> Agenda
           </div>
             {sortedTasks.length > 0 ? (
               <div className="relative ml-2 space-y-5 border-l border-white/[0.08] py-1">
                 {sortedTasks.map(task => (
                   <div key={`agenda-${task.id}`} className="relative pl-5">
                     <div className={cn(
-                      "absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-[#1C1B19]",
-                      task.status === 'done' ? "bg-emerald-500/35" : "bg-emerald-300"
+                      "absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-[var(--tokyo-panel)]",
+                      task.status === 'done' ? "bg-[rgba(166,227,125,0.35)]" : "bg-[var(--tokyo-green)]"
                     )} />
-                    <div className="mb-1 text-xs font-medium text-emerald-200/70">
+                    <div className="mb-1 text-xs font-medium text-[var(--tokyo-green)]/70">
                       {task.startTime ? `${task.startTime} ${task.endTime ? `- ${task.endTime}` : ''}` : 'Anytime'}
                     </div>
-                    <div className={cn("text-sm font-medium text-white/70", task.status === 'done' && "line-through text-white/30")}>{task.title}</div>
+                    <div className={cn("text-sm font-medium text-white/70", task.status === 'done' && "line-through text-[var(--tokyo-text-faint)]")}>{task.title}</div>
                   </div>
                 ))}
               </div>
