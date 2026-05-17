@@ -7,6 +7,7 @@ import {
 } from 'hugeicons-react';
 import { useAppStore } from '../store';
 import { cn } from '../utils/cn';
+import { getPriorityBorderClasses } from '../utils/badges';
 import { 
   format, 
   addMonths, 
@@ -101,7 +102,7 @@ export function Upcoming() {
                 key={d.toString()} 
                 className={cn(
                   "min-h-[120px] bg-[var(--tokyo-panel)] p-2 transition-colors hover:bg-[var(--tokyo-panel-2)] flex flex-col",
-                  !isCurrentMonth && "bg-[var(--tokyo-bg-deep)]"
+                  !isCurrentMonth && "bg-[var(--tokyo-bg)]"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -149,8 +150,8 @@ export function Upcoming() {
     const currentTimeTop = (currentHours + currentMinutes / 60) * 80;
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[var(--tokyo-bg-deep)]">
-        <div className="flex border-b border-[var(--tokyo-border)] bg-[var(--tokyo-bg-deep)]">
+      <div className="flex flex-col h-full overflow-hidden bg-[var(--tokyo-bg)]">
+        <div className="flex border-b border-[var(--tokyo-border)] bg-[var(--tokyo-bg)]">
           <div className="w-16 shrink-0 border-r border-[var(--tokyo-border)]" />
           <div className="flex-1 grid grid-cols-7">
             {days.map(d => {
@@ -231,9 +232,7 @@ export function Upcoming() {
                           <div className="flex items-start gap-2">
                             <div className={cn(
                               "w-3 h-3 rounded-full border-[1.5px] shrink-0 mt-0.5",
-                              task.priority === 'high' ? "border-red-400" :
-                              task.priority === 'medium' ? "border-yellow-400" :
-                              "border-green-400"
+                              getPriorityBorderClasses(task.priority)
                             )} />
                             <div className={cn("text-xs font-semibold text-[var(--tokyo-text-strong)] leading-tight", task.status === 'done' && "line-through text-[var(--tokyo-text-faint)]")}>
                               {task.title}
@@ -354,7 +353,7 @@ export function Upcoming() {
   };
 
   return (
-    <div className="h-full flex flex-col w-full bg-[var(--tokyo-bg-deep)] text-white">
+    <div className="h-full flex flex-col w-full bg-[var(--tokyo-bg)] text-white">
       <header className="flex flex-col gap-4 mb-6 px-6 pt-6">
         <h1 className="text-4xl font-bold text-white tracking-tight">Sprint 🏃🏻‍♂️</h1>
         
@@ -398,7 +397,7 @@ export function Upcoming() {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 bg-[var(--tokyo-bg-deep)] overflow-hidden">
+      <div className="flex-1 min-h-0 bg-[var(--tokyo-bg)] overflow-hidden">
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}

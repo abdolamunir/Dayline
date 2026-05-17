@@ -162,19 +162,19 @@ export function SearchButton(props: React.ButtonHTMLAttributes<HTMLButtonElement
 
 export function StatusPill({ tone, children, onClick }: { tone: 'green' | 'blue' | 'orange' | 'red' | 'gray' | 'yellow'; children: React.ReactNode; onClick?: React.MouseEventHandler }) {
   const tones = {
-    green: "bg-[rgba(166,227,125,0.13)] text-[var(--tokyo-green)] ring-[rgba(166,227,125,0.18)]",
-    blue: "bg-[rgba(198,140,255,0.13)] text-[var(--tokyo-purple)] ring-[rgba(198,140,255,0.18)]",
-    orange: "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] ring-[rgba(255,225,0,0.12)]",
-    red: "bg-[rgba(255,77,125,0.14)] text-[var(--tokyo-pink)] ring-[rgba(255,77,125,0.18)]",
-    gray: "bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-muted)] ring-[var(--tokyo-border)]",
-    yellow: "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] ring-[var(--tokyo-border-strong)]",
+    green: "bg-[rgba(44,88,64,0.48)] text-[#9fddb4]",
+    blue: "bg-[rgba(117,83,147,0.32)] text-[#bda3d2]",
+    orange: "bg-[rgba(112,88,26,0.52)] text-[#ead66c]",
+    red: "bg-[rgba(112,31,45,0.54)] text-[#f0a0a8]",
+    gray: "bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-muted)]",
+    yellow: "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]",
   };
 
   return (
     <span
       onClick={onClick}
       className={cn(
-        "inline-flex h-6 items-center rounded px-2 text-[12px] font-bold ring-1 transition-opacity",
+        "inline-flex h-6 items-center rounded px-2 text-[12px] font-bold transition-opacity",
         onClick && "cursor-pointer hover:opacity-80",
         tones[tone]
       )}

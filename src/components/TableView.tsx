@@ -1,5 +1,4 @@
-import React, { useState, useRef } from 'react';
-import { GripVertical, Minus } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Target01Icon as Target, 
   Add01Icon as Plus, 
@@ -43,6 +42,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
 import { cn } from '../utils/cn';
+import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from './IconPicker';
 import { DatePicker, DateConfig } from './DatePicker';
 import { format } from 'date-fns';
@@ -75,11 +75,13 @@ interface TableViewProps {
 export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [activeTab, setActiveTab] = useState<string>(page.tabs[1]?.id || page.tabs[0]?.id);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ itemId: string; columnId: string } | null>(null);
+  const [fillDrag, setFillDrag] = useState<{ sourceItemId: string; columnId: string; targetItemId: string } | null>(null);
+  const [resizingColumns, setResizingColumns] = useState<CustomPage['columns'] | null>(null);
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
   const [iconPickerType, setIconPickerType] = useState<'tab' | 'column' | 'main' | 'item' | null>(null);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
-  const [itemContextMenu, setItemContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingItemTitle, setEditingItemTitle] = useState('');
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
@@ -105,12 +107,197 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const isFillDraggingRef = useRef(false);
+  const fillDragRef = useRef<{ sourceItemId: string; columnId: string; targetItemId: string } | null>(null);
+  const latestResizeColumnsRef = useRef<CustomPage['columns'] | null>(null);
 
   const filteredItems = page.items.filter(item => item.status === activeTab);
+  const displayColumns = resizingColumns || page.columns;
 
   const handleUpdateItem = (updatedItem: CustomPageItem) => {
     const newItems = page.items.map(item => item.id === updatedItem.id ? updatedItem : item);
     onUpdatePage({ ...page, items: newItems });
+  };
+
+  const setActiveFillDrag = (drag: { sourceItemId: string; columnId: string; targetItemId: string } | null) => {
+    fillDragRef.current = drag;
+    setFillDrag(drag);
+  };
+
+  const isColumnFillable = (columnId: string) => columnId !== 'progress';
+
+  const getColumnWidthNumber = (width?: string) => {
+    const parsed = Number.parseFloat(width || '');
+    return Number.isFinite(parsed) ? parsed : 160;
+  };
+
+  const startColumnResize = (event: React.PointerEvent, columnId: string, currentWidth?: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startX = event.clientX;
+    const startWidth = getColumnWidthNumber(currentWidth);
+    const initialColumns = displayColumns;
+    latestResizeColumnsRef.current = initialColumns;
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      const nextWidth = Math.max(96, Math.min(520, Math.round(startWidth + pointerEvent.clientX - startX)));
+      const nextColumns = initialColumns.map(column => (
+        column.id === columnId ? { ...column, width: `${nextWidth}px` } : column
+      ));
+      latestResizeColumnsRef.current = nextColumns;
+      setResizingColumns(nextColumns);
+    };
+
+    const cleanup = () => {
+      const finalColumns = latestResizeColumnsRef.current || initialColumns;
+      setResizingColumns(null);
+      latestResizeColumnsRef.current = null;
+      onUpdatePage({ ...page, columns: finalColumns });
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', cleanup);
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+  };
+
+  useEffect(() => {
+    if (!selectedCell) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-table-cell-item-id], .property-popover, [data-table-cell-fill-handle]')) return;
+      setSelectedCell(null);
+      setActiveFillDrag(null);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [selectedCell]);
+
+  const getCellValue = (item: CustomPageItem, columnId: string) => {
+    if (columnId === 'title') return item.title;
+    if (columnId === 'status') return item.status;
+    if (columnId === 'priority') return item.priority;
+    if (columnId === 'date') return item.date;
+    if (columnId === 'progress') return item.progress;
+    return item.properties?.[columnId];
+  };
+
+  const withCellValue = (item: CustomPageItem, columnId: string, value: any): CustomPageItem => {
+    if (columnId === 'title') return { ...item, title: String(value ?? '') };
+    if (columnId === 'status') return { ...item, status: String(value ?? '') };
+    if (columnId === 'priority') return { ...item, priority: value as CustomPageItem['priority'] };
+    if (columnId === 'date') return { ...item, date: value };
+    if (columnId === 'progress') return { ...item, progress: Number(value ?? 0) };
+    return { ...item, properties: { ...item.properties, [columnId]: value } };
+  };
+
+  const getFillRangeItemIds = (drag = fillDrag) => {
+    if (!drag) return [];
+
+    const sourceIndex = filteredItems.findIndex(item => item.id === drag.sourceItemId);
+    const targetIndex = filteredItems.findIndex(item => item.id === drag.targetItemId);
+    if (sourceIndex < 0 || targetIndex < 0) return [];
+
+    const [start, end] = [sourceIndex, targetIndex].sort((a, b) => a - b);
+    return filteredItems.slice(start, end + 1).map(item => item.id);
+  };
+
+  const finishFillDrag = (drag = fillDragRef.current) => {
+    if (!drag) return;
+
+    const rangeIds = getFillRangeItemIds(drag);
+    const sourceItem = page.items.find(item => item.id === drag.sourceItemId);
+    if (sourceItem && rangeIds.length > 1) {
+      const value = getCellValue(sourceItem, drag.columnId);
+      onUpdatePage({
+        ...page,
+        items: page.items.map(item => (
+          rangeIds.includes(item.id) ? withCellValue(item, drag.columnId, value) : item
+        )),
+      });
+    }
+
+    setActiveFillDrag(null);
+    window.setTimeout(() => {
+      isFillDraggingRef.current = false;
+      isDraggingRef.current = false;
+    }, 0);
+  };
+
+  const startFillDrag = (event: React.PointerEvent, sourceItemId: string, columnId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isColumnFillable(columnId)) return;
+
+    const sourceDrag = { sourceItemId, columnId, targetItemId: sourceItemId };
+    isFillDraggingRef.current = true;
+    isDraggingRef.current = true;
+    setCustomDropdown(null);
+    setDatePickerConfig(null);
+    setSelectedCell({ itemId: sourceItemId, columnId });
+    setActiveFillDrag(sourceDrag);
+
+    const updateTargetFromPoint = (_clientX: number, clientY: number) => {
+      const columnCells = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-table-cell-item-id][data-table-cell-column-id]')
+      ).filter(cell => cell.dataset.tableCellColumnId === columnId);
+
+      if (columnCells.length === 0) return;
+
+      const targetCell = columnCells.reduce((closestCell, cell) => {
+        const closestRect = closestCell.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const closestDistance = Math.abs(clientY - (closestRect.top + closestRect.height / 2));
+        const cellDistance = Math.abs(clientY - (cellRect.top + cellRect.height / 2));
+        return cellDistance < closestDistance ? cell : closestCell;
+      }, columnCells[0]);
+
+      const targetItemId = targetCell.dataset.tableCellItemId;
+      if (!targetItemId) return;
+
+      setActiveFillDrag({
+        sourceItemId,
+        columnId,
+        targetItemId,
+      });
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      updateTargetFromPoint(pointerEvent.clientX, pointerEvent.clientY);
+    };
+
+    const handlePointerUp = (pointerEvent: PointerEvent) => {
+      updateTargetFromPoint(pointerEvent.clientX, pointerEvent.clientY);
+      cleanup();
+      finishFillDrag();
+    };
+
+    const handleKeyDown = (keyboardEvent: KeyboardEvent) => {
+      if (keyboardEvent.key !== 'Escape') return;
+      cleanup();
+      setActiveFillDrag(null);
+      isFillDraggingRef.current = false;
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('keydown', handleKeyDown);
   };
 
   const handleNewItem = () => {
@@ -155,6 +342,10 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       setIsAddingTab(false);
     }
   };
+
+  const fillRangeItemIds = getFillRangeItemIds();
+  const fillRangeItemIdSet = new Set(fillRangeItemIds);
+  const tableWidth = displayColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 64);
 
   return (
     <WorkspacePage>
@@ -332,19 +523,25 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       {/* Table Container */}
       <DatabasePanel className="flex-1">
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <table className="database-table min-w-[1000px] table-fixed text-left">
+          <table className="database-table table-fixed text-left" style={{ width: `${tableWidth}px` }}>
+            <colgroup>
+              {displayColumns.map(column => (
+                <col key={column.id} style={{ width: column.width }} />
+              ))}
+              <col style={{ width: '64px' }} />
+            </colgroup>
             <thead>
               <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
-                {page.columns.map((col, index) => (
+                {displayColumns.map((col, index) => (
                   <th 
                     key={col.id} 
                     style={{ width: col.width }}
                     className={cn(
-                      "px-4 py-2 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-hidden",
+                      "relative px-4 py-2 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
                       index === 0 && "pl-[5px]"
                     )}
                   >
-                    <div className="flex items-center gap-0.5 w-full overflow-hidden">
+                    <div className="flex items-center gap-0.5 w-full overflow-hidden pr-2">
                       <button
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -386,77 +583,54 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                         </span>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      aria-label={`Resize ${col.label} column`}
+                      title="Drag to resize column"
+                      onPointerDown={(e) => startColumnResize(e, col.id, col.width)}
+                      style={{ cursor: 'col-resize' }}
+                      className="absolute right-0 top-1/2 z-20 h-8 w-3 -translate-y-1/2 !cursor-col-resize touch-none before:pointer-events-none before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-transparent before:transition-all before:duration-150 hover:before:h-6 hover:before:w-[2px] hover:before:bg-[var(--tokyo-yellow)]"
+                    />
                   </th>
                 ))}
                 <th className="px-6 py-2 border-b border-[var(--tokyo-border)] w-16 whitespace-nowrap text-right">
                 </th>
               </tr>
             </thead>
-            <Reorder.Group 
-              as="tbody" 
-              values={filteredItems} 
-              onReorder={(newItems) => {
-                const otherItems = page.items.filter(i => i.status !== activeTab);
-                onUpdatePage({ ...page, items: [...otherItems, ...newItems] });
-              }}
-              className="relative"
-            >
+            <tbody className="relative">
               {filteredItems.map(item => (
-                <Reorder.Item 
+                <tr 
                   key={item.id} 
-                  value={item}
-                  as="tr"
-                  layout="position"
-                  onClick={() => {
-                    if (isDraggingRef.current) return;
-                    onItemClick(item.id);
-                  }}
-                  onDragStart={() => {
-                    setDraggingId(item.id);
-                    isDraggingRef.current = true;
-                  }}
-                  onDragEnd={(event, info) => {
-                    setDraggingId(null);
-                    setHoveredTabId(null);
-                    setTimeout(() => {
-                      isDraggingRef.current = false;
-                    }, 100);
-                    
-                    if (tabContainerRef.current) {
-                      const tabsElements = tabContainerRef.current.querySelectorAll('[data-tab-id]');
-                      let droppedOnTabId: string | null = null;
-                      
-                      tabsElements.forEach((tabEl) => {
-                        const rect = tabEl.getBoundingClientRect();
-                        if (
-                          info.point.x >= rect.left &&
-                          info.point.x <= rect.right &&
-                          info.point.y >= rect.top &&
-                          info.point.y <= rect.bottom
-                        ) {
-                          droppedOnTabId = tabEl.getAttribute('data-tab-id');
-                        }
-                      });
-                      
-                      if (droppedOnTabId && droppedOnTabId !== item.status) {
-                        handleUpdateItem({ ...item, status: droppedOnTabId });
-                      }
-                    }
-                  }}
-                  className={cn(
-                    "group transition-colors select-none cursor-pointer active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap",
-                    draggingId === item.id ? "cursor-grabbing bg-white/[0.04]" : ""
-                  )}
+                  className="group transition-colors select-none hover:bg-white/[0.02] whitespace-nowrap"
                 >
-                  {page.columns.map((col, idx) => (
+                  {displayColumns.map((col, idx) => {
+                    const isCellSelected = selectedCell?.itemId === item.id && selectedCell.columnId === col.id;
+                    const isFillColumn = fillDrag?.columnId === col.id;
+                    const isInFillRange = isFillColumn && fillRangeItemIdSet.has(item.id);
+                    const selectCell = () => setSelectedCell({ itemId: item.id, columnId: col.id });
+                    const clearCellSelection = () => {
+                      setSelectedCell(null);
+                      setActiveFillDrag(null);
+                    };
+
+                    return (
                     <td 
                       key={col.id}
+                      data-table-cell-item-id={item.id}
+                      data-table-cell-column-id={col.id}
                       style={{ width: col.width }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectCell();
+                      }}
                       className={cn(
-                        "h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap",
-                        idx === 0 ? "pl-[5px] pr-4" : "px-4",
+                        "relative h-11 cursor-pointer border-b border-[var(--tokyo-border)] whitespace-nowrap transition-[background-color,box-shadow] duration-100 overflow-visible",
+                        idx === 0 ? "pl-[5px] pr-4" : col.id === 'date' ? "pl-3 pr-1" : "px-4",
                         idx === 0 && "rounded-l-lg",
-                        idx === page.columns.length - 1 && "rounded-r-lg"
+                        idx === displayColumns.length - 1 && "rounded-r-lg",
+                        isCellSelected && "bg-[#1E90FF]/5 shadow-[inset_0_0_0_2px_#1E90FF]",
+                        isInFillRange && !isCellSelected && "bg-[#1E90FF]/10 shadow-[inset_0_0_0_1px_rgba(30,144,255,0.48)]",
+                        isFillColumn && fillDrag && "cursor-ns-resize"
                       )}
                     >
                       {col.id === 'title' ? (
@@ -486,6 +660,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             />
                           ) : (
                             <span 
+                              data-open-item-title="true"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearCellSelection();
+                                if (isDraggingRef.current || isFillDraggingRef.current) return;
+                                onItemClick(item.id);
+                              }}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
                                 setEditingItemId(item.id);
@@ -502,6 +683,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           <span 
                             onClick={(e) => {
                               e.stopPropagation();
+                              clearCellSelection();
                               const rect = e.currentTarget.getBoundingClientRect();
                               setCustomDropdown({
                                 id: item.id,
@@ -525,6 +707,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           <span 
                             onClick={(e) => {
                               e.stopPropagation();
+                              clearCellSelection();
                               const rect = e.currentTarget.getBoundingClientRect();
                               setCustomDropdown({
                                 id: item.id,
@@ -535,9 +718,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             }}
                             className={cn(
                               "px-2 py-1 rounded-md font-medium text-xs cursor-pointer hover:opacity-80 transition-opacity",
-                              item.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                              item.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
-                              "bg-green-500/20 text-green-400"
+                              getPriorityBadgeClasses(item.priority)
                             )}
                           >
                             {toSentenceCase(item.priority)}
@@ -547,6 +728,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                         <div 
                           onClick={(e) => {
                             e.stopPropagation();
+                            clearCellSelection();
                             const rect = e.currentTarget.getBoundingClientRect();
                             setDatePickerConfig({
                               id: item.id,
@@ -554,7 +736,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               currentDate: item.date ? new Date(item.date) : undefined
                             });
                           }}
-                          className="relative flex items-center gap-1 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
+                          className="relative inline-flex w-fit items-center gap-0.5 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
                         >
                           <div className="w-6 h-6 flex items-center justify-center shrink-0">
                             <CalendarIcon className="w-4 h-4" />
@@ -562,7 +744,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           <span className="">{item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'No date'}</span>
                         </div>
                       ) : col.id === 'progress' ? (
-                        <div className="flex items-center gap-1">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearCellSelection();
+                          }}
+                          className="flex items-center gap-1"
+                        >
                           <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60">
                             <Circle className="w-4 h-4" />
                           </div>
@@ -571,11 +759,40 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-[var(--tokyo-text-faint)] text-sm">{item.properties[col.id] || ''}</span>
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearCellSelection();
+                          }}
+                          className="text-[var(--tokyo-text-faint)] text-sm"
+                        >
+                          {item.properties[col.id] || ''}
+                        </span>
+                      )}
+                      {isCellSelected && isColumnFillable(col.id) && (
+                        <button
+                          type="button"
+                          draggable={false}
+                          data-table-cell-fill-handle="true"
+                          title="Drag to fill this value down the column"
+                          aria-label="Drag to fill this value down the column"
+                          onPointerDownCapture={(e) => {
+                            startFillDrag(e, item.id, col.id);
+                          }}
+                          onDragStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          className={cn(
+                            "absolute -bottom-2 -right-2 z-30 h-4 w-4 touch-none rounded-full border-[3px] border-[var(--tokyo-panel)] bg-[#1E90FF] shadow-[0_4px_12px_rgba(30,144,255,0.38)] transition-transform hover:scale-110 active:scale-95",
+                            fillDrag ? "cursor-ns-resize" : "cursor-crosshair"
+                          )}
+                        />
                       )}
                     </td>
-                  ))}
-                </Reorder.Item>
+                    );
+                  })}
+                </tr>
               ))}
               <tr className="group">
                 <td 
@@ -587,9 +804,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     <span className="text-[14px]">New page</span>
                   </div>
                 </td>
-                <td colSpan={page.columns.length} className="h-11 border-b border-[var(--tokyo-border)] rounded-r-lg"></td>
+                <td colSpan={displayColumns.length} className="h-11 border-b border-[var(--tokyo-border)] rounded-r-lg"></td>
               </tr>
-            </Reorder.Group>
+            </tbody>
           </table>
         </div>
       </DatabasePanel>
@@ -629,9 +846,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     )}
                   >
                     <span>{toSentenceCase(option)}</span>
-                    {customDropdown.currentValue === option && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
-                    )}
                   </button>
                 ))}
               </div>

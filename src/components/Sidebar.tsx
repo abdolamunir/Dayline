@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, HelpCircleIcon as HelpCircle, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy } from 'hugeicons-react';
 import { cn } from '../utils/cn';
@@ -51,6 +52,38 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const editInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const newItemMenuRef = useRef<HTMLDivElement>(null);
+  const hiddenSidebarRowStylesRef = useRef(new Map<HTMLElement, { display: string, pointerEvents: string }>());
+  const [selectedSidebarItemIds, setSelectedSidebarItemIds] = useState<string[]>([]);
+  const [lastSelectedSidebarItemId, setLastSelectedSidebarItemId] = useState<string | null>(null);
+  const [draggingSidebarItemIds, setDraggingSidebarItemIds] = useState<string[]>([]);
+  const [primaryDraggingSidebarItemId, setPrimaryDraggingSidebarItemId] = useState<string | null>(null);
+
+  const restoreHiddenSidebarRows = () => {
+    hiddenSidebarRowStylesRef.current.forEach((styles, element) => {
+      element.style.display = styles.display;
+      element.style.pointerEvents = styles.pointerEvents;
+    });
+    hiddenSidebarRowStylesRef.current.clear();
+  };
+
+  const hideNonHeldSelectedSidebarRows = (ids: string[], heldId: string) => {
+    restoreHiddenSidebarRows();
+
+    const idsToHide = new Set(ids.filter(id => id !== heldId));
+    if (idsToHide.size === 0) return;
+
+    document.querySelectorAll<HTMLElement>('[data-sidebar-item-id]').forEach((element) => {
+      const itemId = element.dataset.sidebarItemId;
+      if (!itemId || !idsToHide.has(itemId)) return;
+
+      hiddenSidebarRowStylesRef.current.set(element, {
+        display: element.style.display,
+        pointerEvents: element.style.pointerEvents,
+      });
+      element.style.display = 'none';
+      element.style.pointerEvents = 'none';
+    });
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -60,6 +93,39 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (selectedSidebarItemIds.length === 0) return;
+
+    const handleDeselect = (event: PointerEvent) => {
+      if (event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-sidebar-item-id]')) return;
+      setSelectedSidebarItemIds([]);
+      setLastSelectedSidebarItemId(null);
+    };
+
+    document.addEventListener('pointerdown', handleDeselect);
+    return () => document.removeEventListener('pointerdown', handleDeselect);
+  }, [selectedSidebarItemIds.length]);
+
+  useEffect(() => {
+    const resetDragState = () => {
+      restoreHiddenSidebarRows();
+      setDraggingSidebarItemIds([]);
+      setPrimaryDraggingSidebarItemId(null);
+      document.body.style.cursor = '';
+    };
+
+    window.addEventListener('dragend', resetDragState);
+    window.addEventListener('drop', resetDragState);
+    return () => {
+      window.removeEventListener('dragend', resetDragState);
+      window.removeEventListener('drop', resetDragState);
+      restoreHiddenSidebarRows();
+      document.body.style.cursor = '';
+    };
   }, []);
 
   // Removed global click listener in favor of transparent overlay
@@ -133,20 +199,6 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
   };
 
-  const getDuplicateLabel = (id: string) => {
-    const item = sidebarItems.find(sidebarItem => sidebarItem.id === id);
-    if (item?.type === 'folder') {
-      return 'Duplicate Folder';
-    }
-
-    const page = item?.type === 'custom' ? customPages.find(customPage => customPage.id === id) : null;
-    if (page?.kind === 'database') {
-      return 'Duplicate Database';
-    }
-
-    return 'Duplicate Page';
-  };
-
   const handleNewDatabasePage = () => {
     const newId = `page-${Date.now()}`;
     addCustomPage({
@@ -206,10 +258,111 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'top' | 'bottom' | 'middle' | null>(null);
 
+  const isMultiSelectableSidebarItem = (id: string) => {
+    const item = sidebarItems.find(sidebarItem => sidebarItem.id === id);
+    return Boolean(item && item.type !== 'folder' && item.type !== 'trash');
+  };
+
+  const handleSidebarItemPointerDown = (e: React.PointerEvent, id: string, isFolder: boolean) => {
+    if (e.button !== 0 || e.shiftKey || editingId === id || isFolder) return;
+    if (!selectedSidebarItemIds.includes(id) || selectedSidebarItemIds.length <= 1) return;
+
+    hideNonHeldSelectedSidebarRows(selectedSidebarItemIds, id);
+    flushSync(() => {
+      setDraggingSidebarItemIds(selectedSidebarItemIds);
+      setPrimaryDraggingSidebarItemId(id);
+    });
+  };
+
+  const resetSidebarDragPreviewState = () => {
+    restoreHiddenSidebarRows();
+    setDraggingSidebarItemIds([]);
+    setPrimaryDraggingSidebarItemId(null);
+    document.body.style.cursor = '';
+  };
+
+  const handleSidebarItemClick = (e: React.MouseEvent, id: string, isFolder: boolean) => {
+    if (editingId === id) return;
+
+    if (e.shiftKey && isMultiSelectableSidebarItem(id)) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const selectableIds = sidebarItems
+        .filter(item => isMultiSelectableSidebarItem(item.id))
+        .map(item => item.id);
+      const currentIndex = selectableIds.indexOf(id);
+      const anchorId = lastSelectedSidebarItemId || (isMultiSelectableSidebarItem(currentView) ? currentView : null);
+      const lastIndex = anchorId ? selectableIds.indexOf(anchorId) : -1;
+
+      if (lastIndex >= 0 && currentIndex >= 0 && anchorId !== id) {
+        const [start, end] = [lastIndex, currentIndex].sort((a, b) => a - b);
+        const rangeIds = selectableIds.slice(start, end + 1);
+        setSelectedSidebarItemIds(prev => Array.from(new Set([...prev, ...rangeIds])));
+      } else {
+        setSelectedSidebarItemIds(prev => (
+          prev.includes(id) ? prev.filter(selectedId => selectedId !== id) : [...prev, id]
+        ));
+      }
+
+      setLastSelectedSidebarItemId(id);
+      return;
+    }
+
+    resetSidebarDragPreviewState();
+    setSelectedSidebarItemIds([]);
+    setLastSelectedSidebarItemId(isMultiSelectableSidebarItem(id) ? id : null);
+
+    if (isFolder) {
+      toggleFolderExpansion(id);
+    } else {
+      onViewChange(id);
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
+    const draggedIds = selectedSidebarItemIds.includes(id) ? selectedSidebarItemIds : [id];
+    hideNonHeldSelectedSidebarRows(draggedIds, id);
+    flushSync(() => {
+      setDraggingSidebarItemIds(draggedIds);
+      setPrimaryDraggingSidebarItemId(id);
+    });
+    document.body.style.cursor = 'pointer';
     e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.setData('application/dayline-sidebar-items', JSON.stringify(draggedIds));
     e.dataTransfer.effectAllowed = 'move';
-    // Set a drag image if needed, but default is usually fine
+
+    if (draggedIds.length > 1) {
+      const sourceItem = sidebarItems.find(item => item.id === id);
+      const rowRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const dragPreview = document.createElement('div');
+      dragPreview.style.position = 'fixed';
+      dragPreview.style.top = '-1000px';
+      dragPreview.style.left = '-1000px';
+      dragPreview.style.width = `${Math.max(190, Math.min(rowRect.width, 260))}px`;
+      dragPreview.style.height = '42px';
+      dragPreview.style.pointerEvents = 'none';
+      dragPreview.style.transform = 'translateZ(0)';
+      const backLayer = document.createElement('div');
+      backLayer.style.cssText = 'position:absolute;inset:8px 0 0 12px;border-radius:10px;background:#6E5608;border:1px solid rgba(255,226,145,0.28);transform:rotate(4deg);';
+      const middleLayer = document.createElement('div');
+      middleLayer.style.cssText = 'position:absolute;inset:4px 0 4px 7px;border-radius:10px;background:#A9820B;border:1px solid rgba(255,234,170,0.34);transform:rotate(2deg);';
+      const frontLayer = document.createElement('div');
+      frontLayer.style.cssText = 'position:absolute;inset:0 7px 8px 0;display:flex;align-items:center;gap:10px;border-radius:10px;background:linear-gradient(135deg,#D6A611,#9C7809);border:1px solid rgba(255,239,186,0.52);box-shadow:0 18px 42px rgba(0,0,0,0.34),0 1px 0 rgba(255,255,255,0.22) inset;color:#fff;font:700 13px var(--font-sans);padding:0 10px 0 12px;';
+      const accent = document.createElement('span');
+      accent.style.cssText = 'width:7px;height:22px;border-radius:999px;background:#FFE08A;box-shadow:0 0 18px rgba(255,224,138,0.42);';
+      const label = document.createElement('span');
+      label.textContent = sourceItem?.label || 'Selected pages';
+      label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;';
+      const count = document.createElement('span');
+      count.textContent = String(draggedIds.length);
+      count.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;height:22px;min-width:28px;padding:0 8px;border-radius:999px;background:#FFE08A;color:#2A1E05;font-weight:800;';
+      frontLayer.append(accent, label, count);
+      dragPreview.append(backLayer, middleLayer, frontLayer);
+      document.body.appendChild(dragPreview);
+      e.dataTransfer.setDragImage(dragPreview, 22, 18);
+      window.setTimeout(() => dragPreview.remove(), 0);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent, id?: string) => {
@@ -250,19 +403,42 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   };
 
   const handleDragEnd = () => {
+    restoreHiddenSidebarRows();
     setDragOverId(null);
     setDropPosition(null);
+    setDraggingSidebarItemIds([]);
+    setPrimaryDraggingSidebarItemId(null);
+    setSelectedSidebarItemIds([]);
+    setLastSelectedSidebarItemId(null);
+    document.body.style.cursor = '';
   };
 
   const handleDrop = (e: React.DragEvent, targetId?: string) => {
     e.preventDefault();
     e.stopPropagation();
     const currentDropPosition = dropPosition;
+    restoreHiddenSidebarRows();
     setDragOverId(null);
     setDropPosition(null);
+    setDraggingSidebarItemIds([]);
+    setPrimaryDraggingSidebarItemId(null);
+    setSelectedSidebarItemIds([]);
+    setLastSelectedSidebarItemId(null);
+    document.body.style.cursor = '';
     
     const draggedId = e.dataTransfer.getData('text/plain');
-    if (!draggedId || draggedId === targetId) return;
+    const draggedIds = (() => {
+      try {
+        const parsed = JSON.parse(e.dataTransfer.getData('application/dayline-sidebar-items') || '[]');
+        return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : [];
+      } catch {
+        return [];
+      }
+    })();
+    const idsToMove = (draggedIds.length ? draggedIds : [draggedId])
+      .filter((id, index, ids) => id && ids.indexOf(id) === index);
+
+    if (!draggedId || idsToMove.length === 0 || (targetId && idsToMove.includes(targetId))) return;
 
     // Prevent dropping a folder into its own descendant
     const isDescendant = (parent: string, potentialChild: string): boolean => {
@@ -272,40 +448,47 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       return isDescendant(parent, item.parentId);
     };
 
-    if (targetId && isDescendant(draggedId, targetId)) return;
+    if (targetId && idsToMove.some(id => isDescendant(id, targetId))) return;
 
-    const newItems = [...sidebarItems];
-    const draggedIndex = newItems.findIndex(i => i.id === draggedId);
-    if (draggedIndex === -1) return;
-    
-    const [draggedItem] = newItems.splice(draggedIndex, 1);
+    const newItems = sidebarItems.filter(item => !idsToMove.includes(item.id));
+    const draggedItems = sidebarItems
+      .filter(item => idsToMove.includes(item.id))
+      .map(item => ({ ...item }));
+    if (draggedItems.length === 0) return;
+
     const targetItem = newItems.find(i => i.id === targetId);
 
     if (targetItem) {
       if (targetItem.type === 'folder' && currentDropPosition === 'middle') {
         // Move into folder
-        draggedItem.parentId = targetId;
+        draggedItems.forEach(item => {
+          item.parentId = targetId;
+        });
         // Expand the folder so the user sees the item moved in
         if (!targetItem.isExpanded) {
           toggleFolderExpansion(targetId);
         }
         // Insert after the folder
         const targetIndex = newItems.findIndex(i => i.id === targetId);
-        newItems.splice(targetIndex + 1, 0, draggedItem);
+        newItems.splice(targetIndex + 1, 0, ...draggedItems);
       } else {
         // Move to same level as target
-        draggedItem.parentId = targetItem.parentId;
+        draggedItems.forEach(item => {
+          item.parentId = targetItem.parentId;
+        });
         const targetIndex = newItems.findIndex(i => i.id === targetId);
         if (currentDropPosition === 'bottom') {
-          newItems.splice(targetIndex + 1, 0, draggedItem);
+          newItems.splice(targetIndex + 1, 0, ...draggedItems);
         } else {
-          newItems.splice(targetIndex, 0, draggedItem);
+          newItems.splice(targetIndex, 0, ...draggedItems);
         }
       }
     } else {
       // Move to root end
-      draggedItem.parentId = undefined;
-      newItems.push(draggedItem);
+      draggedItems.forEach(item => {
+        item.parentId = undefined;
+      });
+      newItems.push(...draggedItems);
     }
     
     reorderSidebarItems(newItems);
@@ -530,7 +713,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     {!isCollapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 text-left">Inbox</span>
-                        <span className="text-xs font-medium text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">2</span>
+                        <span className={cn("text-xs font-medium", currentView === 'inbox' ? "text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]")}>2</span>
                       </>
                     )}
                   </button>
@@ -540,7 +723,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     {!isCollapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 text-left">Today</span>
-                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--tokyo-pink)] text-white text-xs font-bold">1</span>
+                      <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--tokyo-pink)] text-white text-xs font-bold">1</span>
                       </>
                     )}
                   </button>
@@ -586,6 +769,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     setEditingId={setEditingId}
                     onViewChange={onViewChange}
                     handleContextMenu={handleContextMenu}
+                    handleSidebarItemClick={handleSidebarItemClick}
+                    handleSidebarItemPointerDown={handleSidebarItemPointerDown}
                     setIconPickerId={setIconPickerId}
                     setIconPickerPos={setIconPickerPos}
                     editInputRef={editInputRef}
@@ -601,6 +786,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     sidebarItems={sidebarItems}
                     iconMap={iconMap}
                     currentView={currentView}
+                    selectedSidebarItemIds={selectedSidebarItemIds}
+                    draggingSidebarItemIds={draggingSidebarItemIds}
+                    primaryDraggingSidebarItemId={primaryDraggingSidebarItemId}
                   />
                 );
               })}
@@ -613,10 +801,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12px] leading-5 font-medium text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      New Item
+                      <Plus className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)]" />
+                      <span className="text-sm font-medium flex-1 text-left">New Item</span>
                     </button>
                     
                     {isNewItemMenuOpen && (
@@ -654,14 +842,14 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <button 
                     onClick={() => onViewChange('trash')}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12px] leading-5 font-medium transition-colors cursor-pointer group",
-                      currentView === 'trash' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)]"
+                      "w-full flex items-center gap-3 px-3 py-1.5 rounded-md transition-colors cursor-pointer group",
+                      currentView === 'trash' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
                     )}
                   >
-                    <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                    <span className="flex-1 text-left">Trash</span>
+                    <Trash2 className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)]" />
+                    <span className="text-sm font-medium flex-1 text-left">Trash</span>
                     {trash.length > 0 && (
-                      <span className="text-xs font-medium text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">{trash.length}</span>
+                      <span className={cn("text-xs font-medium", currentView === 'trash' ? "text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]")}>{trash.length}</span>
                     )}
                   </button>
                 </>
@@ -784,7 +972,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
           <div className="p-4 bg-[var(--tokyo-hover)] text-center">
             <p className="text-xs text-[var(--tokyo-text-faint)]">
-              Press <kbd className="px-1.5 py-0.5 rounded bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-muted)] font-sans mx-1">?</kbd> anywhere to show this menu
+              Press <kbd className="px-1.5 py-0.5 rounded bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)] font-sans mx-1">?</kbd> anywhere to show this menu
             </p>
           </div>
         </div>
@@ -840,7 +1028,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                 }}
               >
                 <Copy className="w-3.5 h-3.5" />
-                {getDuplicateLabel(contextMenu.id)}
+                Duplicate
               </button>
               <button 
                 className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
@@ -944,6 +1132,8 @@ function SidebarItem({
   setEditingId,
   onViewChange,
   handleContextMenu,
+  handleSidebarItemClick,
+  handleSidebarItemPointerDown,
   setIconPickerId,
   setIconPickerPos,
   editInputRef,
@@ -958,48 +1148,120 @@ function SidebarItem({
   toggleFolderExpansion,
   sidebarItems,
   iconMap,
-  currentView
+  currentView,
+  selectedSidebarItemIds,
+  draggingSidebarItemIds,
+  primaryDraggingSidebarItemId
 }: any) {
   const isFolder = item.type === 'folder';
   const children = sidebarItems.filter((i: any) => i.parentId === item.id);
   const isDraggingOver = dragOverId === item.id;
+  const isSelected = selectedSidebarItemIds?.includes(item.id);
+  const isDragging = draggingSidebarItemIds?.includes(item.id);
+  const isDragStackAnchor = item.id === primaryDraggingSidebarItemId && draggingSidebarItemIds?.length > 1 && !isFolder;
+  const isMergedIntoDragStack = draggingSidebarItemIds?.length > 1 && isDragging && !isDragStackAnchor;
+  const dragStackCount = isDragStackAnchor ? draggingSidebarItemIds.length : 0;
+  const showBulkDragSelection = isSelected && draggingSidebarItemIds?.length > 0;
+
+  if (isMergedIntoDragStack) {
+    return null;
+  }
 
   return (
-    <div className="space-y-0.5 relative">
-      <div 
+    <motion.div
+      layout
+      animate={{
+        height: isMergedIntoDragStack ? 0 : 'auto',
+        opacity: isMergedIntoDragStack ? 0 : 1,
+        marginTop: isMergedIntoDragStack ? 0 : undefined,
+        marginBottom: isMergedIntoDragStack ? 0 : undefined,
+      }}
+      transition={{ type: 'spring', stiffness: 620, damping: 38, mass: 0.48 }}
+      style={{ pointerEvents: isMergedIntoDragStack ? 'none' : undefined }}
+      className={cn(
+        "space-y-0.5 relative",
+        isMergedIntoDragStack ? "!mt-0 overflow-hidden" : "overflow-visible"
+      )}
+    >
+      <motion.div 
+        layout
+        animate={{
+          y: isMergedIntoDragStack ? -8 : 0,
+          scale: isDragStackAnchor ? 1.02 : isMergedIntoDragStack ? 0.94 : 1,
+          x: isDragStackAnchor ? 4 : 0,
+        }}
+        transition={{ type: 'spring', stiffness: 520, damping: 34, mass: 0.55 }}
+        data-sidebar-item-id={item.id}
         draggable
         onDragStart={(e) => onDragStart(e, item.id)}
         onDragOver={(e) => onDragOver(e, item.id)}
         onDragLeave={(e) => onDragLeave(e)}
         onDragEnd={onDragEnd}
         onDrop={(e) => onDrop(e, item.id)}
+        onPointerDown={(e) => handleSidebarItemPointerDown(e, item.id, isFolder)}
         className={cn(
-          "w-full flex items-center rounded-md py-1.5 transition-all group relative select-none",
+          "flex items-center rounded-md py-1.5 transition-[background-color,color,box-shadow,border-color,width] duration-150 group relative select-none isolate overflow-visible",
+          isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
           isCollapsed ? "justify-center" : "px-3 gap-3",
-          isActive ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
+          isDragStackAnchor
+            ? "bg-transparent text-white z-20"
+            : isActive || isSelected || showBulkDragSelection
+            ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+            : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
           isFolder && "font-semibold",
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
         )}
         title={isCollapsed ? item.label : undefined}
         onContextMenu={(e) => handleContextMenu(e, item.id)}
         onClick={(e) => {
-          if (editingId !== item.id) {
-            if (isFolder) {
-              toggleFolderExpansion(item.id);
-            } else {
-              onViewChange(item.id);
-            }
-          }
+          handleSidebarItemClick(e, item.id, isFolder);
         }}
       >
+        {isDragStackAnchor && (
+          <>
+            <motion.div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-2 top-1 bottom-0 z-0 rounded-lg border border-[#FFE08A]/25 bg-[#6F5607] shadow-[0_10px_22px_rgba(0,0,0,0.22)]"
+              initial={false}
+              animate={{
+                x: isDragging ? 10 : 0,
+                y: isDragging ? 9 : 0,
+                rotate: isDragging ? 3 : 0,
+                opacity: isDragging ? 1 : 0,
+              }}
+              transition={{ type: 'spring', stiffness: 620, damping: 32, mass: 0.45 }}
+            />
+            <motion.div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-1 top-0.5 bottom-0 z-10 rounded-lg border border-[#FFE08A]/35 bg-[#A9820B] shadow-[0_8px_18px_rgba(0,0,0,0.2)]"
+              initial={false}
+              animate={{
+                x: isDragging ? 6 : 0,
+                y: isDragging ? 5 : 0,
+                rotate: isDragging ? 1.6 : 0,
+                opacity: isDragging ? 1 : 0,
+              }}
+              transition={{ type: 'spring', stiffness: 620, damping: 34, mass: 0.45 }}
+            />
+            <motion.div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-20 rounded-md border border-[#FFE08A]/55 bg-[linear-gradient(135deg,#D8AA15,#A37E0A)] shadow-[0_18px_44px_rgba(0,0,0,0.34),0_1px_0_rgba(255,255,255,0.24)_inset]"
+              initial={false}
+              animate={{
+                opacity: 1,
+              }}
+              transition={{ duration: 0.08 }}
+            />
+          </>
+        )}
         {isDraggingOver && dropPosition === 'top' && (
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--tokyo-border-strong)] z-20 rounded-full" />
         )}
         {isDraggingOver && dropPosition === 'bottom' && (
           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tokyo-border-strong)] z-20 rounded-full" />
         )}
-        <div className="flex items-center">
+        <div className="flex items-center relative z-30">
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
@@ -1008,11 +1270,11 @@ function SidebarItem({
               setIconPickerId(item.id);
               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
             }}
-            className="hover:bg-[var(--tokyo-hover)] rounded p-0.5 transition-colors cursor-pointer"
+            className={cn("rounded p-0.5 transition-colors cursor-pointer", !isSelected && "hover:bg-[var(--tokyo-hover)]")}
           >
             <Icon className={cn(
               "w-4 h-4 shrink-0 stroke-[1.5]",
-              isActive ? "opacity-100" : "opacity-70"
+              isActive || isSelected ? "opacity-100" : "opacity-70"
             )} />
           </button>
         </div>
@@ -1033,8 +1295,18 @@ function SidebarItem({
               onPointerDown={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-between min-w-0">
+            <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
               <span className="text-sm font-medium truncate">{item.label}</span>
+              {dragStackCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0.75, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 700, damping: 24 }}
+                  className="ml-2 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#FFE08A] px-1.5 text-[11px] font-bold text-[#2A1E05] shadow-sm"
+                >
+                  {dragStackCount}
+                </motion.span>
+              )}
               {isFolder && (
                 <motion.div
                   animate={{ rotate: item.isExpanded ? 90 : 0 }}
@@ -1047,7 +1319,7 @@ function SidebarItem({
             </div>
           )
         )}
-      </div>
+      </motion.div>
 
       <AnimatePresence>
         {isFolder && item.isExpanded && !isCollapsed && children.length > 0 && (
@@ -1073,6 +1345,8 @@ function SidebarItem({
                   setEditingId={setEditingId}
                   onViewChange={onViewChange}
                   handleContextMenu={handleContextMenu}
+                  handleSidebarItemClick={handleSidebarItemClick}
+                  handleSidebarItemPointerDown={handleSidebarItemPointerDown}
                   setIconPickerId={setIconPickerId}
                   setIconPickerPos={setIconPickerPos}
                   editInputRef={editInputRef}
@@ -1088,12 +1362,15 @@ function SidebarItem({
                   sidebarItems={sidebarItems}
                   iconMap={iconMap}
                   currentView={currentView}
+                  selectedSidebarItemIds={selectedSidebarItemIds}
+                  draggingSidebarItemIds={draggingSidebarItemIds}
+                  primaryDraggingSidebarItemId={primaryDraggingSidebarItemId}
                 />
               );
             })}
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

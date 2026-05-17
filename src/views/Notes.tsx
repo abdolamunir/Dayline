@@ -353,9 +353,6 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
                     )}
                   >
                     <span className="capitalize">{option}</span>
-                    {customDropdown.currentValue === option && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
-                    )}
                   </button>
                 ))}
               </div>

@@ -45,6 +45,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
 import { cn } from '../utils/cn';
+import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
@@ -334,9 +335,7 @@ export function Areas() {
                       }}
                       className={cn(
                         "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                        area.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                        area.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
-                        "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]"
+                        getPriorityBadgeClasses(area.priority || 'medium')
                       )}
                     >
                       {toSentenceCase(area.priority || 'medium')}
@@ -572,7 +571,7 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
                 'https://i.pravatar.cc/150?u=5',
                 'https://i.pravatar.cc/150?u=4'
               ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-1 ring-white/5" alt="avatar" />
+                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
               ))}
             </div>
           </div>
@@ -595,9 +594,7 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
               }}
               className={cn(
                 "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                area.priority === 'high' ? "bg-red-500/20 text-red-400" : 
-                area.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" : 
-                "bg-green-500/20 text-green-400"
+                getPriorityBadgeClasses(area.priority || 'medium')
               )}
             >
               {toSentenceCase(area.priority || 'medium')}

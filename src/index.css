@@ -6,27 +6,27 @@
 }
 
 :root {
-  --tokyo-bg: #0d0713;
+  --tokyo-bg: #0f0814;
   --tokyo-bg-deep: #09050d;
-  --tokyo-sidebar: #171020;
-  --tokyo-sidebar-2: #140d1c;
-  --tokyo-panel: #100916;
-  --tokyo-panel-2: #1c1524;
-  --tokyo-panel-3: #241b2d;
-  --tokyo-border: rgba(214, 204, 219, 0.055);
-  --tokyo-border-strong: rgba(214, 204, 219, 0.095);
-  --tokyo-text: #d2cdd6;
-  --tokyo-text-strong: #f0edf2;
-  --tokyo-text-muted: #a59dac;
-  --tokyo-text-faint: #625b68;
-  --tokyo-yellow: #ffe100;
-  --tokyo-yellow-dim: #b89412;
-  --tokyo-yellow-soft: rgba(255, 225, 0, 0.18);
-  --tokyo-hover: rgba(198, 140, 255, 0.045);
-  --tokyo-hover-strong: rgba(198, 140, 255, 0.075);
-  --tokyo-pink: #ff4d7d;
-  --tokyo-green: #a6e37d;
-  --tokyo-purple: #c68cff;
+  --tokyo-sidebar: #181021;
+  --tokyo-sidebar-2: #150e1d;
+  --tokyo-panel: #110a17;
+  --tokyo-panel-2: #1f1726;
+  --tokyo-panel-3: #281f30;
+  --tokyo-border: rgba(218, 204, 216, 0.06);
+  --tokyo-border-strong: rgba(218, 204, 216, 0.105);
+  --tokyo-text: #d8d1db;
+  --tokyo-text-strong: #f4eff5;
+  --tokyo-text-muted: #ada4b4;
+  --tokyo-text-faint: #6a6170;
+  --tokyo-yellow: #e9ca35;
+  --tokyo-yellow-dim: #ad8d17;
+  --tokyo-yellow-soft: rgba(221, 178, 32, 0.2);
+  --tokyo-hover: rgba(190, 151, 118, 0.048);
+  --tokyo-hover-strong: rgba(190, 151, 118, 0.082);
+  --tokyo-pink: #e06b8a;
+  --tokyo-green: #9ad68b;
+  --tokyo-purple: #c09adf;
   --tokyo-orange: var(--tokyo-yellow);
   --tokyo-editor-rule: rgba(214, 204, 219, 0.13);
 }
@@ -44,6 +44,15 @@ body {
   text-rendering: geometricPrecision;
 }
 
+.dayline-main-surface {
+  background: #110817;
+  box-shadow: inset 1px 0 0 rgba(218, 204, 216, 0.06);
+}
+
+.dayline-main-surface::before {
+  content: none;
+}
+
 button,
 input,
 textarea,
@@ -53,6 +62,16 @@ select {
 
 button {
   cursor: pointer;
+}
+
+.bg-\[var\(--tokyo-yellow-dim\)\],
+.bg-\[var\(--tokyo-yellow-dim\)\] span,
+.bg-\[var\(--tokyo-yellow-dim\)\] kbd {
+  color: var(--tokyo-text-strong) !important;
+}
+
+[cmdk-item][aria-selected="true"] span {
+  color: var(--tokyo-text-strong) !important;
 }
 
 .property-popover,

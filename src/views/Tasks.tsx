@@ -11,6 +11,7 @@ import {
   PlayIcon as Play
 } from 'hugeicons-react';
 import { cn } from '../utils/cn';
+import { getPriorityBadgeClasses } from '../utils/badges';
 import { Task } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -176,9 +177,7 @@ export function Tasks({
                     )}
                     <span className={cn(
                       "px-1.5 py-0.5 rounded-lg font-medium text-[11px]",
-                      task.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                      task.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
-                      "bg-green-500/20 text-green-400"
+                      getPriorityBadgeClasses(task.priority)
                     )}>
                       {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
                     </span>

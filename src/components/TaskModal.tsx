@@ -18,6 +18,7 @@ import {
   Notification01Icon as Bell
 } from 'hugeicons-react';
 import { cn } from '../utils/cn';
+import { getPriorityDotClasses } from '../utils/badges';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -241,8 +242,7 @@ export function TaskModal({ task, isOpen, onClose }: TaskModalProps) {
             <div className="flex items-center gap-4">
               <div className={cn(
                 "w-4 h-4 rounded-[4px] shrink-0",
-                editedTask.priority === 'high' ? "bg-red-500" :
-                editedTask.priority === 'medium' ? "bg-[var(--tokyo-yellow)]" : "bg-green-500"
+                getPriorityDotClasses(editedTask.priority)
               )} />
               <span className="text-[15px] text-[var(--tokyo-text-strong)]">abdolamunir@gmail.com</span>
             </div>
@@ -295,7 +295,7 @@ export function TaskModal({ task, isOpen, onClose }: TaskModalProps) {
                           >
                             <span>{option.label}</span>
                             {editedTask.status === option.value && (
-                              <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-green)]" />
                             )}
                           </button>
                         ))}

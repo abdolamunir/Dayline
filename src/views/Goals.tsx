@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { GripVertical, Minus } from 'lucide-react';
 import { useAppStore } from '../store';
 import { Goal } from '../types';
 import { 
@@ -36,12 +35,15 @@ import {
   Settings02Icon as SettingsGear,
   PencilEdit01Icon as Pencil,
   Delete02Icon as Trash2,
-  Copy01Icon as Copy
+  Copy01Icon as Copy,
+  Share01Icon as Share,
+  StarIcon as Star
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
 import { cn } from '../utils/cn';
+import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
@@ -103,10 +105,23 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [goalContextMenu, setGoalContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingGoalTitle, setEditingGoalTitle] = useState('');
+  const [selectedGoalCell, setSelectedGoalCell] = useState<{ goalId: string; columnId: string } | null>(null);
+  const [goalFillDrag, setGoalFillDrag] = useState<{ sourceGoalId: string; columnId: string; targetGoalId: string } | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const titleEditRef = useRef<HTMLHeadingElement>(null);
   const descriptionEditRef = useRef<HTMLParagraphElement>(null);
   const isDraggingRef = useRef(false);
+  const isGoalFillDraggingRef = useRef(false);
+  const isColumnResizingRef = useRef(false);
+  const latestGoalColumnsRef = useRef(DEFAULT_GOAL_COLUMNS);
+  const goalFillDragRef = useRef<{ sourceGoalId: string; columnId: string; targetGoalId: string } | null>(null);
+
+  const setActiveGoalFillDrag = (drag: { sourceGoalId: string; columnId: string; targetGoalId: string } | null) => {
+    goalFillDragRef.current = drag;
+    setGoalFillDrag(drag);
+  };
+
+  const isGoalColumnFillable = (columnId: string) => columnId !== 'title' && columnId !== 'progress';
   
   const [tabs, setTabs] = useState(savedGoalSettings.tabs || DEFAULT_GOAL_TABS);
 
@@ -125,6 +140,8 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [titleValue, setTitleValue] = useState(savedGoalSettings.title || 'Goals');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionValue, setDescriptionValue] = useState(savedGoalSettings.description || 'Track and manage your long-term objectives.');
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority' | 'area';
@@ -146,13 +163,18 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     const settings = viewSettings.goals;
     if (!settings) return;
     if (settings.tabs) setTabs(settings.tabs);
-    if (settings.columns) setColumns(settings.columns);
+    if (settings.columns && !isColumnResizingRef.current) setColumns(settings.columns);
     if (settings.activeTab) setActiveTab(settings.activeTab);
     if (settings.title) setTitleValue(settings.title);
     if (settings.description) setDescriptionValue(settings.description);
   }, [viewSettings.goals]);
 
   useEffect(() => {
+    latestGoalColumnsRef.current = columns;
+  }, [columns]);
+
+  useEffect(() => {
+    if (isColumnResizingRef.current) return;
     updateViewSettings('goals', {
       tabs,
       columns,
@@ -173,6 +195,20 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     selection?.removeAllRanges();
     selection?.addRange(range);
   }, [isEditingTitle, isEditingDescription]);
+
+  useEffect(() => {
+    if (!selectedGoalCell) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-goal-cell-id], .property-popover, [data-goal-cell-fill-handle]')) return;
+      setSelectedGoalCell(null);
+      setActiveGoalFillDrag(null);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [selectedGoalCell]);
 
   if (selectedGoal) {
     return (
@@ -258,6 +294,167 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   const filteredGoals = goals.filter(g => normalizeGoalStatus(g.status) === activeTab);
 
+  const getColumnWidthNumber = (width?: string) => {
+    const parsed = Number.parseFloat(width || '');
+    return Number.isFinite(parsed) ? parsed : 160;
+  };
+
+  const startColumnResize = (event: React.PointerEvent, columnId: string, currentWidth?: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startX = event.clientX;
+    const startWidth = getColumnWidthNumber(currentWidth);
+    const initialColumns = latestGoalColumnsRef.current;
+    isColumnResizingRef.current = true;
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      const nextWidth = Math.max(96, Math.min(520, Math.round(startWidth + pointerEvent.clientX - startX)));
+      const nextColumns = initialColumns.map(column => (
+        column.id === columnId ? { ...column, width: `${nextWidth}px` } : column
+      ));
+      latestGoalColumnsRef.current = nextColumns;
+      setColumns(nextColumns);
+    };
+
+    const cleanup = () => {
+      isColumnResizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', cleanup);
+      updateViewSettings('goals', { columns: latestGoalColumnsRef.current });
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+  };
+
+  const getGoalCellValue = (goal: Goal, columnId: string) => {
+    if (columnId === 'title') return goal.title;
+    if (columnId === 'status') return goal.status;
+    if (columnId === 'priority') return goal.priority;
+    if (columnId === 'areas') return goal.areaId;
+    if (columnId === 'date') return goal.targetDate;
+    if (columnId === 'progress') return goal.progress;
+    return undefined;
+  };
+
+  const withGoalCellValue = (goal: Goal, columnId: string, value: any): Goal => {
+    if (columnId === 'title') return { ...goal, title: String(value ?? '') };
+    if (columnId === 'status') return { ...goal, status: String(value ?? '') };
+    if (columnId === 'priority') return { ...goal, priority: value as Goal['priority'] };
+    if (columnId === 'areas') return { ...goal, areaId: value || undefined };
+    if (columnId === 'date') return { ...goal, targetDate: value };
+    if (columnId === 'progress') return { ...goal, progress: Number(value ?? 0) };
+    return goal;
+  };
+
+  const getGoalFillRangeIds = (drag = goalFillDrag) => {
+    if (!drag) return [];
+
+    const sourceIndex = filteredGoals.findIndex(goal => goal.id === drag.sourceGoalId);
+    const targetIndex = filteredGoals.findIndex(goal => goal.id === drag.targetGoalId);
+    if (sourceIndex < 0 || targetIndex < 0) return [];
+
+    const [start, end] = [sourceIndex, targetIndex].sort((a, b) => a - b);
+    return filteredGoals.slice(start, end + 1).map(goal => goal.id);
+  };
+
+  const finishGoalFillDrag = (drag = goalFillDragRef.current) => {
+    if (!drag) return;
+
+    const rangeIds = getGoalFillRangeIds(drag);
+    const sourceGoal = goals.find(goal => goal.id === drag.sourceGoalId);
+    if (sourceGoal && rangeIds.length > 1) {
+      const value = getGoalCellValue(sourceGoal, drag.columnId);
+      reorderGoals(goals.map(goal => (
+        rangeIds.includes(goal.id) ? withGoalCellValue(goal, drag.columnId, value) : goal
+      )));
+    }
+
+    setActiveGoalFillDrag(null);
+    window.setTimeout(() => {
+      isGoalFillDraggingRef.current = false;
+      isDraggingRef.current = false;
+    }, 0);
+  };
+
+  const startGoalFillDrag = (event: React.PointerEvent, sourceGoalId: string, columnId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isGoalColumnFillable(columnId)) return;
+
+    const sourceDrag = { sourceGoalId, columnId, targetGoalId: sourceGoalId };
+    isGoalFillDraggingRef.current = true;
+    isDraggingRef.current = true;
+    setCustomDropdown(null);
+    setDatePickerConfig(null);
+    setSelectedGoalCell({ goalId: sourceGoalId, columnId });
+    setActiveGoalFillDrag(sourceDrag);
+
+    const updateTargetFromPoint = (_clientX: number, clientY: number) => {
+      const columnCells = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-goal-cell-id][data-goal-cell-column-id]')
+      ).filter(cell => cell.dataset.goalCellColumnId === columnId);
+
+      if (columnCells.length === 0) return;
+
+      const targetCell = columnCells.reduce((closestCell, cell) => {
+        const closestRect = closestCell.getBoundingClientRect();
+        const cellRect = cell.getBoundingClientRect();
+        const closestDistance = Math.abs(clientY - (closestRect.top + closestRect.height / 2));
+        const cellDistance = Math.abs(clientY - (cellRect.top + cellRect.height / 2));
+        return cellDistance < closestDistance ? cell : closestCell;
+      }, columnCells[0]);
+
+      const targetGoalId = targetCell.dataset.goalCellId;
+      if (!targetGoalId) return;
+
+      setActiveGoalFillDrag({
+        sourceGoalId,
+        columnId,
+        targetGoalId,
+      });
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      updateTargetFromPoint(pointerEvent.clientX, pointerEvent.clientY);
+    };
+
+    const handlePointerUp = (pointerEvent: PointerEvent) => {
+      updateTargetFromPoint(pointerEvent.clientX, pointerEvent.clientY);
+      cleanup();
+      finishGoalFillDrag();
+    };
+
+    const handleKeyDown = (keyboardEvent: KeyboardEvent) => {
+      if (keyboardEvent.key !== 'Escape') return;
+      cleanup();
+      setActiveGoalFillDrag(null);
+      isGoalFillDraggingRef.current = false;
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('keydown', handleKeyDown);
+  };
+
+  const goalFillRangeIds = getGoalFillRangeIds();
+  const goalFillRangeIdSet = new Set(goalFillRangeIds);
+  const goalTableWidth = columns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+
   const handleNewGoal = () => {
     const id = `g${Date.now()}`;
     addGoal({
@@ -278,6 +475,14 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     } else {
       setLocalSelectedGoalId(id);
     }
+  };
+
+  const handleCopyGoalsLink = async () => {
+    const href = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}#goals` : '';
+    if (href && navigator.clipboard) {
+      await navigator.clipboard.writeText(href);
+    }
+    setIsShareMenuOpen(false);
   };
 
   return (
@@ -354,6 +559,59 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               {descriptionValue}
             </p>
           </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+          <div className="relative">
+            <button
+              onClick={() => setIsShareMenuOpen((open) => !open)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[rgba(218,204,216,0.08)] bg-transparent px-2.5 text-[12px] font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            >
+              <Share className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+              Share
+              <ChevronDown className={cn("h-4 w-4 text-[var(--tokyo-text-faint)] transition-transform", isShareMenuOpen && "rotate-180")} />
+            </button>
+            {isShareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                  <button
+                    onClick={() => void handleCopyGoalsLink()}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                  >
+                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Copy page link
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Invite people
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => void handleCopyGoalsLink()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            title="Copy page link"
+          >
+            <Link className="h-[18px] w-[18px]" />
+          </button>
+          <button
+            onClick={() => setIsFavorite((favorite) => !favorite)}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+              isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+            )}
+            title="Favorite"
+          >
+            <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+          </button>
+          <button
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            title="More"
+          >
+            <MoreHorizontal className="h-[18px] w-[18px]" />
+          </button>
         </div>
       </header>
 
@@ -514,15 +772,15 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           )}
         </Reorder.Group>
 
-        <div className="flex shrink-0 items-center justify-end gap-1 text-[var(--tokyo-text-faint)]">
-          <button className="p-2 hover:text-white transition-colors"><Search className="w-5 h-5" /></button>
-          <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-5 h-5" /></button>
-          <button className="p-2 hover:text-white transition-colors"><Sort className="w-5 h-5" /></button>
+        <div className="flex shrink-0 items-center justify-end gap-0.5 text-[var(--tokyo-text-faint)]">
+          <button className="p-1.5 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
+          <button className="p-1.5 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
+          <button className="p-1.5 hover:text-white transition-colors"><Sort className="w-4 h-4" /></button>
           <button 
             onClick={handleNewGoal}
-            className="ml-3 bg-[var(--tokyo-yellow-dim)] text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
+            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-2.5 py-1 rounded-md font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 [stroke-width:2.4]" />
             New Goal
           </button>
         </div>
@@ -531,7 +789,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       {/* Table Container */}
       <div className="flex-1 overflow-hidden">
         <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <table className="w-full text-left border-separate border-spacing-0 min-w-[1200px] table-fixed">
+          <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${goalTableWidth}px` }}>
+            <colgroup>
+              {columns.map(column => (
+                <col key={column.id} style={{ width: column.width }} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
                 {columns.map((col, index) => (
@@ -539,11 +802,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     key={col.id} 
                     style={{ width: col.width }}
                     className={cn(
-                      "px-4 py-1.5 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-hidden",
+                      "relative px-4 py-1.5 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
                       index === 0 && "pl-[5px]"
                     )}
                   >
-                    <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2">
                       <button
                         onClick={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -592,27 +855,78 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         </span>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      aria-label={`Resize ${col.label} column`}
+                      title="Drag to resize column"
+                      onPointerDown={(e) => startColumnResize(e, col.id, col.width)}
+                      style={{ cursor: 'col-resize' }}
+                      className="absolute right-0 top-1/2 z-20 h-8 w-3 -translate-y-1/2 !cursor-col-resize touch-none before:pointer-events-none before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-transparent before:transition-all before:duration-150 hover:before:h-6 hover:before:w-[2px] hover:before:bg-[var(--tokyo-yellow)]"
+                    />
                   </th>
                 ))}
               </tr>
             </thead>
-            <Reorder.Group 
-              as="tbody" 
-              values={filteredGoals} 
+            <Reorder.Group
+              as="tbody"
+              values={filteredGoals}
               onReorder={(newGoals) => {
-                reorderGoals(newGoals);
+                const otherGoals = goals.filter(goal => normalizeGoalStatus(goal.status) !== activeTab);
+                reorderGoals([...otherGoals, ...newGoals]);
               }}
               className="relative"
             >
               {filteredGoals.map(goal => {
                 const area = areas.find(a => a.id === goal.areaId);
+                const isGoalCellSelected = (columnId: string) => selectedGoalCell?.goalId === goal.id && selectedGoalCell.columnId === columnId;
+                const isGoalFillColumn = (columnId: string) => goalFillDrag?.columnId === columnId;
+                const isInGoalFillRange = (columnId: string) => isGoalFillColumn(columnId) && goalFillRangeIdSet.has(goal.id);
+                const goalCellClasses = (columnId: string, className: string) => cn(
+                  className,
+                  "relative cursor-pointer transition-[background-color,box-shadow] duration-100 overflow-visible hover:bg-white/[0.02]",
+                  isGoalCellSelected(columnId) && "bg-[#1E90FF]/5 shadow-[inset_0_0_0_2px_#1E90FF]",
+                  isInGoalFillRange(columnId) && !isGoalCellSelected(columnId) && "bg-[#1E90FF]/10 shadow-[inset_0_0_0_1px_rgba(30,144,255,0.48)]",
+                  isGoalFillColumn(columnId) && goalFillDrag && "cursor-ns-resize"
+                );
+                const goalFillHandle = (columnId: string) => isGoalCellSelected(columnId) && isGoalColumnFillable(columnId) ? (
+                  <button
+                    type="button"
+                    draggable={false}
+                    data-goal-cell-fill-handle="true"
+                    title="Drag to fill this value down the column"
+                    aria-label="Drag to fill this value down the column"
+                    onPointerDownCapture={(e) => startGoalFillDrag(e, goal.id, columnId)}
+                    onDragStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className={cn(
+                      "absolute -bottom-2 -right-2 z-30 h-4 w-4 touch-none rounded-full border-[3px] border-[var(--tokyo-panel)] bg-[#1E90FF] shadow-[0_4px_12px_rgba(30,144,255,0.38)] transition-transform hover:scale-110 active:scale-95",
+                      goalFillDrag ? "cursor-ns-resize" : "cursor-crosshair"
+                    )}
+                  />
+                ) : null;
+                const selectGoalCell = (columnId: string) => setSelectedGoalCell({ goalId: goal.id, columnId });
+                const clearGoalCellSelection = () => {
+                  setSelectedGoalCell(null);
+                  setActiveGoalFillDrag(null);
+                };
+                const openGoalDetails = () => {
+                  clearGoalCellSelection();
+                  if (isGoalFillDraggingRef.current) return;
+                  if (onViewChange) {
+                    onViewChange(`goal-details:${goal.id}`);
+                  } else {
+                    setLocalSelectedGoalId(goal.id);
+                  }
+                };
                 return (
-                  <Reorder.Item 
+                  <Reorder.Item
                     key={goal.id} 
                     value={goal}
                     as="tr"
                     layout="position"
-                    dragElastic={0.2}
+                    dragElastic={0.12}
                     initial={false}
                     animate={{
                       scale: 1,
@@ -620,73 +934,70 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
                     }}
                     whileDrag={{
-                      scale: 1.01,
+                      scale: 1.008,
                       zIndex: 100,
-                      boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.5)",
+                      boxShadow: "0 18px 36px -14px rgba(0, 0, 0, 0.55)",
                     }}
-                    transition={{ 
-                      layout: { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
-                      scale: { duration: 0.2 },
-                      boxShadow: { duration: 0.2 },
-                      zIndex: { delay: 0.2 }
+                    transition={{
+                      layout: { duration: 0.18, ease: [0.23, 1, 0.32, 1] },
+                      scale: { duration: 0.16 },
+                      boxShadow: { duration: 0.16 },
                     }}
                     onDragStart={() => {
                       setDraggingId(goal.id);
                       isDraggingRef.current = true;
+                      setSelectedGoalCell(null);
+                      setActiveGoalFillDrag(null);
                     }}
                     onDragEnd={(event, info) => {
                       setDraggingId(null);
                       setHoveredTabId(null);
-                      setTimeout(() => {
+                      window.setTimeout(() => {
                         isDraggingRef.current = false;
                       }, 100);
-                      if (tabContainerRef.current) {
-                        const tabsElements = tabContainerRef.current.querySelectorAll('[data-tab-id]');
-                        let droppedOnTabId: string | null = null;
-                        
-                        tabsElements.forEach((tabEl) => {
-                          const rect = tabEl.getBoundingClientRect();
-                          if (
-                            info.point.x >= rect.left &&
-                            info.point.x <= rect.right &&
-                            info.point.y >= rect.top &&
-                            info.point.y <= rect.bottom
-                          ) {
-                            droppedOnTabId = tabEl.getAttribute('data-tab-id');
-                          }
-                        });
-                        
-                        if (droppedOnTabId && droppedOnTabId !== goal.status) {
-                          updateGoal({ ...goal, status: droppedOnTabId });
+
+                      if (!tabContainerRef.current) return;
+
+                      const tabsElements = tabContainerRef.current.querySelectorAll('[data-tab-id]');
+                      let droppedOnTabId: string | null = null;
+
+                      tabsElements.forEach((tabEl) => {
+                        const rect = tabEl.getBoundingClientRect();
+                        if (
+                          info.point.x >= rect.left &&
+                          info.point.x <= rect.right &&
+                          info.point.y >= rect.top &&
+                          info.point.y <= rect.bottom
+                        ) {
+                          droppedOnTabId = tabEl.getAttribute('data-tab-id');
                         }
+                      });
+
+                      if (droppedOnTabId && droppedOnTabId !== goal.status) {
+                        updateGoal({ ...goal, status: droppedOnTabId });
                       }
                     }}
                     onContextMenu={(e) => handleGoalContextMenu(e, goal.id)}
-                    onClick={() => {
-                      if (isDraggingRef.current) return;
-                      if (onViewChange) {
-                        onViewChange(`goal-details:${goal.id}`);
-                      } else {
-                        setLocalSelectedGoalId(goal.id);
-                      }
-                    }}
                     className={cn(
-                        "group transition-colors select-none cursor-pointer active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap",
-                        draggingId === goal.id ? "cursor-grabbing bg-white/[0.04]" : ""
-                      )}
+                      "group transition-colors select-none cursor-grab active:cursor-grabbing whitespace-nowrap",
+                      draggingId === goal.id && "bg-white/[0.04]"
+                    )}
                     >
-                      <td 
-                        style={{ width: columns[0].width }}
-                        className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap"
-                      >
+	                      <td 
+	                        data-goal-cell-id={goal.id}
+	                        data-goal-cell-column-id="title"
+	                        style={{ width: columns[0].width }}
+	                        onClick={(e) => {
+	                          e.stopPropagation();
+	                          openGoalDetails();
+	                        }}
+	                        className={goalCellClasses('title', "h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+	                      >
                         <div className="flex items-center gap-1">
                           <div 
                             onClick={(e) => {
                               e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setIconPickerId(goal.id);
-                              setIconPickerType('goal');
-                              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                              openGoalDetails();
                             }}
                             className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
                           >
@@ -706,29 +1017,40 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                               }}
                               className="bg-transparent border-none outline-none text-[14px] leading-5 font-medium tracking-tight text-[var(--tokyo-text-strong)]/60 w-full"
                             />
-                          ) : (
-                            <span 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingGoalId(goal.id);
-                                setEditingGoalTitle(goal.title);
-                              }}
-                              className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
-                            >
-                              {goal.title}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    <td 
-                      style={{ width: columns[1].width }}
-                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
-                    >
+	                          ) : (
+	                            <span 
+	                              onClick={(e) => {
+	                                e.stopPropagation();
+	                                openGoalDetails();
+	                              }}
+	                              onDoubleClick={(e) => {
+	                                e.stopPropagation();
+	                                setEditingGoalId(goal.id);
+	                                setEditingGoalTitle(goal.title);
+	                              }}
+	                              className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
+	                            >
+	                              {goal.title}
+	                            </span>
+	                          )}
+	                        </div>
+	                      </td>
+	                    <td 
+	                      data-goal-cell-id={goal.id}
+	                      data-goal-cell-column-id="status"
+	                      style={{ width: columns[1].width }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        selectGoalCell('status');
+	                      }}
+	                      className={goalCellClasses('status', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+	                    >
                       <div className="relative flex items-center">
                         <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const rect = e.currentTarget.getBoundingClientRect();
+	                          onClick={(e) => {
+	                            e.stopPropagation();
+	                            clearGoalCellSelection();
+	                            const rect = e.currentTarget.getBoundingClientRect();
                             setCustomDropdown({
                               id: goal.id,
                               type: 'status',
@@ -741,19 +1063,27 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             getGoalStatusClasses(goal.status)
                           )}
                         >
-                          <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
-                        </span>
-                      </div>
-                    </td>
-                    <td 
-                      style={{ width: columns[2].width }}
-                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
-                    >
+	                          <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
+	                        </span>
+	                      </div>
+	                      {goalFillHandle('status')}
+	                    </td>
+	                    <td 
+	                      data-goal-cell-id={goal.id}
+	                      data-goal-cell-column-id="priority"
+	                      style={{ width: columns[2].width }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        selectGoalCell('priority');
+	                      }}
+	                      className={goalCellClasses('priority', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+	                    >
                       <div className="relative flex items-center">
                         <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const rect = e.currentTarget.getBoundingClientRect();
+	                          onClick={(e) => {
+	                            e.stopPropagation();
+	                            clearGoalCellSelection();
+	                            const rect = e.currentTarget.getBoundingClientRect();
                             setCustomDropdown({
                               id: goal.id,
                               type: 'priority',
@@ -763,24 +1093,30 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                           }}
                           className={cn(
                             "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                            goal.priority === 'high' ? "bg-red-500/20 text-red-400" :
-                            goal.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" :
-                            "bg-green-500/20 text-green-400"
+                            getPriorityBadgeClasses(goal.priority)
                           )}
                         >
-                          {toSentenceCase(goal.priority)}
-                        </span>
-                      </div>
-                    </td>
-                    <td 
-                      style={{ width: columns[3].width }}
-                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
-                    >
+	                          {toSentenceCase(goal.priority)}
+	                        </span>
+	                      </div>
+	                      {goalFillHandle('priority')}
+	                    </td>
+	                    <td 
+	                      data-goal-cell-id={goal.id}
+	                      data-goal-cell-column-id="areas"
+	                      style={{ width: columns[3].width }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        selectGoalCell('areas');
+	                      }}
+	                      className={goalCellClasses('areas', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+	                    >
                       <div className="relative flex items-center">
                         <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const rect = e.currentTarget.getBoundingClientRect();
+	                          onClick={(e) => {
+	                            e.stopPropagation();
+	                            clearGoalCellSelection();
+	                            const rect = e.currentTarget.getBoundingClientRect();
                             setCustomDropdown({
                               id: goal.id,
                               type: 'area',
@@ -793,18 +1129,26 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]"
                           )}
                         >
-                          <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : 'No Area'}</span>
-                        </span>
-                      </div>
-                    </td>
-                    <td 
-                      style={{ width: columns[4].width }}
-                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
-                    >
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
+	                          <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : 'No Area'}</span>
+	                        </span>
+	                      </div>
+	                      {goalFillHandle('areas')}
+	                    </td>
+	                    <td 
+	                      data-goal-cell-id={goal.id}
+	                      data-goal-cell-column-id="date"
+	                      style={{ width: columns[4].width }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        selectGoalCell('date');
+	                      }}
+	                      className={goalCellClasses('date', "pl-3 pr-1 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+	                    >
+	                      <div 
+	                        onClick={(e) => {
+	                          e.stopPropagation();
+	                          clearGoalCellSelection();
+	                          const rect = e.currentTarget.getBoundingClientRect();
                           setDatePickerConfig({
                             id: goal.id,
                             pos: { x: rect.left, y: rect.bottom + 8 },
@@ -817,34 +1161,43 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             }
                           });
                         }}
-                        className="relative flex items-center gap-1 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
+                        className="relative inline-flex w-fit items-center gap-0.5 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
                       >
                         <div className="w-6 h-6 flex items-center justify-center shrink-0">
                           <CalendarIcon className="w-4 h-4" />
                         </div>
-                        <span>{goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'No date'}</span>
-                      </div>
-                    </td>
-                    <td 
-                      style={{ width: columns[5].width }}
-                      className="px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap"
-                    >
+	                        <span>{goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'No date'}</span>
+	                      </div>
+	                      {goalFillHandle('date')}
+	                    </td>
+	                    <td 
+	                      data-goal-cell-id={goal.id}
+	                      data-goal-cell-column-id="progress"
+	                      style={{ width: columns[5].width }}
+	                      onClick={(e) => {
+	                        e.stopPropagation();
+	                        selectGoalCell('progress');
+	                      }}
+	                      className={goalCellClasses('progress', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+	                    >
                       <div 
                         onClick={(e) => {
                           e.stopPropagation();
+                          clearGoalCellSelection();
                         }}
-                        className="flex items-center gap-1 cursor-pointer group/progress"
-                      >
+	                        className="flex items-center gap-1 cursor-pointer group/progress"
+	                      >
                         <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60 group-hover/progress:text-[var(--tokyo-yellow)] transition-colors">
                           <Circle className="w-4 h-4" />
                         </div>
                         <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] hover:bg-[var(--tokyo-yellow-soft)] transition-colors">
                           <span className="text-xs font-medium">{goal.progress}</span>
                           <span className="text-xs font-medium">%</span>
-                        </div>
-                      </div>
-                    </td>
-                  </Reorder.Item>
+	                        </div>
+	                      </div>
+	                      {goalFillHandle('progress')}
+	                    </td>
+	                  </Reorder.Item>
                 );
               })}
               {/* New page row */}
@@ -925,9 +1278,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       )}
                     >
                       <span>{toSentenceCase(option)}</span>
-                      {customDropdown.currentValue === option && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
-                      )}
                     </button>
                   ))
                 ) : (
@@ -944,9 +1294,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       )}
                     >
                       <span>No Area</span>
-                      {!customDropdown.currentValue && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
-                      )}
                     </button>
                     {areas.map((area) => (
                       <button
@@ -962,9 +1309,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         )}
                       >
                         <span className="min-w-0 truncate">{area.name}</span>
-                        {customDropdown.currentValue === area.id && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
-                        )}
                       </button>
                     ))}
                   </>
@@ -1349,7 +1693,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 'https://i.pravatar.cc/150?u=4',
                 'https://i.pravatar.cc/150?u=6'
               ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-1 ring-white/5" alt="avatar" />
+                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
               ))}
             </div>
           </div>
@@ -1400,9 +1744,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 }}
                 className={cn(
                   "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                  goal.priority === 'high' ? "bg-red-500/20 text-red-400" : 
-                  goal.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" : 
-                  "bg-green-500/20 text-green-400"
+                  getPriorityBadgeClasses(goal.priority)
                 )}
               >
                 {toSentenceCase(goal.priority)}
@@ -1444,7 +1786,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
               <span>Creator</span>
             </div>
             <div className="flex items-center gap-2">
-              <img src="https://i.pravatar.cc/150?u=4" className="w-5 h-5 rounded-full ring-1 ring-white/10" alt="creator" />
+              <img src="https://i.pravatar.cc/150?u=4" className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
               <span className="text-[var(--tokyo-text)] text-[13px] font-medium">Stephen Robert</span>
             </div>
           </div>

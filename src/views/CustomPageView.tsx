@@ -32,6 +32,7 @@ import { BlockEditor } from '../components/BlockEditor';
 import { WorkspacePage, WorkspaceHeader, ToolButton } from '../components/ui/DatabaseSurface';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
+import { getPriorityBadgeClasses } from '../utils/badges';
 
 interface CustomPageViewProps {
   page: CustomPage;
@@ -366,12 +367,6 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                 "bg-stone-500/20 text-stone-400"
               )}
             >
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                item.status === 'completed' ? "bg-[var(--tokyo-green)]" :
-                item.status === 'in-progress' || item.status === 'inbox' ? "bg-[var(--tokyo-purple)]" :
-                "bg-stone-400"
-              )} />
               <span>{toSentenceCase(item.status)}</span>
             </div>
           </div>
@@ -393,9 +388,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               }}
               className={cn(
                 "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                item.priority === 'high' ? "bg-red-500/20 text-red-400" : 
-                item.priority === 'medium' ? "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]" : 
-                "bg-green-500/20 text-green-400"
+                getPriorityBadgeClasses(item.priority)
               )}
             >
               {toSentenceCase(item.priority)}
@@ -565,9 +558,6 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                     )}
                   >
                     <span>{toSentenceCase(option)}</span>
-                    {customDropdown.currentValue === option && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-[var(--tokyo-purple)]" />
-                    )}
                   </button>
                 ))}
               </div>
