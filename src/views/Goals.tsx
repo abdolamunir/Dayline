@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '../store';
 import { Goal } from '../types';
-import { 
+import {
   Target01Icon as Target, 
   Add01Icon as Plus, 
   MoreHorizontalIcon as MoreHorizontal, 
@@ -65,13 +65,18 @@ const toSentenceCase = (str: string) => {
 };
 
 const GOAL_STATUS_OPTIONS = ['planning', 'active', 'completed', 'paused'];
+type GoalColumn = { id: string; label: string; icon: string; width: string };
+type GoalIconPickerType = 'tab' | 'column' | 'main' | 'goal' | null;
+type GoalSortConfig = { columnId: string; direction: 'asc' | 'desc' };
+const DEFAULT_GOAL_SORT: GoalSortConfig = { columnId: 'title', direction: 'asc' };
+
 const DEFAULT_GOAL_TABS = [
   { id: 'planning', label: 'Planning', icon: 'Clock' },
   { id: 'active', label: 'Active', icon: 'Target' },
   { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
   { id: 'paused', label: 'Paused', icon: 'Circle' },
 ];
-const DEFAULT_GOAL_COLUMNS = [
+const DEFAULT_GOAL_COLUMNS: GoalColumn[] = [
   { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
   { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
   { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
@@ -93,14 +98,191 @@ const getGoalStatusClasses = (status: string) => {
     "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]";
 };
 
+function GoalColumnHeader({
+  col,
+  index,
+  motionStyle,
+  isAnyColumnDragging,
+  editingColumnId,
+  editingColumnName,
+  setEditingColumnId,
+  setEditingColumnName,
+  setColumns,
+  setIconPickerId,
+  setIconPickerType,
+  setIconPickerPos,
+  startColumnDrag,
+  startColumnResize,
+}: {
+  col: GoalColumn;
+  index: number;
+  motionStyle: React.CSSProperties & { x?: number };
+  isAnyColumnDragging: boolean;
+  editingColumnId: string | null;
+  editingColumnName: string;
+  setEditingColumnId: React.Dispatch<React.SetStateAction<string | null>>;
+  setEditingColumnName: React.Dispatch<React.SetStateAction<string>>;
+  setColumns: React.Dispatch<React.SetStateAction<GoalColumn[]>>;
+  setIconPickerId: React.Dispatch<React.SetStateAction<string | null>>;
+  setIconPickerType: React.Dispatch<React.SetStateAction<GoalIconPickerType>>;
+  setIconPickerPos: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
+  startColumnDrag: (event: React.PointerEvent, columnId: string) => void;
+  startColumnResize: (event: React.PointerEvent, columnId: string, currentWidth?: string) => void;
+}) {
+  const startHeaderDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('[data-column-control="true"]')) return;
+    startColumnDrag(event, col.id);
+  };
+
+  return (
+    <motion.th
+      layout="position"
+      transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
+      style={motionStyle}
+      className={cn(
+        "relative px-4 py-1 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
+        index === 0 && "pl-[5px]"
+      )}
+    >
+      <div
+        onPointerDown={startHeaderDrag}
+        className="flex items-center gap-1 w-full min-w-0 overflow-hidden pr-2 cursor-grab active:cursor-grabbing"
+      >
+        <button
+          type="button"
+          data-column-control="true"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setIconPickerId(col.id);
+            setIconPickerType('column');
+            setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+          }}
+          className="w-6 h-6 rounded-md transition-colors text-[var(--tokyo-text-muted)]/80 hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
+        >
+          {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4" })}
+        </button>
+        {editingColumnId === col.id ? (
+          <input
+            data-column-control="true"
+            autoFocus
+            value={editingColumnName}
+            onChange={(e) => setEditingColumnName(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={() => {
+              if (editingColumnName.trim()) {
+                setColumns(prev => prev.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c));
+              }
+              setEditingColumnId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (editingColumnName.trim()) {
+                  setColumns(prev => prev.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c));
+                }
+                setEditingColumnId(null);
+              }
+              if (e.key === 'Escape') {
+                setEditingColumnId(null);
+              }
+            }}
+            className="bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)] px-2 h-7 rounded-md outline-none text-sm font-medium border border-[var(--tokyo-border)] min-w-0 w-full"
+          />
+        ) : (
+          <span
+            data-column-control="true"
+            className="capitalize cursor-pointer text-[var(--tokyo-text-muted)]/80 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1 h-7 rounded-md transition-colors text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingColumnId(col.id);
+              setEditingColumnName(col.label);
+            }}
+          >
+            {col.label.toLowerCase()}
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        data-column-control="true"
+        aria-label={`Resize ${col.label} column`}
+        title="Drag to resize column"
+        onPointerDown={(e) => startColumnResize(e, col.id, col.width)}
+        style={{ cursor: 'col-resize' }}
+        className={cn(
+          "absolute right-0 top-1/2 z-20 h-8 w-3 -translate-y-1/2 !cursor-col-resize touch-none before:pointer-events-none before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-transparent before:transition-all before:duration-150 hover:before:h-6 hover:before:w-[2px] hover:before:bg-[var(--tokyo-yellow)]",
+          isAnyColumnDragging && "pointer-events-none opacity-0"
+        )}
+      />
+    </motion.th>
+  );
+}
+
+function GoalReorderRow({
+  goal,
+  draggingId,
+  onDragStart,
+  onDragEnd,
+  onContextMenu,
+  children,
+}: {
+  goal: Goal;
+  draggingId: string | null;
+  onDragStart: () => void;
+  onDragEnd: (event: MouseEvent | TouchEvent | PointerEvent, info: { point: { x: number; y: number } }) => void;
+  onContextMenu: (event: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Reorder.Item
+      key={goal.id}
+      value={goal}
+      as="tr"
+      layout="position"
+      dragElastic={0.12}
+      initial={false}
+      animate={{
+        scale: 1,
+        zIndex: 1,
+        boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
+      }}
+      whileDrag={{
+        scale: 1.008,
+        zIndex: 100,
+        boxShadow: "0 18px 36px -14px rgba(0, 0, 0, 0.55)",
+      }}
+      transition={{
+        layout: { duration: 0.18, ease: [0.23, 1, 0.32, 1] },
+        scale: { duration: 0.16 },
+        boxShadow: { duration: 0.16 },
+      }}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onContextMenu={onContextMenu}
+      className={cn(
+        "group cursor-grab transition-colors select-none whitespace-nowrap active:cursor-grabbing",
+        draggingId === goal.id && "bg-white/[0.04]"
+      )}
+    >
+      {children}
+    </Reorder.Item>
+  );
+}
+
 export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: string) => void, selectedGoalId?: string }) {
   const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, updateSidebarItem, deleteSidebarItem, viewSettings, updateViewSettings } = useAppStore();
   const savedGoalSettings = viewSettings.goals || {};
   const [localSelectedGoalId, setLocalSelectedGoalId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
+  const [draggingColumnOffset, setDraggingColumnOffset] = useState(0);
+  const [columnDropIndicatorX, setColumnDropIndicatorX] = useState<number | null>(null);
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
-  const [iconPickerType, setIconPickerType] = useState<'tab' | 'column' | 'main' | 'goal' | null>(null);
+  const [iconPickerType, setIconPickerType] = useState<GoalIconPickerType>(null);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [goalContextMenu, setGoalContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -108,11 +290,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [selectedGoalCell, setSelectedGoalCell] = useState<{ goalId: string; columnId: string } | null>(null);
   const [goalFillDrag, setGoalFillDrag] = useState<{ sourceGoalId: string; columnId: string; targetGoalId: string } | null>(null);
   const tabContainerRef = useRef<HTMLDivElement>(null);
+  const goalTableRef = useRef<HTMLDivElement>(null);
   const titleEditRef = useRef<HTMLHeadingElement>(null);
   const descriptionEditRef = useRef<HTMLParagraphElement>(null);
   const isDraggingRef = useRef(false);
   const isGoalFillDraggingRef = useRef(false);
   const isColumnResizingRef = useRef(false);
+  const suppressGoalOpenUntilRef = useRef(0);
   const latestGoalColumnsRef = useRef(DEFAULT_GOAL_COLUMNS);
   const goalFillDragRef = useRef<{ sourceGoalId: string; columnId: string; targetGoalId: string } | null>(null);
 
@@ -125,7 +309,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   
   const [tabs, setTabs] = useState(savedGoalSettings.tabs || DEFAULT_GOAL_TABS);
 
-  const [columns, setColumns] = useState(savedGoalSettings.columns || DEFAULT_GOAL_COLUMNS);
+  const [columns, setColumns] = useState<GoalColumn[]>(savedGoalSettings.columns || DEFAULT_GOAL_COLUMNS);
 
   const [activeTab, setActiveTab] = useState<string>(savedGoalSettings.activeTab || 'active');
   const [isAddingTab, setIsAddingTab] = useState(false);
@@ -148,6 +332,14 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     pos: { x: number, y: number };
     currentValue: string;
   } | null>(null);
+  const initialSortConfigs: GoalSortConfig[] = Array.isArray(savedGoalSettings.sortConfigs)
+    ? savedGoalSettings.sortConfigs
+    : savedGoalSettings.sortConfig
+      ? [savedGoalSettings.sortConfig]
+      : [];
+  const [sortConfigs, setSortConfigs] = useState<GoalSortConfig[]>(initialSortConfigs);
+  const [draftSortConfig, setDraftSortConfig] = useState<GoalSortConfig>(initialSortConfigs[0] || DEFAULT_GOAL_SORT);
+  const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [datePickerConfig, setDatePickerConfig] = useState<{
     id: string;
     pos: { x: number, y: number };
@@ -167,6 +359,14 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     if (settings.activeTab) setActiveTab(settings.activeTab);
     if (settings.title) setTitleValue(settings.title);
     if (settings.description) setDescriptionValue(settings.description);
+    if (Array.isArray(settings.sortConfigs)) {
+      setSortConfigs(settings.sortConfigs);
+      setDraftSortConfig(settings.sortConfigs[0] || DEFAULT_GOAL_SORT);
+    } else if ('sortConfig' in settings) {
+      const legacySortConfigs = settings.sortConfig ? [settings.sortConfig] : [];
+      setSortConfigs(legacySortConfigs);
+      setDraftSortConfig(legacySortConfigs[0] || DEFAULT_GOAL_SORT);
+    }
   }, [viewSettings.goals]);
 
   useEffect(() => {
@@ -181,8 +381,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       activeTab,
       title: titleValue,
       description: descriptionValue,
+      sortConfigs,
     });
-  }, [tabs, columns, activeTab, titleValue, descriptionValue]);
+  }, [tabs, columns, activeTab, titleValue, descriptionValue, sortConfigs]);
 
   useEffect(() => {
     const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;
@@ -293,6 +494,44 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   };
 
   const filteredGoals = goals.filter(g => normalizeGoalStatus(g.status) === activeTab);
+  const activeSortColumnId = columns.some(column => column.id === draftSortConfig.columnId)
+    ? draftSortConfig.columnId
+    : columns[0]?.id || 'title';
+  const activeSortColumn = columns.find(column => column.id === activeSortColumnId) || columns[0];
+  const activeSortDirection = draftSortConfig.direction;
+  const getGoalSortValue = (goal: Goal, columnId: string) => {
+    if (columnId === 'title') return goal.title.toLowerCase();
+    if (columnId === 'status') return GOAL_STATUS_OPTIONS.indexOf(normalizeGoalStatus(goal.status));
+    if (columnId === 'priority') return ['low', 'medium', 'high'].indexOf(goal.priority);
+    if (columnId === 'areas') return (areas.find(area => area.id === goal.areaId)?.name || '').toLowerCase();
+    if (columnId === 'date') return goal.targetDate ? new Date(goal.targetDate).getTime() : Number.POSITIVE_INFINITY;
+    if (columnId === 'progress') return goal.progress;
+    return '';
+  };
+  const compareGoalsBySort = (firstGoal: Goal, secondGoal: Goal, sortConfig: GoalSortConfig) => {
+    const firstValue = getGoalSortValue(firstGoal, sortConfig.columnId);
+    const secondValue = getGoalSortValue(secondGoal, sortConfig.columnId);
+
+    let result = 0;
+
+    if (typeof firstValue === 'number' && typeof secondValue === 'number') {
+      result = firstValue - secondValue;
+    } else {
+      result = String(firstValue).localeCompare(String(secondValue), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    return sortConfig.direction === 'asc' ? result : -result;
+  };
+  const visibleGoals = sortConfigs.length > 0
+    ? [...filteredGoals].sort((firstGoal, secondGoal) => {
+        for (const sortConfig of sortConfigs) {
+          const result = compareGoalsBySort(firstGoal, secondGoal, sortConfig);
+          if (result !== 0) return result;
+        }
+
+        return 0;
+      })
+    : filteredGoals;
 
   const getColumnWidthNumber = (width?: string) => {
     const parsed = Number.parseFloat(width || '');
@@ -333,6 +572,141 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     window.addEventListener('pointerup', cleanup);
   };
 
+  const startColumnDrag = (event: React.PointerEvent, columnId: string) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startColumns = latestGoalColumnsRef.current;
+    const draggedColumn = startColumns.find(column => column.id === columnId);
+    const startIndex = startColumns.findIndex(column => column.id === columnId);
+    if (!draggedColumn || startIndex < 0) return;
+
+    const startX = event.clientX;
+    const startLeft = startColumns
+      .slice(0, startIndex)
+      .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+    const draggedColumnWidth = getColumnWidthNumber(draggedColumn.width);
+    const tableRect = goalTableRef.current?.getBoundingClientRect();
+    if (!tableRect) return;
+    let latestOffset = 0;
+    let latestTargetIndex = startIndex;
+    let latestIndicatorX = startLeft;
+    let animationFrameId: number | null = null;
+    let lastRenderedIndicatorX: number | null = null;
+
+    const getDropTarget = (offset: number) => {
+      const projectedCenter = startLeft + offset + draggedColumnWidth / 2;
+      const remainingColumns = startColumns.filter(column => column.id !== columnId);
+      let targetIndex = remainingColumns.length;
+      let runningLeft = 0;
+
+      for (let index = 0; index < remainingColumns.length; index += 1) {
+        const column = remainingColumns[index];
+        const originalIndex = startColumns.findIndex(startColumn => startColumn.id === column.id);
+        const visibleCenterOffset = originalIndex > startIndex ? draggedColumnWidth : 0;
+        const columnCenter = runningLeft + getColumnWidthNumber(column.width) / 2 + visibleCenterOffset;
+        if (projectedCenter < columnCenter) {
+          targetIndex = index;
+          break;
+        }
+        runningLeft += getColumnWidthNumber(column.width);
+      }
+
+      const indicatorX = remainingColumns
+        .slice(0, targetIndex)
+        .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+      const visualIndicatorX = targetIndex > startIndex || (targetIndex === startIndex && offset > 0)
+        ? indicatorX + draggedColumnWidth
+        : indicatorX;
+
+      return {
+        targetIndex,
+        indicatorX: visualIndicatorX,
+      };
+    };
+
+    const updateDragLine = (offset: number) => {
+      const target = getDropTarget(offset);
+      latestTargetIndex = target.targetIndex;
+      latestIndicatorX = Math.round(target.indicatorX);
+      if (lastRenderedIndicatorX !== latestIndicatorX) {
+        lastRenderedIndicatorX = latestIndicatorX;
+        setColumnDropIndicatorX(latestIndicatorX);
+      }
+    };
+
+    const renderDragUpdate = () => {
+      animationFrameId = null;
+      const roundedOffset = Math.round(latestOffset);
+      setDraggingColumnOffset(roundedOffset);
+
+      if (roundedOffset !== 0) {
+        updateDragLine(roundedOffset);
+      } else if (lastRenderedIndicatorX !== null) {
+        lastRenderedIndicatorX = latestIndicatorX;
+        setColumnDropIndicatorX(latestIndicatorX);
+      }
+    };
+
+    const scheduleDragUpdate = () => {
+      if (animationFrameId !== null) return;
+      animationFrameId = window.requestAnimationFrame(renderDragUpdate);
+    };
+
+    setDraggingColumnId(columnId);
+    setDraggingColumnOffset(0);
+    lastRenderedIndicatorX = latestIndicatorX;
+    setColumnDropIndicatorX(latestIndicatorX);
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      latestOffset = pointerEvent.clientX - startX;
+      scheduleDragUpdate();
+    };
+
+    const cleanup = () => {
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      const remainingColumns = startColumns.filter(column => column.id !== columnId);
+      const finalTarget = getDropTarget(Math.round(latestOffset));
+      const targetIndex = finalTarget.targetIndex;
+      latestIndicatorX = Math.round(finalTarget.indicatorX);
+
+      const nextColumns = [...remainingColumns];
+      nextColumns.splice(targetIndex, 0, draggedColumn);
+      const nextLeft = nextColumns
+        .slice(0, targetIndex)
+        .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+      setColumnDropIndicatorX(latestIndicatorX);
+      setDraggingColumnOffset(Math.round(startLeft + latestOffset - nextLeft));
+      latestGoalColumnsRef.current = nextColumns;
+      setColumns(nextColumns);
+
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', cleanup);
+
+      window.setTimeout(() => {
+        setColumnDropIndicatorX(null);
+      }, 120);
+
+      window.requestAnimationFrame(() => {
+        setDraggingColumnId(null);
+        setDraggingColumnOffset(0);
+      });
+    };
+
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+  };
+
   const getGoalCellValue = (goal: Goal, columnId: string) => {
     if (columnId === 'title') return goal.title;
     if (columnId === 'status') return goal.status;
@@ -356,12 +730,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const getGoalFillRangeIds = (drag = goalFillDrag) => {
     if (!drag) return [];
 
-    const sourceIndex = filteredGoals.findIndex(goal => goal.id === drag.sourceGoalId);
-    const targetIndex = filteredGoals.findIndex(goal => goal.id === drag.targetGoalId);
+    const sourceIndex = visibleGoals.findIndex(goal => goal.id === drag.sourceGoalId);
+    const targetIndex = visibleGoals.findIndex(goal => goal.id === drag.targetGoalId);
     if (sourceIndex < 0 || targetIndex < 0) return [];
 
     const [start, end] = [sourceIndex, targetIndex].sort((a, b) => a - b);
-    return filteredGoals.slice(start, end + 1).map(goal => goal.id);
+    return visibleGoals.slice(start, end + 1).map(goal => goal.id);
   };
 
   const finishGoalFillDrag = (drag = goalFillDragRef.current) => {
@@ -454,6 +828,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const goalFillRangeIds = getGoalFillRangeIds();
   const goalFillRangeIdSet = new Set(goalFillRangeIds);
   const goalTableWidth = columns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+  const getColumnMotionStyle = (column: GoalColumn) => ({
+    width: column.width,
+    x: draggingColumnId === column.id ? Math.round(draggingColumnOffset) : 0,
+    zIndex: draggingColumnId === column.id ? 35 : 1,
+  });
 
   const handleNewGoal = () => {
     const id = `g${Date.now()}`;
@@ -487,11 +866,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   return (
     <div 
-      className="max-w-6xl mx-auto p-4 md:p-8 flex flex-col gap-4 min-h-full"
+      className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full"
     >
       {/* Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <div className="flex items-center gap-5">
           <div 
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -499,45 +878,50 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               setIconPickerType('main');
               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
             }}
-            className="w-12 h-12 rounded-2xl bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-[var(--tokyo-hover)] transition-colors"
+            className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-[var(--tokyo-hover)] transition-colors"
           >
-            {React.createElement(iconMap[sidebarItems.find(i => i.id === 'goals')?.icon || 'Target'] || Target, { className: "w-6 h-6" })}
+            {React.createElement(iconMap[sidebarItems.find(i => i.id === 'goals')?.icon || 'Target'] || Target, { className: "w-7 h-7" })}
           </div>
           <div className="flex-1 min-w-0">
-            <h1 
-              ref={titleEditRef}
-              contentEditable={isEditingTitle}
-              suppressContentEditableWarning
-              className="text-xl md:text-2xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight cursor-text outline-none"
-              onClick={() => {
-                if (!isEditingTitle) {
-                  setTitleValue(currentPageTitle);
-                  setIsEditingTitle(true);
-                }
-              }}
-              onInput={(e) => setTitleValue(e.currentTarget.textContent || '')}
-              onBlur={() => {
-                if (isEditingTitle) handleRenamePage();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleRenamePage();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  setTitleValue(currentPageTitle);
-                  setIsEditingTitle(false);
-                }
-              }}
-            >
-              {isEditingTitle ? titleValue : currentPageTitle}
-            </h1>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1
+                ref={titleEditRef}
+                contentEditable={isEditingTitle}
+                suppressContentEditableWarning
+                className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight cursor-text outline-none"
+                onClick={() => {
+                  if (!isEditingTitle) {
+                    setTitleValue(currentPageTitle);
+                    setIsEditingTitle(true);
+                  }
+                }}
+                onInput={(e) => setTitleValue(e.currentTarget.textContent || '')}
+                onBlur={() => {
+                  if (isEditingTitle) handleRenamePage();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleRenamePage();
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setTitleValue(currentPageTitle);
+                    setIsEditingTitle(false);
+                  }
+                }}
+              >
+                {isEditingTitle ? titleValue : currentPageTitle}
+              </h1>
+              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+                {goals.length}
+              </span>
+            </div>
             <p 
               ref={descriptionEditRef}
               contentEditable={isEditingDescription}
               suppressContentEditableWarning
-              className="text-[var(--tokyo-text-muted)] -mt-0.5 text-xs md:text-sm leading-normal cursor-text outline-none"
+              className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-[15px] leading-normal cursor-text outline-none"
               onClick={() => {
                 if (!isEditingDescription) setIsEditingDescription(true);
               }}
@@ -573,7 +957,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             {isShareMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
                   <button
                     onClick={() => void handleCopyGoalsLink()}
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
@@ -615,14 +999,14 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
         </div>
       </header>
 
-      <div className="flex flex-col gap-0 flex-1 overflow-hidden">
+      <div className="flex flex-col gap-1 flex-1 overflow-hidden">
         {/* Tabs & Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--tokyo-border)] pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--tokyo-border)] pb-2">
         {/* Mobile/Tablet Dropdown */}
         <div className="sm:hidden relative">
           <button 
             onClick={() => setIsTabDropdownOpen(!isTabDropdownOpen)}
-            className="flex items-center justify-between w-full px-4 py-2 bg-stone-500/10 border border-stone-500/20 rounded-xl text-stone-100 font-medium"
+            className="flex items-center justify-between w-full px-4 py-2 bg-stone-500/10 border border-stone-500/20 rounded-lg text-stone-100 font-medium"
           >
             <div className="flex items-center gap-2">
               {React.createElement(iconMap[tabs.find(t => t.id === activeTab)?.icon || 'Target'] || Target, { className: "w-4 h-4" })}
@@ -639,7 +1023,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-full left-0 right-0 mt-2 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl z-50 overflow-hidden"
+                  className="absolute top-full left-0 right-0 mt-2 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl z-50 overflow-hidden"
                 >
                   {tabs.map(tab => (
                     <button
@@ -670,7 +1054,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           axis="x" 
           values={tabs} 
           onReorder={setTabs}
-          className="hidden sm:flex min-w-0 flex-1 items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
+          className="hidden sm:flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
         >
           {tabs.map(tab => {
             const Icon = iconMap[tab.icon] || Target;
@@ -703,7 +1087,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   setActiveTab(tab.id);
                 }}
                 className={cn(
-                  "flex items-center gap-1 pl-[7px] pr-[9px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap group relative",
+                  "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap group relative",
                   activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
                   draggingId === tab.id ? "cursor-grabbing" : "cursor-pointer",
                   hoveredTabId === tab.id && getGoalStatusClasses(tab.id)
@@ -724,7 +1108,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     setIconPickerType('tab');
                     setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                   }}
-                  className="hover:bg-[var(--tokyo-hover)] rounded p-0.5 transition-colors cursor-pointer"
+                  className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--tokyo-hover)] cursor-pointer"
                 >
                   <Icon className="w-4 h-4" />
                 </button>
@@ -764,7 +1148,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           ) : (
             <button 
               onClick={() => setIsAddingTab(true)}
-              className="w-[34px] h-[34px] flex items-center justify-center text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] transition-colors rounded-lg hover:bg-[var(--tokyo-hover)] cursor-pointer shrink-0"
+              className="w-8 h-8 flex items-center justify-center text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] transition-colors rounded-lg hover:bg-[var(--tokyo-hover)] cursor-pointer shrink-0"
               title="Add new tab"
             >
               <Plus className="w-4 h-4" />
@@ -772,13 +1156,25 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           )}
         </Reorder.Group>
 
-        <div className="flex shrink-0 items-center justify-end gap-0.5 text-[var(--tokyo-text-faint)]">
-          <button className="p-1.5 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
-          <button className="p-1.5 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
-          <button className="p-1.5 hover:text-white transition-colors"><Sort className="w-4 h-4" /></button>
+        <div className="flex shrink-0 items-center justify-end gap-1 text-[var(--tokyo-text-faint)]">
+          <button className="p-2 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
+          <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setSortPopoverPos(sortPopoverPos ? null : { x: rect.right, y: rect.bottom + 8 });
+            }}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              sortConfigs.length > 0 ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-yellow)]" : "hover:text-white"
+            )}
+            title="Sort"
+          >
+            <Sort className="w-4 h-4" />
+          </button>
           <button 
             onClick={handleNewGoal}
-            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-2.5 py-1 rounded-md font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
+            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 [stroke-width:2.4]" />
             New Goal
@@ -787,8 +1183,10 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       </div>
 
       {/* Table Container */}
-      <div className="flex-1 overflow-hidden">
-        <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+      <div className="flex-1 overflow-visible">
+        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId || draggingColumnId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+          <div className="relative min-h-full overflow-visible" style={{ width: `${goalTableWidth}px` }}>
+          <div ref={goalTableRef} className="relative min-h-full overflow-visible" style={{ width: `${goalTableWidth}px` }}>
           <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${goalTableWidth}px` }}>
             <colgroup>
               {columns.map(column => (
@@ -798,92 +1196,49 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             <thead>
               <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
                 {columns.map((col, index) => (
-                  <th 
-                    key={col.id} 
-                    style={{ width: col.width }}
-                    className={cn(
-                      "relative px-4 py-1.5 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
-                      index === 0 && "pl-[5px]"
-                    )}
-                  >
-                    <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2">
-                      <button
-                        onClick={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setIconPickerId(col.id);
-                          setIconPickerType('column');
-                          setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                        }}
-                        className="w-5 h-5 rounded-md transition-colors text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
-                      >
-                        {React.createElement(iconMap[col.icon] || Target, { className: "w-3.5 h-3.5" })}
-                      </button>
-                      {editingColumnId === col.id ? (
-                        <input
-                          autoFocus
-                          value={editingColumnName}
-                          onChange={(e) => setEditingColumnName(e.target.value)}
-                          onBlur={() => {
-                            if (editingColumnName.trim()) {
-                              setColumns(prev => prev.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c));
-                            }
-                            setEditingColumnId(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              if (editingColumnName.trim()) {
-                                setColumns(prev => prev.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c));
-                              }
-                              setEditingColumnId(null);
-                            }
-                            if (e.key === 'Escape') {
-                              setEditingColumnId(null);
-                            }
-                          }}
-                          className="bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)] px-2 h-7 rounded-md outline-none text-sm font-medium border border-[var(--tokyo-border)] min-w-0 w-full"
-                        />
-                      ) : (
-                        <span 
-                          className="capitalize cursor-pointer hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1.5 h-7 rounded-md transition-colors text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingColumnId(col.id);
-                            setEditingColumnName(col.label);
-                          }}
-                        >
-                          {col.label.toLowerCase()}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={`Resize ${col.label} column`}
-                      title="Drag to resize column"
-                      onPointerDown={(e) => startColumnResize(e, col.id, col.width)}
-                      style={{ cursor: 'col-resize' }}
-                      className="absolute right-0 top-1/2 z-20 h-8 w-3 -translate-y-1/2 !cursor-col-resize touch-none before:pointer-events-none before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-transparent before:transition-all before:duration-150 hover:before:h-6 hover:before:w-[2px] hover:before:bg-[var(--tokyo-yellow)]"
-                    />
-                  </th>
+                  <GoalColumnHeader
+                    key={col.id}
+                    col={col}
+                    index={index}
+                    motionStyle={getColumnMotionStyle(col)}
+                    isAnyColumnDragging={!!draggingColumnId}
+                    editingColumnId={editingColumnId}
+                    editingColumnName={editingColumnName}
+                    setEditingColumnId={setEditingColumnId}
+                    setEditingColumnName={setEditingColumnName}
+                    setColumns={setColumns}
+                    setIconPickerId={setIconPickerId}
+                    setIconPickerType={setIconPickerType}
+                    setIconPickerPos={setIconPickerPos}
+                    startColumnDrag={startColumnDrag}
+                    startColumnResize={startColumnResize}
+                  />
                 ))}
               </tr>
             </thead>
             <Reorder.Group
               as="tbody"
-              values={filteredGoals}
+              axis="y"
+              values={visibleGoals}
               onReorder={(newGoals) => {
                 const otherGoals = goals.filter(goal => normalizeGoalStatus(goal.status) !== activeTab);
                 reorderGoals([...otherGoals, ...newGoals]);
               }}
               className="relative"
             >
-              {filteredGoals.map(goal => {
+              {visibleGoals.map(goal => {
                 const area = areas.find(a => a.id === goal.areaId);
                 const isGoalCellSelected = (columnId: string) => selectedGoalCell?.goalId === goal.id && selectedGoalCell.columnId === columnId;
                 const isGoalFillColumn = (columnId: string) => goalFillDrag?.columnId === columnId;
                 const isInGoalFillRange = (columnId: string) => isGoalFillColumn(columnId) && goalFillRangeIdSet.has(goal.id);
+                const goalCellTransition = {
+                  layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const },
+                  backgroundColor: { duration: 0.12 },
+                  boxShadow: { duration: 0.12 },
+                };
                 const goalCellClasses = (columnId: string, className: string) => cn(
                   className,
-                  "relative cursor-pointer transition-[background-color,box-shadow] duration-100 overflow-visible hover:bg-white/[0.02]",
+                  "relative cursor-pointer transition-[background-color,box-shadow] duration-100 overflow-visible group-hover:bg-white/[0.02]",
                   isGoalCellSelected(columnId) && "bg-[#1E90FF]/5 shadow-[inset_0_0_0_2px_#1E90FF]",
                   isInGoalFillRange(columnId) && !isGoalCellSelected(columnId) && "bg-[#1E90FF]/10 shadow-[inset_0_0_0_1px_rgba(30,144,255,0.48)]",
                   isGoalFillColumn(columnId) && goalFillDrag && "cursor-ns-resize"
@@ -913,6 +1268,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 };
                 const openGoalDetails = () => {
                   clearGoalCellSelection();
+                  if (isDraggingRef.current || Date.now() < suppressGoalOpenUntilRef.current) return;
                   if (isGoalFillDraggingRef.current) return;
                   if (onViewChange) {
                     onViewChange(`goal-details:${goal.id}`);
@@ -920,38 +1276,294 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     setLocalSelectedGoalId(goal.id);
                   }
                 };
+                const renderGoalCell = (column: typeof columns[number]) => {
+                  if (column.id === 'title') {
+                    return (
+                      <motion.td
+                        key={column.id}
+                        layout="position"
+                        transition={goalCellTransition}
+                        data-goal-cell-id={goal.id}
+                        data-goal-cell-column-id={column.id}
+                        style={getColumnMotionStyle(column)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openGoalDetails();
+                        }}
+                        className={goalCellClasses('title', "h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                      >
+                        <div className="flex items-center gap-1">
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearGoalCellSelection();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setIconPickerId(goal.id);
+                              setIconPickerType('goal');
+                              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                            }}
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
+                          >
+                            {React.createElement(iconMap[goal.icon || 'Target'] || Target, { className: "w-4 h-4" })}
+                          </div>
+                          {editingGoalId === goal.id ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              value={editingGoalTitle}
+                              onChange={(e) => setEditingGoalTitle(e.target.value)}
+                              onBlur={handleRenameGoal}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameGoal();
+                                if (e.key === 'Escape') setEditingGoalId(null);
+                              }}
+                              className="bg-transparent border-none outline-none text-sm leading-5 font-medium text-[var(--tokyo-text-strong)]/70 w-full"
+                            />
+                          ) : (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearGoalCellSelection();
+                                setEditingGoalId(goal.id);
+                                setEditingGoalTitle(goal.title);
+                              }}
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingGoalId(goal.id);
+                                setEditingGoalTitle(goal.title);
+                              }}
+                              className="text-[var(--tokyo-text-strong)]/70 font-medium text-sm leading-5 cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
+                            >
+                              {goal.title}
+                            </span>
+                          )}
+                        </div>
+                      </motion.td>
+                    );
+                  }
+
+                  if (column.id === 'status') {
+                    return (
+                      <motion.td
+                        key={column.id}
+                        layout="position"
+                        transition={goalCellTransition}
+                        data-goal-cell-id={goal.id}
+                        data-goal-cell-column-id={column.id}
+                        style={getColumnMotionStyle(column)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectGoalCell('status');
+                        }}
+                        className={goalCellClasses('status', "px-4 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                      >
+                        <div className="relative flex items-center">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearGoalCellSelection();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setCustomDropdown({
+                                id: goal.id,
+                                type: 'status',
+                                pos: { x: rect.left, y: rect.bottom + 8 },
+                                currentValue: goal.status
+                              });
+                            }}
+                            className={cn(
+                              "inline-flex items-center px-2 py-1 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                              getGoalStatusClasses(goal.status)
+                            )}
+                          >
+                            <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
+                          </span>
+                        </div>
+                        {goalFillHandle('status')}
+                      </motion.td>
+                    );
+                  }
+
+                  if (column.id === 'priority') {
+                    return (
+                      <motion.td
+                        key={column.id}
+                        layout="position"
+                        transition={goalCellTransition}
+                        data-goal-cell-id={goal.id}
+                        data-goal-cell-column-id={column.id}
+                        style={getColumnMotionStyle(column)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectGoalCell('priority');
+                        }}
+                        className={goalCellClasses('priority', "px-4 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                      >
+                        <div className="relative flex items-center">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearGoalCellSelection();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setCustomDropdown({
+                                id: goal.id,
+                                type: 'priority',
+                                pos: { x: rect.left, y: rect.bottom + 8 },
+                                currentValue: goal.priority
+                              });
+                            }}
+                            className={cn(
+                              "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                              getPriorityBadgeClasses(goal.priority)
+                            )}
+                          >
+                            {toSentenceCase(goal.priority)}
+                          </span>
+                        </div>
+                        {goalFillHandle('priority')}
+                      </motion.td>
+                    );
+                  }
+
+                  if (column.id === 'areas') {
+                    return (
+                      <motion.td
+                        key={column.id}
+                        layout="position"
+                        transition={goalCellTransition}
+                        data-goal-cell-id={goal.id}
+                        data-goal-cell-column-id={column.id}
+                        style={getColumnMotionStyle(column)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectGoalCell('areas');
+                        }}
+                        className={goalCellClasses('areas', "px-4 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                      >
+                        <div className="relative flex items-center">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearGoalCellSelection();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setCustomDropdown({
+                                id: goal.id,
+                                type: 'area',
+                                pos: { x: rect.left, y: rect.bottom + 8 },
+                                currentValue: goal.areaId || ''
+                              });
+                            }}
+                            className={cn(
+                              "inline-flex max-w-full items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                              "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]"
+                            )}
+                          >
+                            <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : 'No Area'}</span>
+                          </span>
+                        </div>
+                        {goalFillHandle('areas')}
+                      </motion.td>
+                    );
+                  }
+
+                  if (column.id === 'date') {
+                    return (
+                      <motion.td
+                        key={column.id}
+                        layout="position"
+                        transition={goalCellTransition}
+                        data-goal-cell-id={goal.id}
+                        data-goal-cell-column-id={column.id}
+                        style={getColumnMotionStyle(column)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectGoalCell('date');
+                        }}
+                        className={goalCellClasses('date', "pl-3 pr-1 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                      >
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearGoalCellSelection();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setDatePickerConfig({
+                              id: goal.id,
+                              pos: { x: rect.left, y: rect.bottom + 8 },
+                              currentDate: goal.targetDate ? new Date(goal.targetDate) : undefined,
+                              config: {
+                                time: goal.targetTime || '12:00',
+                                reminder: goal.reminder || 'none',
+                                alert: goal.alert || 'none',
+                                repeat: goal.repeat || 'none'
+                              }
+                            });
+                          }}
+                          className="relative inline-flex w-fit items-center gap-0.5 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
+                        >
+                          <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                            <CalendarIcon className="w-4 h-4" />
+                          </div>
+                          <span>{goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'No date'}</span>
+                        </div>
+                        {goalFillHandle('date')}
+                      </motion.td>
+                    );
+                  }
+
+                  if (column.id === 'progress') {
+                    return (
+                      <motion.td
+                        key={column.id}
+                        layout="position"
+                        transition={goalCellTransition}
+                        data-goal-cell-id={goal.id}
+                        data-goal-cell-column-id={column.id}
+                        style={getColumnMotionStyle(column)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectGoalCell('progress');
+                        }}
+                        className={goalCellClasses('progress', "px-4 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                      >
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearGoalCellSelection();
+                          }}
+                          className="flex items-center gap-1 cursor-pointer group/progress"
+                        >
+                          <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60 group-hover/progress:text-[var(--tokyo-yellow)] transition-colors">
+                            <Circle className="w-4 h-4" />
+                          </div>
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] hover:bg-[var(--tokyo-yellow-soft)] transition-colors">
+                            <span className="text-xs font-medium">{goal.progress}</span>
+                            <span className="text-xs font-medium">%</span>
+                          </div>
+                        </div>
+                        {goalFillHandle('progress')}
+                      </motion.td>
+                    );
+                  }
+
+                  return null;
+                };
                 return (
-                  <Reorder.Item
-                    key={goal.id} 
-                    value={goal}
-                    as="tr"
-                    layout="position"
-                    dragElastic={0.12}
-                    initial={false}
-                    animate={{
-                      scale: 1,
-                      zIndex: 1,
-                      boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
-                    }}
-                    whileDrag={{
-                      scale: 1.008,
-                      zIndex: 100,
-                      boxShadow: "0 18px 36px -14px rgba(0, 0, 0, 0.55)",
-                    }}
-                    transition={{
-                      layout: { duration: 0.18, ease: [0.23, 1, 0.32, 1] },
-                      scale: { duration: 0.16 },
-                      boxShadow: { duration: 0.16 },
-                    }}
+                  <GoalReorderRow
+                    key={goal.id}
+                    goal={goal}
+                    draggingId={draggingId}
                     onDragStart={() => {
                       setDraggingId(goal.id);
                       isDraggingRef.current = true;
+                      document.body.style.cursor = 'grabbing';
                       setSelectedGoalCell(null);
                       setActiveGoalFillDrag(null);
                     }}
                     onDragEnd={(event, info) => {
                       setDraggingId(null);
                       setHoveredTabId(null);
+                      suppressGoalOpenUntilRef.current = Date.now() + 300;
+                      document.body.style.cursor = '';
                       window.setTimeout(() => {
                         isDraggingRef.current = false;
                       }, 100);
@@ -978,248 +1590,171 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       }
                     }}
                     onContextMenu={(e) => handleGoalContextMenu(e, goal.id)}
-                    className={cn(
-                      "group transition-colors select-none cursor-grab active:cursor-grabbing whitespace-nowrap",
-                      draggingId === goal.id && "bg-white/[0.04]"
-                    )}
-                    >
-	                      <td 
-	                        data-goal-cell-id={goal.id}
-	                        data-goal-cell-column-id="title"
-	                        style={{ width: columns[0].width }}
-	                        onClick={(e) => {
-	                          e.stopPropagation();
-	                          openGoalDetails();
-	                        }}
-	                        className={goalCellClasses('title', "h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
-	                      >
-                        <div className="flex items-center gap-1">
-                          <div 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openGoalDetails();
-                            }}
-                            className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
-                          >
-                            {React.createElement(iconMap[goal.icon || 'Target'] || Target, { className: "w-4 h-4" })}
-                          </div>
-                          {editingGoalId === goal.id ? (
-                            <input
-                              autoFocus
-                              type="text"
-                              value={editingGoalTitle}
-                              onChange={(e) => setEditingGoalTitle(e.target.value)}
-                              onBlur={handleRenameGoal}
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleRenameGoal();
-                                if (e.key === 'Escape') setEditingGoalId(null);
-                              }}
-                              className="bg-transparent border-none outline-none text-[14px] leading-5 font-medium tracking-tight text-[var(--tokyo-text-strong)]/60 w-full"
-                            />
-	                          ) : (
-	                            <span 
-	                              onClick={(e) => {
-	                                e.stopPropagation();
-	                                openGoalDetails();
-	                              }}
-	                              onDoubleClick={(e) => {
-	                                e.stopPropagation();
-	                                setEditingGoalId(goal.id);
-	                                setEditingGoalTitle(goal.title);
-	                              }}
-	                              className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
-	                            >
-	                              {goal.title}
-	                            </span>
-	                          )}
-	                        </div>
-	                      </td>
-	                    <td 
-	                      data-goal-cell-id={goal.id}
-	                      data-goal-cell-column-id="status"
-	                      style={{ width: columns[1].width }}
-	                      onClick={(e) => {
-	                        e.stopPropagation();
-	                        selectGoalCell('status');
-	                      }}
-	                      className={goalCellClasses('status', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
-	                    >
-                      <div className="relative flex items-center">
-                        <span 
-	                          onClick={(e) => {
-	                            e.stopPropagation();
-	                            clearGoalCellSelection();
-	                            const rect = e.currentTarget.getBoundingClientRect();
-                            setCustomDropdown({
-                              id: goal.id,
-                              type: 'status',
-                              pos: { x: rect.left, y: rect.bottom + 8 },
-                              currentValue: goal.status
-                            });
-                          }}
-                          className={cn(
-                            "inline-flex items-center px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                            getGoalStatusClasses(goal.status)
-                          )}
-                        >
-	                          <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
-	                        </span>
-	                      </div>
-	                      {goalFillHandle('status')}
-	                    </td>
-	                    <td 
-	                      data-goal-cell-id={goal.id}
-	                      data-goal-cell-column-id="priority"
-	                      style={{ width: columns[2].width }}
-	                      onClick={(e) => {
-	                        e.stopPropagation();
-	                        selectGoalCell('priority');
-	                      }}
-	                      className={goalCellClasses('priority', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
-	                    >
-                      <div className="relative flex items-center">
-                        <span 
-	                          onClick={(e) => {
-	                            e.stopPropagation();
-	                            clearGoalCellSelection();
-	                            const rect = e.currentTarget.getBoundingClientRect();
-                            setCustomDropdown({
-                              id: goal.id,
-                              type: 'priority',
-                              pos: { x: rect.left, y: rect.bottom + 8 },
-                              currentValue: goal.priority
-                            });
-                          }}
-                          className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                            getPriorityBadgeClasses(goal.priority)
-                          )}
-                        >
-	                          {toSentenceCase(goal.priority)}
-	                        </span>
-	                      </div>
-	                      {goalFillHandle('priority')}
-	                    </td>
-	                    <td 
-	                      data-goal-cell-id={goal.id}
-	                      data-goal-cell-column-id="areas"
-	                      style={{ width: columns[3].width }}
-	                      onClick={(e) => {
-	                        e.stopPropagation();
-	                        selectGoalCell('areas');
-	                      }}
-	                      className={goalCellClasses('areas', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
-	                    >
-                      <div className="relative flex items-center">
-                        <span 
-	                          onClick={(e) => {
-	                            e.stopPropagation();
-	                            clearGoalCellSelection();
-	                            const rect = e.currentTarget.getBoundingClientRect();
-                            setCustomDropdown({
-                              id: goal.id,
-                              type: 'area',
-                              pos: { x: rect.left, y: rect.bottom + 8 },
-                              currentValue: goal.areaId || ''
-                            });
-                          }}
-                          className={cn(
-                            "inline-flex max-w-full items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                            "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]"
-                          )}
-                        >
-	                          <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : 'No Area'}</span>
-	                        </span>
-	                      </div>
-	                      {goalFillHandle('areas')}
-	                    </td>
-	                    <td 
-	                      data-goal-cell-id={goal.id}
-	                      data-goal-cell-column-id="date"
-	                      style={{ width: columns[4].width }}
-	                      onClick={(e) => {
-	                        e.stopPropagation();
-	                        selectGoalCell('date');
-	                      }}
-	                      className={goalCellClasses('date', "pl-3 pr-1 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
-	                    >
-	                      <div 
-	                        onClick={(e) => {
-	                          e.stopPropagation();
-	                          clearGoalCellSelection();
-	                          const rect = e.currentTarget.getBoundingClientRect();
-                          setDatePickerConfig({
-                            id: goal.id,
-                            pos: { x: rect.left, y: rect.bottom + 8 },
-                            currentDate: goal.targetDate ? new Date(goal.targetDate) : undefined,
-                            config: {
-                              time: goal.targetTime || '12:00',
-                              reminder: goal.reminder || 'none',
-                              alert: goal.alert || 'none',
-                              repeat: goal.repeat || 'none'
-                            }
-                          });
-                        }}
-                        className="relative inline-flex w-fit items-center gap-0.5 text-[var(--tokyo-text-faint)] text-[13px] cursor-pointer hover:text-[var(--tokyo-text-muted)] transition-colors"
-                      >
-                        <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                          <CalendarIcon className="w-4 h-4" />
-                        </div>
-	                        <span>{goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'No date'}</span>
-	                      </div>
-	                      {goalFillHandle('date')}
-	                    </td>
-	                    <td 
-	                      data-goal-cell-id={goal.id}
-	                      data-goal-cell-column-id="progress"
-	                      style={{ width: columns[5].width }}
-	                      onClick={(e) => {
-	                        e.stopPropagation();
-	                        selectGoalCell('progress');
-	                      }}
-	                      className={goalCellClasses('progress', "px-4 h-11 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
-	                    >
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearGoalCellSelection();
-                        }}
-	                        className="flex items-center gap-1 cursor-pointer group/progress"
-	                      >
-                        <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60 group-hover/progress:text-[var(--tokyo-yellow)] transition-colors">
-                          <Circle className="w-4 h-4" />
-                        </div>
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] hover:bg-[var(--tokyo-yellow-soft)] transition-colors">
-                          <span className="text-xs font-medium">{goal.progress}</span>
-                          <span className="text-xs font-medium">%</span>
-	                        </div>
-	                      </div>
-	                      {goalFillHandle('progress')}
-	                    </td>
-	                  </Reorder.Item>
+                  >
+                    {columns.map(column => renderGoalCell(column))}
+                  </GoalReorderRow>
                 );
               })}
               {/* New page row */}
               <tr className="group">
-                <td 
-                  style={{ width: columns[0].width }}
-                  className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors"
-                  onClick={handleNewGoal}
-                >
-                  <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">
-                    <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                      <Plus className="w-4 h-4" />
-                    </div>
-                    <span className="text-[14px]">New page</span>
-                  </div>
-                </td>
-                <td colSpan={6} className="h-11 border-b border-[var(--tokyo-border)]"></td>
+                {columns.map(column => (
+                  column.id === 'title' ? (
+                    <motion.td
+                      key={column.id}
+                      layout="position"
+                      transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
+                      style={getColumnMotionStyle(column)}
+                      className="h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors"
+                      onClick={handleNewGoal}
+                    >
+                      <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">
+                        <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                        <span className="text-[13px]">New page</span>
+                      </div>
+                    </motion.td>
+                  ) : (
+                    <motion.td
+                      key={column.id}
+                      layout="position"
+                      transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
+                      style={getColumnMotionStyle(column)}
+                      className="h-12 border-b border-[var(--tokyo-border)]"
+                    />
+                  )
+                ))}
               </tr>
             </Reorder.Group>
           </table>
+          <AnimatePresence>
+            {draggingColumnId && columnDropIndicatorX !== null && (
+              <div
+                className="pointer-events-none absolute bottom-2 top-2 z-50 w-[2px] -translate-x-px origin-center rounded-full bg-[var(--tokyo-yellow)] shadow-[0_0_14px_rgba(224,175,104,0.42)]"
+                style={{ transform: `translateX(${columnDropIndicatorX}px)` }}
+              />
+            )}
+          </AnimatePresence>
+          </div>
         </div>
       </div>
+      </div>
+
+      {/* Sort Popover */}
+      <AnimatePresence>
+        {sortPopoverPos && (
+          <>
+            <div
+              className="fixed inset-0 z-[130]"
+              onClick={() => setSortPopoverPos(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              className="fixed z-[140] w-[340px] overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-2 shadow-2xl"
+              style={{
+                top: Math.min(sortPopoverPos.y, window.innerHeight - 220),
+                left: Math.max(12, Math.min(sortPopoverPos.x - 340, window.innerWidth - 352)),
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-6 items-center justify-center text-[var(--tokyo-text-faint)]">
+                  <Sort className="h-4 w-4" />
+                </div>
+                <select
+                  value={activeSortColumnId}
+                  onChange={(e) => setDraftSortConfig({ columnId: e.target.value, direction: activeSortDirection })}
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-[var(--tokyo-border-strong)] bg-transparent px-2 text-xs font-medium text-[var(--tokyo-text)] outline-none focus:border-[var(--tokyo-border-strong)]"
+                >
+                  {columns.map(column => (
+                    <option key={column.id} value={column.id}>
+                      {column.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={activeSortDirection}
+                  onChange={(e) => setDraftSortConfig({ columnId: activeSortColumnId, direction: e.target.value as GoalSortConfig['direction'] })}
+                  className="h-8 w-28 rounded-lg border border-[var(--tokyo-border-strong)] bg-transparent px-2 text-xs font-medium text-[var(--tokyo-text)] outline-none focus:border-[var(--tokyo-border-strong)]"
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortConfigs([]);
+                    setSortPopoverPos(null);
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Clear sort"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {sortConfigs.length > 0 && (
+                <div className="mt-2 space-y-1 border-t border-[var(--tokyo-border)] pt-2">
+                  {sortConfigs.map((sortConfig, index) => {
+                    const sortColumn = columns.find(column => column.id === sortConfig.columnId) || columns[0];
+
+                    return (
+                      <div key={`${sortConfig.columnId}-${index}`} className="flex items-center gap-2 rounded-md bg-black/10 px-2 py-1.5 text-[13px] text-[var(--tokyo-text-muted)]">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--tokyo-border-strong)] text-[11px] text-[var(--tokyo-text-faint)]">
+                          {index + 1}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {sortColumn?.label || sortConfig.columnId}
+                        </span>
+                        <span className="text-[var(--tokyo-text-faint)]">
+                          {sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSortConfigs(currentSorts => currentSorts.filter((_, sortIndex) => sortIndex !== index))}
+                          className="flex h-6 w-6 items-center justify-center rounded text-[var(--tokyo-text-faint)] transition-colors hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)]"
+                          title="Remove sort"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="mt-2 space-y-0.5 border-t border-[var(--tokyo-border)] pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortConfigs(currentSorts => [
+                      ...currentSorts,
+                      { columnId: activeSortColumnId, direction: activeSortDirection },
+                    ]);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Sort</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSortConfigs([])}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete sort</span>
+                </button>
+              </div>
+              {activeSortColumn && (
+                <div className="mt-1 px-2 pb-1 pt-1 text-[11px] text-[var(--tokyo-text-faint)]">
+                  New sorts will use {activeSortColumn.label.toLowerCase()}.
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Custom Dropdown Popover */}
       <AnimatePresence>
@@ -1433,7 +1968,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             }}
           />
           <div 
-            className="fixed z-[140] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[140] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
             style={{ 
               top: Math.min(tabContextMenu.y, window.innerHeight - 100), 
               left: Math.min(tabContextMenu.x, window.innerWidth - 200) 
@@ -1448,7 +1983,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 }
                 setTabContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
             >
               <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Rename
@@ -1460,7 +1995,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 setTabContextMenu(null);
               }}
               disabled={tabs.length <= 1}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
               Delete
@@ -1481,7 +2016,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             }}
           />
           <div 
-            className="fixed z-[140] w-60 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[140] w-60 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100"
             style={{ 
               top: Math.min(goalContextMenu.y, window.innerHeight - 220), 
               left: Math.min(goalContextMenu.x, window.innerWidth - 252) 
@@ -1496,7 +2031,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 }
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
               <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Rename
@@ -1508,7 +2043,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 setIconPickerPos({ x: goalContextMenu.x, y: goalContextMenu.y });
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
               <Smile className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Change Icon
@@ -1522,7 +2057,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 }
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
               <CheckCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               {normalizeGoalStatus(goals.find(g => g.id === goalContextMenu.id)?.status || '') === 'completed' ? 'Mark as Active' : 'Mark as Completed'}
@@ -1532,7 +2067,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 duplicateGoal(goalContextMenu.id);
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
               <Copy className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Duplicate Goal
@@ -1543,7 +2078,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 deleteGoal(goalContextMenu.id);
                 setGoalContextMenu(null);
               }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] transition-colors cursor-pointer whitespace-nowrap"
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] transition-colors cursor-pointer whitespace-nowrap"
             >
               <Trash2 className="w-4 h-4" />
               Delete Goal
@@ -1682,7 +2217,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         {/* Properties - Vertical List */}
         <div className="space-y-2 mb-12 max-w-2xl">
           {/* Assigned */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Users className="w-4 h-4" />
               <span>Assigned</span>
@@ -1699,7 +2234,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Due date */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CalendarIcon className="w-4 h-4" />
               <span>Due date</span>
@@ -1726,7 +2261,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Priority */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Zap className="w-4 h-4" />
               <span>Priority</span>
@@ -1753,7 +2288,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Status */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CheckCircle className="w-4 h-4" />
               <span>Status</span>
@@ -1780,7 +2315,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Creator */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <User className="w-4 h-4" />
               <span>Creator</span>
@@ -1801,7 +2336,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
             }[prop.type] || Text;
 
             return (
-              <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+              <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
                 <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
                   <PropIcon className="w-4 h-4" />
                   <input 
@@ -1893,7 +2428,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         {activeTab === 'Todo list' && (
           <div className="space-y-4">
             {goalTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all">
+              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-lg group hover:bg-white/[0.04] transition-all">
                 <button 
                   onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
                   className={cn(
@@ -1928,7 +2463,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         {activeTab === 'Comments' && (
           <>
             {/* Comment Input */}
-            <div className="bg-white/[0.03] border border-[var(--tokyo-border)] rounded-2xl p-6">
+            <div className="bg-white/[0.03] border border-[var(--tokyo-border)] rounded-lg p-6">
               <div className="flex gap-4 mb-6">
                 <img src="https://i.pravatar.cc/150?u=4" className="w-10 h-10 rounded-full" alt="me" />
                 <textarea 
@@ -1949,7 +2484,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 </div>
                 <button 
                   onClick={handleAddComment}
-                  className="bg-[var(--tokyo-yellow-dim)] text-white px-8 py-2.5 rounded-xl text-sm font-bold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
+                  className="bg-[var(--tokyo-yellow-dim)] text-white px-8 py-2.5 rounded-lg text-sm font-bold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
                 >
                   Comment
                 </button>
@@ -1978,7 +2513,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                     <div className="flex items-center gap-6 pt-2">
                       <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-5 h-5" /></button>
                       {comment.reactions?.map((r, ri) => (
-                        <button key={ri} className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-sm">
+                        <button key={ri} className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-sm">
                           <span>{r.emoji}</span>
                           <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
                         </button>
@@ -2004,7 +2539,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl p-2 w-64"
+                className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
                 style={{ 
                   top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
                   left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
@@ -2023,7 +2558,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                     <button
                       key={type.id}
                       onClick={() => confirmAddProperty(type.id as any)}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
+                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
                         <type.icon className="w-4 h-4" />

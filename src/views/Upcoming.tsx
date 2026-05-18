@@ -83,8 +83,8 @@ export function Upcoming() {
     const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
-      <div className="flex flex-col h-full bg-[var(--tokyo-panel)]">
-        <div className="grid grid-cols-7 border-b border-[var(--tokyo-border-strong)] bg-[var(--tokyo-sidebar)]">
+      <div className="flex flex-col h-full bg-transparent">
+        <div className="grid grid-cols-7 border-b border-[var(--tokyo-border-strong)] bg-transparent">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <div key={d} className="py-3 text-center text-xs font-semibold text-[var(--tokyo-text-muted)] tracking-wider">
               {d}
@@ -101,8 +101,8 @@ export function Upcoming() {
               <div 
                 key={d.toString()} 
                 className={cn(
-                  "min-h-[120px] bg-[var(--tokyo-panel)] p-2 transition-colors hover:bg-[var(--tokyo-panel-2)] flex flex-col",
-                  !isCurrentMonth && "bg-[var(--tokyo-bg)]"
+                  "min-h-[120px] bg-transparent p-2 transition-colors hover:bg-[var(--tokyo-panel-2)] flex flex-col",
+                  !isCurrentMonth && "bg-transparent"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -150,8 +150,8 @@ export function Upcoming() {
     const currentTimeTop = (currentHours + currentMinutes / 60) * 80;
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[var(--tokyo-bg)]">
-        <div className="flex border-b border-[var(--tokyo-border)] bg-[var(--tokyo-bg)]">
+      <div className="flex flex-col h-full overflow-hidden bg-transparent">
+        <div className="flex border-b border-[var(--tokyo-border)] bg-transparent">
           <div className="w-16 shrink-0 border-r border-[var(--tokyo-border)]" />
           <div className="flex-1 grid grid-cols-7">
             {days.map(d => {
@@ -192,7 +192,7 @@ export function Upcoming() {
                           className={cn(
                             "rounded-lg px-3 py-2 text-xs truncate border cursor-pointer transition-colors",
                             task.status === 'done' 
-                              ? "bg-[var(--tokyo-panel)] text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] line-through hover:bg-[var(--tokyo-panel-2)]" 
+                              ? "bg-transparent text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] line-through hover:bg-[var(--tokyo-panel-2)]" 
                               : "bg-gradient-to-b from-white/10 to-transparent text-[var(--tokyo-text-strong)] border-[var(--tokyo-border-strong)] hover:border-white/20"
                           )}
                           title={task.title}
@@ -223,7 +223,7 @@ export function Upcoming() {
                           className={cn(
                             "absolute left-1 right-1 rounded-xl p-3 overflow-hidden border z-20 cursor-pointer transition-colors flex flex-col gap-1",
                             task.status === 'done' 
-                              ? "bg-[var(--tokyo-panel)] text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] hover:bg-[var(--tokyo-panel-2)]" 
+                              ? "bg-transparent text-[var(--tokyo-text-faint)] border-[var(--tokyo-border)] hover:bg-[var(--tokyo-panel-2)]" 
                               : "bg-gradient-to-b from-white/5 to-transparent hover:from-white/10",
                             isCurrent && task.status !== 'done' ? "border-[var(--tokyo-pink)]" : "border-[var(--tokyo-border-strong)]"
                           )}
@@ -261,8 +261,8 @@ export function Upcoming() {
     const timedTasks = dayTasks.filter(t => t.startTime);
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[var(--tokyo-panel)]">
-        <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-[var(--tokyo-sidebar)] flex items-center justify-between">
+      <div className="flex flex-col h-full overflow-hidden bg-transparent">
+        <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-transparent flex items-center justify-between">
           <div>
             <div className="text-2xl font-bold text-[var(--tokyo-text-strong)]">{format(currentDate, 'EEEE')}</div>
             <div className="text-[var(--tokyo-text-muted)]">{format(currentDate, 'MMMM d, yyyy')}</div>
@@ -275,7 +275,7 @@ export function Upcoming() {
         </div>
         
         {allDayTasks.length > 0 && (
-          <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] space-y-2">
+          <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-transparent space-y-2">
             <div className="text-xs font-medium text-[var(--tokyo-text-faint)] mb-2">All Day</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {allDayTasks.map(task => (
@@ -298,7 +298,7 @@ export function Upcoming() {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="flex min-h-[1920px]"> {/* 24 hours * 80px */}
-            <div className="w-20 shrink-0 border-r border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)]">
+            <div className="w-20 shrink-0 border-r border-[var(--tokyo-border-strong)] bg-transparent">
               {hours.map(h => (
                 <div key={h} className="h-[80px] relative">
                   <span className="absolute -top-2.5 right-4 text-xs font-medium text-[var(--tokyo-text-faint)]">
@@ -353,7 +353,7 @@ export function Upcoming() {
   };
 
   return (
-    <div className="h-full flex flex-col w-full bg-[var(--tokyo-bg)] text-white">
+    <div className="h-full flex flex-col w-full bg-transparent text-white">
       <header className="flex flex-col gap-4 mb-6 px-6 pt-6">
         <h1 className="text-4xl font-bold text-white tracking-tight">Sprint 🏃🏻‍♂️</h1>
         
@@ -397,7 +397,7 @@ export function Upcoming() {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 bg-[var(--tokyo-bg)] overflow-hidden">
+      <div className="flex-1 min-h-0 bg-transparent overflow-hidden">
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}

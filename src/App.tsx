@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Sidebar, ViewType } from './components/Sidebar';
 import { ContextPanel } from './components/ContextPanel';
 import { CommandPalette } from './components/CommandPalette';
@@ -36,8 +36,15 @@ import {
 } from 'hugeicons-react';
 import { format } from 'date-fns';
 
+const LAST_VIEW_STORAGE_KEY = 'dayline:last-view';
+
+const readLastView = (): ViewType => {
+  if (typeof window === 'undefined') return 'inbox';
+  return window.localStorage.getItem(LAST_VIEW_STORAGE_KEY) || 'inbox';
+};
+
 function AppContent() {
-  const [currentView, setCurrentView] = useState<ViewType>('inbox');
+  const [currentView, setCurrentView] = useState<ViewType>(() => readLastView());
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandPaletteInitialValue, setCommandPaletteInitialValue] = useState('');
@@ -48,6 +55,20 @@ function AppContent() {
   const [inviteScope, setInviteScope] = useState<'workspace' | 'page'>('workspace');
   const [copiedInvite, setCopiedInvite] = useState<'workspace' | 'page' | null>(null);
   const { customPages, user, loading } = useAppStore();
+
+  const changeView = useCallback((view: ViewType) => {
+    setCurrentView(view);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || loading) return;
+    if (!currentView.startsWith('page-')) return;
+    if (customPages.some(page => page.id === currentView)) return;
+    changeView('inbox');
+  }, [changeView, currentView, customPages, loading, user]);
 
   const openCommandPalette = (initialValue?: string | React.MouseEvent, mode: 'default' | 'create' = 'default') => {
     setCommandPaletteInitialValue(typeof initialValue === 'string' ? initialValue : '');
@@ -61,18 +82,18 @@ function AppContent() {
     if (currentView.startsWith('page-')) {
       const page = customPages.find(p => p.id === currentView);
       if (page) {
-        return <CustomPageView page={page} onViewChange={setCurrentView} />;
+        return <CustomPageView page={page} onViewChange={changeView} />;
       }
     }
 
     if (currentView.startsWith('goal-details:')) {
       const id = currentView.split(':')[1];
-      return <Goals key={`goal-details-${id}`} onViewChange={setCurrentView} selectedGoalId={id} />;
+      return <Goals key={`goal-details-${id}`} onViewChange={changeView} selectedGoalId={id} />;
     }
 
     if (currentView.startsWith('note-details:')) {
       const id = currentView.split(':')[1];
-      return <Notes key={`note-details-${id}`} onViewChange={setCurrentView} selectedNoteId={id} />;
+      return <Notes key={`note-details-${id}`} onViewChange={changeView} selectedNoteId={id} />;
     }
 
     switch (currentView) {
@@ -82,7 +103,7 @@ function AppContent() {
       case 'areas': return <Areas />;
       case 'habits': return <Habits />;
       case 'notes': return <Notes />;
-      case 'goals': return <Goals key="goals-list" onViewChange={setCurrentView} />;
+      case 'goals': return <Goals key="goals-list" onViewChange={changeView} />;
       case 'ideas': return <Ideas />;
       case 'journal': return <Journal />;
       case 'moods': return <Moods />;
@@ -148,7 +169,7 @@ function AppContent() {
       <Sidebar 
         currentView={currentView} 
         onViewChange={(view) => {
-          setCurrentView(view);
+          changeView(view);
           setIsMobileMenuOpen(false);
         }} 
         onOpenCommandPalette={openCommandPalette}
@@ -190,7 +211,7 @@ function AppContent() {
       <CommandPalette 
         open={isCommandPaletteOpen} 
         setOpen={setIsCommandPaletteOpen} 
-        onViewChange={setCurrentView} 
+        onViewChange={changeView} 
         initialValue={commandPaletteInitialValue}
         mode={commandPaletteMode}
       />

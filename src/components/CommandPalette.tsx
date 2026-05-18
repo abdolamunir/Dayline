@@ -66,7 +66,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
       onClick={() => setOpen(false)}
     >
       <div 
-        className="w-full max-w-[600px] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="w-[calc(100vw-3rem)] max-w-[720px] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         <VisuallyHidden>
@@ -81,7 +81,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
           />
         </div>
 
-        <Command.List className="max-h-[320px] overflow-y-auto p-2 custom-scrollbar">
+        <Command.List className="max-h-[420px] overflow-y-auto p-2 custom-scrollbar">
           <Command.Empty className="py-6 text-center text-xs text-[var(--tokyo-text-faint)]">
             No results found.
           </Command.Empty>
