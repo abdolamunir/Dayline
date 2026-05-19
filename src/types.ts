@@ -147,9 +147,13 @@ export interface CustomPage {
   id: ID;
   title: string;
   icon: string;
+  description?: string;
   kind?: 'database' | 'document';
+  templateVersion?: string;
+  activeTab?: string;
   tabs: Array<{ id: string; label: string; icon: string }>;
   columns: Array<{ id: string; label: string; icon: string; width: string }>;
+  sortConfigs?: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   items: CustomPageItem[];
   properties: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>;
   content: string;

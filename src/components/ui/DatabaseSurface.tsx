@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 
 export function WorkspacePage({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("mx-auto flex min-h-full w-full max-w-7xl flex-col px-4 py-4 md:px-7 md:py-6", className)}>
+    <div className={cn("mx-auto flex min-h-full w-full max-w-6xl flex-col gap-6 p-4 pt-7 md:px-8 md:pb-8 md:pt-10", className)}>
       {children}
     </div>
   );
@@ -24,25 +24,25 @@ export function WorkspaceHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="mb-4 flex flex-col gap-3 border-b border-[var(--tokyo-border)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="flex min-w-0 items-center gap-3">
+    <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-5">
         {icon && (
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-panel-2)] text-[var(--tokyo-yellow)]">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] transition-colors">
             {icon}
           </div>
         )}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-[22px] font-extrabold leading-tight tracking-normal text-[var(--tokyo-text-strong)] md:text-2xl">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <h1 className="min-w-0 truncate text-2xl font-semibold leading-tight tracking-tight text-[var(--tokyo-text-strong)] md:text-[28px]">
               {title}
             </h1>
             {typeof count === 'number' && (
-              <span className="rounded border border-[var(--tokyo-border)] bg-[var(--tokyo-panel-2)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--tokyo-text-faint)]">
+              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
                 {count}
               </span>
             )}
           </div>
-          {description && <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">{description}</p>}
+          {description && <p className="mt-1 text-sm leading-normal text-[var(--tokyo-text-muted)] md:text-[15px]">{description}</p>}
         </div>
       </div>
       {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
@@ -75,7 +75,7 @@ export function PrimaryButton({ children, className, ...props }: React.ButtonHTM
     <button
       {...props}
       className={cn(
-        "inline-flex h-8 items-center justify-center gap-2 rounded-md bg-[var(--tokyo-yellow-dim)] px-3 text-sm font-extrabold text-[var(--tokyo-text-strong)] transition-colors hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] active:bg-[var(--tokyo-yellow-dim)]",
+        "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[var(--tokyo-yellow-dim)] px-3 text-[12px] font-medium text-[var(--tokyo-text-strong)] transition-all hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] active:scale-95 active:bg-[var(--tokyo-yellow-dim)]",
         className
       )}
     >
@@ -86,7 +86,7 @@ export function PrimaryButton({ children, className, ...props }: React.ButtonHTM
 
 export function DatabasePanel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("overflow-hidden rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)]", className)}>
+    <div className={cn("overflow-visible bg-transparent", className)}>
       {children}
     </div>
   );
@@ -102,20 +102,21 @@ export function ViewTabs({
   onChange: (id: string) => void;
 }) {
   return (
-    <div className="mb-3 flex items-center gap-1 overflow-x-auto border-b border-[var(--tokyo-border)] pb-px">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-[var(--tokyo-border)] pb-2">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "relative flex h-8 shrink-0 items-center gap-1.5 px-2.5 text-sm font-bold text-[var(--tokyo-text-muted)] transition-colors hover:text-[var(--tokyo-text-strong)]",
-            activeId === tab.id && "text-[var(--tokyo-text-strong)]"
+            "relative flex shrink-0 items-center gap-1.5 rounded-lg py-1.5 pl-[5px] pr-2.5 text-sm font-medium whitespace-nowrap transition-colors",
+            activeId === tab.id
+              ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+              : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
           )}
         >
-          {tab.icon}
+          {tab.icon && <span className="flex h-6 w-6 items-center justify-center rounded">{tab.icon}</span>}
           <span>{tab.label}</span>
           {typeof tab.count === 'number' && <span className="text-[11px] text-[var(--tokyo-text-faint)]">{tab.count}</span>}
-          {activeId === tab.id && <span className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-[var(--tokyo-yellow)]" />}
         </button>
       ))}
     </div>

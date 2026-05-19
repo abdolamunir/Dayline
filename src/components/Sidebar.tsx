@@ -204,20 +204,25 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     addCustomPage({
       id: newId,
       title: 'Untitled',
-      icon: 'File',
+      icon: 'Target',
+      description: 'Track and manage your long-term objectives.',
       kind: 'database',
+      activeTab: 'planning',
       tabs: [
-        { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
-        { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
+        { id: 'planning', label: 'Planning', icon: 'Clock' },
+        { id: 'active', label: 'Active', icon: 'Target' },
         { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+        { id: 'paused', label: 'Paused', icon: 'Circle' },
       ],
       columns: [
-        { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
-        { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
-        { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
-        { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '140px' },
-        { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
+        { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+        { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
+        { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
+        { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
+        { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
+        { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
       ],
+      sortConfigs: [],
       items: [],
       properties: [],
       content: ''
@@ -1256,10 +1261,10 @@ function SidebarItem({
           </>
         )}
         {isDraggingOver && dropPosition === 'top' && (
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--tokyo-border-strong)] z-20 rounded-full" />
+          <div className="pointer-events-none absolute -top-1 left-2 right-2 z-50 h-[2px] rounded-full bg-[var(--tokyo-yellow)] shadow-[0_0_12px_rgba(233,202,53,0.5)]" />
         )}
         {isDraggingOver && dropPosition === 'bottom' && (
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tokyo-border-strong)] z-20 rounded-full" />
+          <div className="pointer-events-none absolute -bottom-1 left-2 right-2 z-50 h-[2px] rounded-full bg-[var(--tokyo-yellow)] shadow-[0_0_12px_rgba(233,202,53,0.5)]" />
         )}
         <div className="flex items-center relative z-30">
           <button

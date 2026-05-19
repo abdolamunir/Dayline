@@ -146,23 +146,25 @@ function GoalColumnHeader({
     >
       <div
         onPointerDown={startHeaderDrag}
-        className="flex items-center gap-1 w-full min-w-0 overflow-hidden pr-2 cursor-grab active:cursor-grabbing"
+        className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2 cursor-grab active:cursor-grabbing"
       >
-        <button
-          type="button"
-          data-column-control="true"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            const rect = e.currentTarget.getBoundingClientRect();
-            setIconPickerId(col.id);
-            setIconPickerType('column');
-            setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-          }}
-          className="w-6 h-6 rounded-md transition-colors text-[var(--tokyo-text-muted)]/80 hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
-        >
-          {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4" })}
-        </button>
+        {col.id !== 'progress' && (
+          <button
+            type="button"
+            data-column-control="true"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setIconPickerId(col.id);
+              setIconPickerType('column');
+              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+            }}
+            className="w-6 h-6 rounded-md transition-colors text-[var(--tokyo-text-muted)]/80 hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
+          >
+            {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4 align-middle" })}
+          </button>
+        )}
         {editingColumnId === col.id ? (
           <input
             data-column-control="true"
@@ -242,29 +244,40 @@ function GoalReorderRow({
       value={goal}
       as="tr"
       layout="position"
-      dragElastic={0.12}
+      drag
+      dragElastic={0.04}
+      dragMomentum={false}
       initial={false}
       animate={{
-        scale: 1,
         zIndex: 1,
+        scale: 1,
+        rotate: 0,
         boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
       }}
       whileDrag={{
-        scale: 1.008,
-        zIndex: 100,
-        boxShadow: "0 18px 36px -14px rgba(0, 0, 0, 0.55)",
+        zIndex: 45,
+        scale: 0.98,
+        rotate: -2,
       }}
       transition={{
-        layout: { duration: 0.18, ease: [0.23, 1, 0.32, 1] },
-        scale: { duration: 0.16 },
-        boxShadow: { duration: 0.16 },
+        layout: { type: 'spring', stiffness: 520, damping: 34, mass: 0.55 },
+        scale: { type: 'spring', stiffness: 720, damping: 34, mass: 0.42 },
+        x: { type: 'spring', stiffness: 720, damping: 34, mass: 0.42 },
+        rotate: { type: 'spring', stiffness: 680, damping: 34, mass: 0.4 },
       }}
+      style={{ transformOrigin: "left center" }}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onContextMenu={onContextMenu}
       className={cn(
         "group cursor-grab transition-colors select-none whitespace-nowrap active:cursor-grabbing",
-        draggingId === goal.id && "bg-white/[0.04]"
+        draggingId === goal.id && [
+          "[&>td]:!border-b-transparent [&>td]:!bg-transparent [&>td]:!shadow-none",
+          "[&>td:not(:first-child)>*]:opacity-0",
+          "[&>td:first-child]:relative [&>td:first-child]:z-20 [&>td:first-child]:rounded-lg [&>td:first-child]:!bg-[linear-gradient(135deg,rgba(216,170,21,0.82),rgba(163,126,10,0.72))]",
+          "[&>td:first-child]:!text-[var(--tokyo-text-strong)] [&>td:first-child]:backdrop-blur-[1px] [&>td:first-child]:shadow-[0_18px_44px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.22)]",
+          "[&>td:first-child_*]:!text-[var(--tokyo-text-strong)]"
+        ]
       )}
     >
       {children}
@@ -338,8 +351,8 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       ? [savedGoalSettings.sortConfig]
       : [];
   const [sortConfigs, setSortConfigs] = useState<GoalSortConfig[]>(initialSortConfigs);
-  const [draftSortConfig, setDraftSortConfig] = useState<GoalSortConfig>(initialSortConfigs[0] || DEFAULT_GOAL_SORT);
   const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [sortPickerOpen, setSortPickerOpen] = useState<string | null>(null);
   const [datePickerConfig, setDatePickerConfig] = useState<{
     id: string;
     pos: { x: number, y: number };
@@ -361,11 +374,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     if (settings.description) setDescriptionValue(settings.description);
     if (Array.isArray(settings.sortConfigs)) {
       setSortConfigs(settings.sortConfigs);
-      setDraftSortConfig(settings.sortConfigs[0] || DEFAULT_GOAL_SORT);
     } else if ('sortConfig' in settings) {
       const legacySortConfigs = settings.sortConfig ? [settings.sortConfig] : [];
       setSortConfigs(legacySortConfigs);
-      setDraftSortConfig(legacySortConfigs[0] || DEFAULT_GOAL_SORT);
     }
   }, [viewSettings.goals]);
 
@@ -494,11 +505,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   };
 
   const filteredGoals = goals.filter(g => normalizeGoalStatus(g.status) === activeTab);
-  const activeSortColumnId = columns.some(column => column.id === draftSortConfig.columnId)
-    ? draftSortConfig.columnId
-    : columns[0]?.id || 'title';
-  const activeSortColumn = columns.find(column => column.id === activeSortColumnId) || columns[0];
-  const activeSortDirection = draftSortConfig.direction;
+  const updateSortAt = (sortIndex: number, nextSort: GoalSortConfig) => {
+    setSortConfigs(currentSorts => currentSorts.map((sortConfig, index) => (
+      index === sortIndex ? nextSort : sortConfig
+    )));
+  };
   const getGoalSortValue = (goal: Goal, columnId: string) => {
     if (columnId === 'title') return goal.title.toLowerCase();
     if (columnId === 'status') return GOAL_STATUS_OPTIONS.indexOf(normalizeGoalStatus(goal.status));
@@ -833,6 +844,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     x: draggingColumnId === column.id ? Math.round(draggingColumnOffset) : 0,
     zIndex: draggingColumnId === column.id ? 35 : 1,
   });
+  const isTabDragActive = tabs.some(tab => tab.id === draggingId);
 
   const handleNewGoal = () => {
     const id = `g${Date.now()}`;
@@ -1001,7 +1013,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
       <div className="flex flex-col gap-1 flex-1 overflow-hidden">
         {/* Tabs & Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--tokyo-border)] pb-2">
+        <div
+          className={cn(
+            "relative flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--tokyo-border)] pb-2",
+            draggingId && "z-[90]"
+          )}
+        >
         {/* Mobile/Tablet Dropdown */}
         <div className="sm:hidden relative">
           <button 
@@ -1048,11 +1065,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
         </div>
 
         {/* Desktop Tabs */}
-        <Reorder.Group 
+        <Reorder.Group
           as="div"
           ref={tabContainerRef}
-          axis="x" 
-          values={tabs} 
+          axis="x"
+          values={tabs}
           onReorder={setTabs}
           className="hidden sm:flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
         >
@@ -1060,12 +1077,14 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             const Icon = iconMap[tab.icon] || Target;
             return (
               <Reorder.Item 
+                as="div"
                 key={tab.id}
                 value={tab}
                 data-tab-id={tab.id}
                 layout="position"
                 drag="x"
                 dragElastic={0.04}
+                dragMomentum={false}
                 dragConstraints={{ top: 0, bottom: 0 }}
                 onDragStart={() => {
                   setDraggingId(tab.id);
@@ -1087,19 +1106,19 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   setActiveTab(tab.id);
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap group relative",
-                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
-                  draggingId === tab.id ? "cursor-grabbing" : "cursor-pointer",
-                  hoveredTabId === tab.id && getGoalStatusClasses(tab.id)
+                  "shrink-0 whitespace-nowrap group relative outline-none focus:outline-none focus-visible:outline-none",
+                  draggingId === tab.id ? "cursor-grabbing" : "cursor-pointer"
                 )}
-                whileDrag={{ scale: 1.03, y: -1 }}
-                transition={{
-                  layout: { duration: 0.08, ease: "easeOut" },
-                  scale: { duration: 0.08, ease: "easeOut" },
-                  y: { duration: 0.08, ease: "easeOut" },
-                }}
+                transition={{ layout: { duration: 0.08, ease: "easeOut" } }}
               >
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    activeTab === tab.id && !isTabDragActive ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
+                  )}
+                >
                 <button
+                  data-tab-control="true"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1122,13 +1141,16 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     className="bg-transparent border-none outline-none w-20 text-white"
                   />
                 ) : (
-                  <span onDoubleClick={() => {
-                    setEditingTabId(tab.id);
-                    setEditingTabName(tab.label);
-                  }}>
+                  <span
+                    onDoubleClick={() => {
+                      setEditingTabId(tab.id);
+                      setEditingTabName(tab.label);
+                    }}
+                  >
                     {tab.label}
                   </span>
                 )}
+                </div>
               </Reorder.Item>
             );
           })}
@@ -1372,7 +1394,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                               });
                             }}
                             className={cn(
-                              "inline-flex items-center px-2 py-1 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                              "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
                               getGoalStatusClasses(goal.status)
                             )}
                           >
@@ -1479,7 +1501,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                           e.stopPropagation();
                           selectGoalCell('date');
                         }}
-                        className={goalCellClasses('date', "pl-3 pr-1 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                        className={goalCellClasses('date', "pl-4 pr-1 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
                       >
                         <div
                           onClick={(e) => {
@@ -1530,14 +1552,16 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             e.stopPropagation();
                             clearGoalCellSelection();
                           }}
-                          className="flex items-center gap-1 cursor-pointer group/progress"
+                          className="flex w-full max-w-[136px] cursor-pointer items-center gap-2"
                         >
-                          <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60 group-hover/progress:text-[var(--tokyo-yellow)] transition-colors">
-                            <Circle className="w-4 h-4" />
-                          </div>
-                          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)] hover:bg-[var(--tokyo-yellow-soft)] transition-colors">
-                            <span className="text-xs font-medium">{goal.progress}</span>
-                            <span className="text-xs font-medium">%</span>
+                          <span className="w-9 shrink-0 text-right text-xs font-medium text-[var(--tokyo-green)]">
+                            {goal.progress}%
+                          </span>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(154,214,139,0.14)]">
+                            <div
+                              className="h-full rounded-full bg-[var(--tokyo-green)] transition-[width] duration-200 ease-out"
+                              style={{ width: `${Math.max(0, Math.min(100, goal.progress))}%` }}
+                            />
                           </div>
                         </div>
                         {goalFillHandle('progress')}
@@ -1646,91 +1670,154 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           <>
             <div
               className="fixed inset-0 z-[130]"
-              onClick={() => setSortPopoverPos(null)}
+              onClick={() => {
+                setSortPickerOpen(null);
+                setSortPopoverPos(null);
+              }}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: -6 }}
               transition={{ duration: 0.12, ease: "easeOut" }}
-              className="fixed z-[140] w-[340px] overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-2 shadow-2xl"
+              className="fixed z-[140] w-[360px] overflow-visible rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-2 text-[13px] shadow-2xl"
               style={{
                 top: Math.min(sortPopoverPos.y, window.innerHeight - 220),
-                left: Math.max(12, Math.min(sortPopoverPos.x - 340, window.innerWidth - 352)),
+                left: Math.max(12, Math.min(sortPopoverPos.x - 360, window.innerWidth - 372)),
+              }}
+              onPointerDownCapture={(event) => {
+                if (!sortPickerOpen) return;
+                const target = event.target as HTMLElement;
+                if (target.closest('[data-sort-picker="true"]')) return;
+                setSortPickerOpen(null);
               }}
             >
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-6 items-center justify-center text-[var(--tokyo-text-faint)]">
+              <div className="flex items-center justify-between px-1 pb-2">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--tokyo-text-muted)]">
                   <Sort className="h-4 w-4" />
+                  <span>Sort</span>
                 </div>
-                <select
-                  value={activeSortColumnId}
-                  onChange={(e) => setDraftSortConfig({ columnId: e.target.value, direction: activeSortDirection })}
-                  className="h-8 min-w-0 flex-1 rounded-lg border border-[var(--tokyo-border-strong)] bg-transparent px-2 text-xs font-medium text-[var(--tokyo-text)] outline-none focus:border-[var(--tokyo-border-strong)]"
-                >
-                  {columns.map(column => (
-                    <option key={column.id} value={column.id}>
-                      {column.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={activeSortDirection}
-                  onChange={(e) => setDraftSortConfig({ columnId: activeSortColumnId, direction: e.target.value as GoalSortConfig['direction'] })}
-                  className="h-8 w-28 rounded-lg border border-[var(--tokyo-border-strong)] bg-transparent px-2 text-xs font-medium text-[var(--tokyo-text)] outline-none focus:border-[var(--tokyo-border-strong)]"
-                >
-                  <option value="asc">Ascending</option>
-                  <option value="desc">Descending</option>
-                </select>
                 <button
                   type="button"
                   onClick={() => {
                     setSortConfigs([]);
                     setSortPopoverPos(null);
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
                   title="Clear sort"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {sortConfigs.length > 0 && (
-                <div className="mt-2 space-y-1 border-t border-[var(--tokyo-border)] pt-2">
-                  {sortConfigs.map((sortConfig, index) => {
-                    const sortColumn = columns.find(column => column.id === sortConfig.columnId) || columns[0];
+              <div className="border-t border-[var(--tokyo-border)] pt-2">
+                <div className="px-1 pb-1 font-medium text-[var(--tokyo-text-faint)]">Current sort</div>
+                <div className="space-y-1">
+                  {sortConfigs.length > 0 ? (
+                    sortConfigs.map((sortConfig, index) => {
+                      const sortColumn = columns.find(column => column.id === sortConfig.columnId) || columns[0];
 
-                    return (
-                      <div key={`${sortConfig.columnId}-${index}`} className="flex items-center gap-2 rounded-md bg-black/10 px-2 py-1.5 text-[13px] text-[var(--tokyo-text-muted)]">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--tokyo-border-strong)] text-[11px] text-[var(--tokyo-text-faint)]">
-                          {index + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {sortColumn?.label || sortConfig.columnId}
-                        </span>
-                        <span className="text-[var(--tokyo-text-faint)]">
-                          {sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSortConfigs(currentSorts => currentSorts.filter((_, sortIndex) => sortIndex !== index))}
-                          className="flex h-6 w-6 items-center justify-center rounded text-[var(--tokyo-text-faint)] transition-colors hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)]"
-                          title="Remove sort"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div key={`${sortConfig.columnId}-${index}`} className="flex items-center gap-2 rounded-md bg-black/10 px-2 py-1.5 text-[var(--tokyo-text-muted)]">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-faint)]">
+                            {index + 1}
+                          </span>
+                          <div className="relative min-w-0 flex-1">
+                            <button
+                              data-sort-picker="true"
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSortPickerOpen(sortPickerOpen === `current-column-${index}` ? null : `current-column-${index}`);
+                              }}
+                              className="flex h-7 w-full items-center justify-between gap-2 rounded-md px-1.5 text-left font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                            >
+                              <span className="min-w-0 truncate">{sortColumn?.label || sortConfig.columnId}</span>
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--tokyo-text-faint)]" />
+                            </button>
+                            {sortPickerOpen === `current-column-${index}` && (
+                              <div data-sort-picker="true" className="absolute left-0 right-0 top-full z-[150] mt-1 max-h-48 overflow-auto rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-1 shadow-2xl">
+                                {columns.map(column => (
+                                  <button
+                                    key={column.id}
+                                    type="button"
+                                    onClick={() => {
+                                      updateSortAt(index, { ...sortConfig, columnId: column.id });
+                                      setSortPickerOpen(null);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center rounded-md px-2 py-1.5 text-left font-medium transition-colors",
+                                      sortConfig.columnId === column.id
+                                        ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+                                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                                    )}
+                                  >
+                                    {column.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="relative w-28 shrink-0">
+                            <button
+                              data-sort-picker="true"
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSortPickerOpen(sortPickerOpen === `current-direction-${index}` ? null : `current-direction-${index}`);
+                              }}
+                              className="flex h-7 w-full items-center justify-between gap-2 rounded-md px-1.5 text-left font-medium text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                            >
+                              <span>{sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}</span>
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--tokyo-text-faint)]" />
+                            </button>
+                            {sortPickerOpen === `current-direction-${index}` && (
+                              <div data-sort-picker="true" className="absolute left-0 right-0 top-full z-[150] mt-1 rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-1 shadow-2xl">
+                                {(['asc', 'desc'] as const).map(direction => (
+                                  <button
+                                    key={direction}
+                                    type="button"
+                                    onClick={() => {
+                                      updateSortAt(index, { ...sortConfig, direction });
+                                      setSortPickerOpen(null);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center rounded-md px-2 py-1.5 text-left font-medium transition-colors",
+                                      sortConfig.direction === direction
+                                        ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+                                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                                    )}
+                                  >
+                                    {direction === 'asc' ? 'Ascending' : 'Descending'}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSortConfigs(currentSorts => currentSorts.filter((_, sortIndex) => sortIndex !== index))}
+                            className="flex h-6 w-6 items-center justify-center rounded text-[var(--tokyo-text-faint)] transition-colors hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)]"
+                            title="Remove sort"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-md px-2 py-1.5 text-[var(--tokyo-text-faint)]">No sort applied</div>
+                  )}
                 </div>
-              )}
+              </div>
               <div className="mt-2 space-y-0.5 border-t border-[var(--tokyo-border)] pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setSortConfigs(currentSorts => [
                       ...currentSorts,
-                      { columnId: activeSortColumnId, direction: activeSortDirection },
+                      { columnId: columns[0]?.id || 'title', direction: 'asc' },
                     ]);
+                    setSortPickerOpen(null);
                   }}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
                 >
@@ -1746,11 +1833,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   <span>Delete sort</span>
                 </button>
               </div>
-              {activeSortColumn && (
-                <div className="mt-1 px-2 pb-1 pt-1 text-[11px] text-[var(--tokyo-text-faint)]">
-                  New sorts will use {activeSortColumn.label.toLowerCase()}.
-                </div>
-              )}
             </motion.div>
           </>
         )}
@@ -1768,7 +1850,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-lg shadow-2xl p-1 w-48 overflow-hidden"
+              className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-lg shadow-2xl p-1 w-48 overflow-hidden text-[13px]"
               style={{ 
                 top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
                 left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 

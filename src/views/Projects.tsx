@@ -49,6 +49,7 @@ import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
+import { TableView } from '../components/TableView';
 
 const iconMap: Record<string, any> = ALL_ICONS;
 
@@ -57,8 +58,27 @@ const toSentenceCase = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
+const GOALS_TEMPLATE_VERSION = 'goals-database-v1';
+
+const DEFAULT_PROJECT_TABS = [
+  { id: 'planning', label: 'Planning', icon: 'Clock' },
+  { id: 'active', label: 'Active', icon: 'Target' },
+  { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+  { id: 'paused', label: 'Paused', icon: 'Circle' },
+];
+
+const DEFAULT_PROJECT_COLUMNS = [
+  { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
+  { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
+  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
+  { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
+  { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+];
+
 export function Projects() {
-  const { projects, updateProject, addProject, deleteProject, duplicateProject, reorderProjects, goals } = useAppStore();
+  const { projects, updateProject, addProject, deleteProject, duplicateProject, reorderProjects, replaceProjects, goals, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const savedProjectSettings = viewSettings.projects || {};
   const [activeTabId, setActiveTabId] = useState('all');
   const [localSelectedProjectId, setLocalSelectedProjectId] = useState<string | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -71,21 +91,10 @@ export function Projects() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const isDraggingRef = useRef(false);
 
-  const tabs = [
-    { id: 'all', label: 'All Projects' },
-    { id: 'planning', label: 'Planning' },
-    { id: 'active', label: 'Active' },
-    { id: 'completed', label: 'Completed' },
-    { id: 'paused', label: 'Paused' }
-  ];
+  const shouldUseSavedTemplate = savedProjectSettings.templateVersion === GOALS_TEMPLATE_VERSION;
+  const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedProjectSettings.tabs ? savedProjectSettings.tabs : DEFAULT_PROJECT_TABS);
 
-  const columns = [
-    { id: 'name', label: 'Project Name', width: '40%' },
-    { id: 'status', label: 'Status', width: '15%' },
-    { id: 'deadline', label: 'Deadline', width: '15%' },
-    { id: 'priority', label: 'Priority', width: '15%' },
-    { id: 'goal', label: 'Goal', width: '15%' }
-  ];
+  const [columns, setColumns] = useState(shouldUseSavedTemplate && savedProjectSettings.columns ? savedProjectSettings.columns : DEFAULT_PROJECT_COLUMNS);
 
   const filteredProjects = projects.filter(p => {
     if (activeTabId === 'all') return true;
@@ -135,74 +144,145 @@ export function Projects() {
     );
   }
 
+  const projectDatabasePage = {
+    id: 'projects',
+    title: savedProjectSettings.title || 'Projects',
+    description: savedProjectSettings.description || 'Containers for your tasks.',
+    icon: savedProjectSettings.icon || 'FolderKanban',
+    kind: 'database' as const,
+    activeTab: shouldUseSavedTemplate ? savedProjectSettings.activeTab : 'planning',
+    tabs,
+    columns,
+    sortConfigs: shouldUseSavedTemplate ? (savedProjectSettings.sortConfigs || []) : [],
+    items: projects.map(project => ({
+      id: project.id,
+      title: project.name,
+      icon: project.icon || 'FolderKanban',
+      status: project.status,
+      priority: project.priority || 'medium',
+      date: project.deadline || project.targetDate,
+      progress: 0,
+      properties: {
+        areas: goals.find(goal => goal.id === project.goalId)?.title || 'No Area',
+      },
+    })),
+    properties: [],
+    content: '',
+  };
+
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
-            <FolderKanban className="w-6 h-6" />
+    <TableView
+      page={projectDatabasePage}
+      onItemClick={(itemId) => setLocalSelectedProjectId(itemId)}
+      onUpdatePage={(updatedPage) => {
+        setTabs(updatedPage.tabs);
+        setColumns(updatedPage.columns);
+        updateViewSettings('projects', {
+          ...savedProjectSettings,
+          title: updatedPage.title,
+          description: updatedPage.description,
+          icon: updatedPage.icon,
+          tabs: updatedPage.tabs,
+          columns: updatedPage.columns,
+          activeTab: updatedPage.activeTab,
+          sortConfigs: updatedPage.sortConfigs || [],
+          templateVersion: GOALS_TEMPLATE_VERSION,
+        });
+        updateSidebarItem('projects', updatedPage.title, updatedPage.icon);
+        replaceProjects(updatedPage.items.map(item => {
+          const existingProject = projects.find(project => project.id === item.id);
+          return existingProject
+            ? { ...existingProject, name: item.title, icon: item.icon, status: item.status as Project['status'], priority: item.priority, deadline: item.date }
+            : {
+              id: item.id,
+              name: item.title,
+              description: '',
+              status: item.status as Project['status'],
+              taskIds: [],
+              priority: item.priority,
+              icon: item.icon || 'FolderKanban',
+              deadline: item.date,
+            };
+        }));
+      }}
+    />
+  );
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <div className="flex items-center gap-5">
+          <div className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
+            <FolderKanban className="w-7 h-7" />
           </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight">Projects</h1>
-            <p className="text-[var(--tokyo-text-muted)] -mt-0.5 text-xs md:text-sm">Containers for your tasks.</p>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1 className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight">Projects</h1>
+              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+                {projects.length}
+              </span>
+            </div>
+            <p className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-[15px] leading-normal">Containers for your tasks.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-            <Search className="w-5 h-5" />
+        <div className="flex shrink-0 items-center gap-1 text-[var(--tokyo-text-faint)]">
+          <button className="p-2 hover:text-white transition-colors">
+            <Search className="w-4 h-4" />
           </button>
-          <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-            <FilterIcon className="w-5 h-5" />
+          <button className="p-2 hover:text-white transition-colors">
+            <FilterIcon className="w-4 h-4" />
           </button>
           <button 
             onClick={handleNewProject}
-            className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95"
+            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 [stroke-width:2.4]" />
             New Project
           </button>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-px overflow-x-auto no-scrollbar">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTabId(tab.id)}
-            className={cn(
-              "pl-[7px] pr-[9px] py-1.5 text-sm font-medium transition-all relative whitespace-nowrap",
-              activeTabId === tab.id ? "text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)]"
-            )}
-          >
-            {tab.label}
-            {activeTabId === tab.id && (
-              <motion.div 
-                layoutId="activeTabProject"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tokyo-yellow)]"
-              />
-            )}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col gap-1 flex-1 overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-[var(--tokyo-border)] pb-2 overflow-x-auto no-scrollbar">
+          {tabs.map(tab => {
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
+                className={cn(
+                  "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+                  activeTabId === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                )}
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded"><TabIcon className="w-4 h-4" /></span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto no-scrollbar -mx-4 md:mx-0">
-        <table className="w-full border-collapse min-w-[800px]">
+      <div className="flex-1 overflow-visible">
+      <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+        <table className="text-left border-separate border-spacing-0 table-fixed min-w-[800px] w-full">
           <thead>
-            <tr>
+            <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
               {columns.map((col, index) => (
                 <th 
                   key={col.id}
                   style={{ width: col.width }}
                   className={cn(
-                    "px-4 py-2 text-left text-[11px] font-bold text-white/20 uppercase tracking-wider border-b border-[var(--tokyo-border)]",
+                    "relative px-4 py-1 h-12 text-left border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
                     index === 0 && "pl-[5px]"
                   )}
                 >
-                  <div className="flex items-center gap-2 group cursor-pointer">
-                    {col.label}
-                    <Sort className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2">
+                    <span className="w-6 h-6 rounded-md text-[var(--tokyo-text-muted)]/80 flex items-center justify-center shrink-0">
+                      <col.icon className="w-4 h-4" />
+                    </span>
+                    <span className="capitalize text-[var(--tokyo-text-muted)]/80 px-1 h-7 rounded-md text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis">
+                      {col.label.toLowerCase()}
+                    </span>
                   </div>
                 </th>
               ))}
@@ -253,12 +333,9 @@ export function Projects() {
                     }, 100);
                   }}
                   onContextMenu={(e) => handleProjectContextMenu(e, project.id)}
-                  className={cn(
-                    "group transition-colors select-none cursor-default active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap",
-                    draggingId === project.id ? "cursor-grabbing bg-white/[0.04]" : ""
-                  )}
+                  className={cn("group transition-colors select-none cursor-grab active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap", draggingId === project.id ? "cursor-grabbing bg-white/[0.04]" : "")}
                 >
-                  <td className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
+                  <td className="h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
                     <div className="flex items-center gap-1">
                       <div 
                         onClick={(e) => {
@@ -297,7 +374,7 @@ export function Projects() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
                     <span 
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -319,10 +396,10 @@ export function Projects() {
                       {toSentenceCase(project.status)}
                     </span>
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)] text-sm text-[var(--tokyo-text-faint)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
                     {project.deadline || 'No deadline'}
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
                     <span 
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -341,7 +418,7 @@ export function Projects() {
                       {toSentenceCase(project.priority || 'medium')}
                     </span>
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)] text-sm text-[var(--tokyo-text-faint)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
                     {goal?.title || 'No goal'}
                   </td>
                 </Reorder.Item>
@@ -349,6 +426,8 @@ export function Projects() {
             })}
           </Reorder.Group>
         </table>
+      </div>
+      </div>
       </div>
 
       {/* Popovers & Context Menus */}

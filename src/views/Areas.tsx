@@ -49,6 +49,7 @@ import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
+import { TableView } from '../components/TableView';
 
 const iconMap: Record<string, any> = ALL_ICONS;
 
@@ -57,8 +58,27 @@ const toSentenceCase = (str: string) => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 };
 
+const GOALS_TEMPLATE_VERSION = 'goals-database-v1';
+
+const DEFAULT_AREA_TABS = [
+  { id: 'planning', label: 'Planning', icon: 'Clock' },
+  { id: 'active', label: 'Active', icon: 'Target' },
+  { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+  { id: 'paused', label: 'Paused', icon: 'Circle' },
+];
+
+const DEFAULT_AREA_COLUMNS = [
+  { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
+  { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
+  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
+  { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
+  { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+];
+
 export function Areas() {
-  const { areas, updateArea, addArea, deleteArea, duplicateArea, reorderAreas, projects, goals } = useAppStore();
+  const { areas, updateArea, addArea, deleteArea, duplicateArea, reorderAreas, replaceAreas, projects, goals, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const savedAreaSettings = viewSettings.areas || {};
   const [activeTabId, setActiveTabId] = useState('all');
   const [localSelectedAreaId, setLocalSelectedAreaId] = useState<string | null>(null);
   const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
@@ -71,19 +91,10 @@ export function Areas() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const isDraggingRef = useRef(false);
 
-  const tabs = [
-    { id: 'all', label: 'All Areas' },
-    { id: 'active', label: 'Active' },
-    { id: 'archived', label: 'Archived' }
-  ];
+  const shouldUseSavedTemplate = savedAreaSettings.templateVersion === GOALS_TEMPLATE_VERSION;
+  const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedAreaSettings.tabs ? savedAreaSettings.tabs : DEFAULT_AREA_TABS);
 
-  const columns = [
-    { id: 'name', label: 'Area Name', width: '40%' },
-    { id: 'projects', label: 'Projects', width: '15%' },
-    { id: 'goals', label: 'Goals', width: '15%' },
-    { id: 'status', label: 'Status', width: '15%' },
-    { id: 'priority', label: 'Priority', width: '15%' }
-  ];
+  const [columns, setColumns] = useState(shouldUseSavedTemplate && savedAreaSettings.columns ? savedAreaSettings.columns : DEFAULT_AREA_COLUMNS);
 
   const filteredAreas = areas.filter(a => {
     if (activeTabId === 'all') return true;
@@ -134,74 +145,144 @@ export function Areas() {
     );
   }
 
+  const areaDatabasePage = {
+    id: 'areas',
+    title: savedAreaSettings.title || 'Areas',
+    description: savedAreaSettings.description || 'Life categories and continuous responsibilities.',
+    icon: savedAreaSettings.icon || 'Layers',
+    kind: 'database' as const,
+    activeTab: shouldUseSavedTemplate ? savedAreaSettings.activeTab : 'planning',
+    tabs,
+    columns,
+    sortConfigs: shouldUseSavedTemplate ? (savedAreaSettings.sortConfigs || []) : [],
+    items: areas.map(area => ({
+      id: area.id,
+      title: area.name,
+      icon: area.icon || 'Layers',
+      status: area.status || 'active',
+      priority: area.priority || 'medium',
+      progress: 0,
+      properties: {
+        areas: `${area.projectIds.length} Projects`,
+      },
+    })),
+    properties: [],
+    content: '',
+  };
+
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
-            <LayoutGrid className="w-6 h-6" />
+    <TableView
+      page={areaDatabasePage}
+      onItemClick={(itemId) => setLocalSelectedAreaId(itemId)}
+      onUpdatePage={(updatedPage) => {
+        setTabs(updatedPage.tabs);
+        setColumns(updatedPage.columns);
+        updateViewSettings('areas', {
+          ...savedAreaSettings,
+          title: updatedPage.title,
+          description: updatedPage.description,
+          icon: updatedPage.icon,
+          tabs: updatedPage.tabs,
+          columns: updatedPage.columns,
+          activeTab: updatedPage.activeTab,
+          sortConfigs: updatedPage.sortConfigs || [],
+          templateVersion: GOALS_TEMPLATE_VERSION,
+        });
+        updateSidebarItem('areas', updatedPage.title, updatedPage.icon);
+        replaceAreas(updatedPage.items.map(item => {
+          const existingArea = areas.find(area => area.id === item.id);
+          return existingArea
+            ? { ...existingArea, name: item.title, icon: item.icon, status: item.status, priority: item.priority }
+            : {
+              id: item.id,
+              name: item.title,
+              description: '',
+              status: item.status,
+              goalIds: [],
+              projectIds: [],
+              priority: item.priority,
+              icon: item.icon || 'Layers',
+            };
+        }));
+      }}
+    />
+  );
+
+  return (
+    <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <div className="flex items-center gap-5">
+          <div className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
+            <LayoutGrid className="w-7 h-7" />
           </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight">Areas</h1>
-            <p className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-base">Life categories and continuous responsibilities.</p>
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1 className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight">Areas</h1>
+              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+                {areas.length}
+              </span>
+            </div>
+            <p className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-[15px] leading-normal">Life categories and continuous responsibilities.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-            <Search className="w-5 h-5" />
+        <div className="flex shrink-0 items-center gap-1 text-[var(--tokyo-text-faint)]">
+          <button className="p-2 hover:text-white transition-colors">
+            <Search className="w-4 h-4" />
           </button>
-          <button className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-            <FilterIcon className="w-5 h-5" />
+          <button className="p-2 hover:text-white transition-colors">
+            <FilterIcon className="w-4 h-4" />
           </button>
           <button 
             onClick={handleNewArea}
-            className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95"
+            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 [stroke-width:2.4]" />
             New Area
           </button>
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-px overflow-x-auto no-scrollbar">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTabId(tab.id)}
-            className={cn(
-              "pl-[7px] pr-[9px] py-1.5 text-sm font-medium transition-all relative whitespace-nowrap",
-              activeTabId === tab.id ? "text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)]"
-            )}
-          >
-            {tab.label}
-            {activeTabId === tab.id && (
-              <motion.div 
-                layoutId="activeTabArea"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tokyo-yellow)]"
-              />
-            )}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col gap-1 flex-1 overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-[var(--tokyo-border)] pb-2 overflow-x-auto no-scrollbar">
+          {tabs.map(tab => {
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
+                className={cn(
+                  "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+                  activeTabId === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                )}
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded"><TabIcon className="w-4 h-4" /></span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto no-scrollbar -mx-4 md:mx-0">
-        <table className="w-full border-collapse min-w-[800px]">
+      <div className="flex-1 overflow-visible">
+      <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+        <table className="text-left border-separate border-spacing-0 table-fixed min-w-[800px] w-full">
           <thead>
-            <tr>
+            <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
               {columns.map((col, index) => (
                 <th 
                   key={col.id}
                   style={{ width: col.width }}
                   className={cn(
-                    "px-4 py-2 text-left text-[11px] font-bold text-white/20 uppercase tracking-wider border-b border-[var(--tokyo-border)]",
+                    "relative px-4 py-1 h-12 text-left border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
                     index === 0 && "pl-[5px]"
                   )}
                 >
-                  <div className="flex items-center gap-2 group cursor-pointer">
-                    {col.label}
-                    <Sort className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2">
+                    <span className="w-6 h-6 rounded-md text-[var(--tokyo-text-muted)]/80 flex items-center justify-center shrink-0">
+                      <col.icon className="w-4 h-4" />
+                    </span>
+                    <span className="capitalize text-[var(--tokyo-text-muted)]/80 px-1 h-7 rounded-md text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis">
+                      {col.label.toLowerCase()}
+                    </span>
                   </div>
                 </th>
               ))}
@@ -251,12 +332,9 @@ export function Areas() {
                     }, 100);
                   }}
                   onContextMenu={(e) => handleAreaContextMenu(e, area.id)}
-                  className={cn(
-                    "group transition-colors select-none cursor-default active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap",
-                    draggingId === area.id ? "cursor-grabbing bg-white/[0.04]" : ""
-                  )}
+                  className={cn("group transition-colors select-none cursor-grab active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap", draggingId === area.id ? "cursor-grabbing bg-white/[0.04]" : "")}
                 >
-                  <td className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
+                  <td className="h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
                     <div className="flex items-center gap-1">
                       <div 
                         onClick={(e) => {
@@ -295,13 +373,13 @@ export function Areas() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)] text-sm text-[var(--tokyo-text-faint)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
                     {area.projectIds.length} Projects
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)] text-sm text-[var(--tokyo-text-faint)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
                     {area.goalIds.length} Goals
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
                     <span 
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -322,7 +400,7 @@ export function Areas() {
                       {toSentenceCase(area.status || 'active')}
                     </span>
                   </td>
-                  <td className="px-4 h-11 border-b border-[var(--tokyo-border)]">
+                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
                     <span 
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -346,6 +424,8 @@ export function Areas() {
             })}
           </Reorder.Group>
         </table>
+      </div>
+      </div>
       </div>
 
       {/* Popovers & Context Menus */}

@@ -37,7 +37,9 @@ import {
   Delete02Icon as Trash2,
   Copy01Icon as Copy,
   InboxIcon as Inbox,
-  File01Icon as FileIcon
+  File01Icon as FileIcon,
+  StarIcon as Star,
+  Folder01Icon as FolderKanban
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -47,7 +49,7 @@ import { IconPicker, ALL_ICONS } from './IconPicker';
 import { DatePicker, DateConfig } from './DatePicker';
 import { format } from 'date-fns';
 import { CustomPage, CustomPageItem } from '../types';
-import { DatabasePanel, PrimaryButton, SearchButton, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from './ui/DatabaseSurface';
+import { DatabasePanel } from './ui/DatabaseSurface';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -58,6 +60,11 @@ const iconMap: Record<string, React.ElementType> = {
   CheckCircle: CheckCircle,
   CalendarIcon: CalendarIcon,
   Inbox: Inbox,
+  LayoutGrid: LayoutGrid,
+  FolderKanban: FolderKanban,
+  File: FileIcon,
+  Pencil: Pencil,
+  Target: Target,
 };
 
 const toSentenceCase = (str: string) => {
@@ -72,8 +79,11 @@ interface TableViewProps {
   onItemClick: (itemId: string) => void;
 }
 
+type TableSortConfig = { columnId: string; direction: 'asc' | 'desc' };
+const DEFAULT_TABLE_SORT: TableSortConfig = { columnId: 'title', direction: 'asc' };
+
 export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
-  const [activeTab, setActiveTab] = useState<string>(page.tabs[1]?.id || page.tabs[0]?.id);
+  const [activeTab, setActiveTab] = useState<string>(page.activeTab || page.tabs[1]?.id || page.tabs[0]?.id);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ itemId: string; columnId: string } | null>(null);
   const [fillDrag, setFillDrag] = useState<{ sourceItemId: string; columnId: string; targetItemId: string } | null>(null);
@@ -92,6 +102,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [newTabName, setNewTabName] = useState('');
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
+  const [itemContextMenu, setItemContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority';
@@ -104,19 +115,71 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     currentDate?: Date;
     config?: DateConfig;
   } | null>(null);
+  const [titleValue, setTitleValue] = useState(page.title);
+  const [descriptionValue, setDescriptionValue] = useState(page.description || 'Database');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [sortConfigs, setSortConfigs] = useState<TableSortConfig[]>(page.sortConfigs || []);
+  const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [sortPickerOpen, setSortPickerOpen] = useState<string | null>(null);
+  const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
+  const [draggingColumnOffset, setDraggingColumnOffset] = useState(0);
+  const [columnDropIndicatorX, setColumnDropIndicatorX] = useState<number | null>(null);
 
   const tabContainerRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const titleEditRef = useRef<HTMLHeadingElement>(null);
+  const descriptionEditRef = useRef<HTMLParagraphElement>(null);
   const isDraggingRef = useRef(false);
   const isFillDraggingRef = useRef(false);
   const fillDragRef = useRef<{ sourceItemId: string; columnId: string; targetItemId: string } | null>(null);
   const latestResizeColumnsRef = useRef<CustomPage['columns'] | null>(null);
+  const latestColumnsRef = useRef<CustomPage['columns']>(page.columns);
+  const suppressOpenUntilRef = useRef(0);
 
-  const filteredItems = page.items.filter(item => item.status === activeTab);
+  const filteredItems = activeTab === 'all'
+    ? page.items
+    : page.items.filter(item => item.status === activeTab);
   const displayColumns = resizingColumns || page.columns;
+
+  useEffect(() => {
+    latestColumnsRef.current = displayColumns;
+  }, [displayColumns]);
+
+  useEffect(() => {
+    setTitleValue(page.title);
+  }, [page.title]);
+
+  useEffect(() => {
+    setDescriptionValue(page.description || 'Database');
+  }, [page.description]);
+
+  useEffect(() => {
+    setSortConfigs(page.sortConfigs || []);
+  }, [page.sortConfigs]);
+
+  useEffect(() => {
+    const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;
+    if (!element) return;
+    element.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, [isEditingTitle, isEditingDescription]);
 
   const handleUpdateItem = (updatedItem: CustomPageItem) => {
     const newItems = page.items.map(item => item.id === updatedItem.id ? updatedItem : item);
     onUpdatePage({ ...page, items: newItems });
+  };
+
+  const setActiveDatabaseTab = (tabId: string) => {
+    setActiveTab(tabId);
+    onUpdatePage({ ...page, activeTab: tabId });
   };
 
   const setActiveFillDrag = (drag: { sourceItemId: string; columnId: string; targetItemId: string } | null) => {
@@ -124,7 +187,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setFillDrag(drag);
   };
 
-  const isColumnFillable = (columnId: string) => columnId !== 'progress';
+  const isColumnFillable = (columnId: string) => columnId !== 'title' && columnId !== 'progress';
 
   const getColumnWidthNumber = (width?: string) => {
     const parsed = Number.parseFloat(width || '');
@@ -167,6 +230,125 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     window.addEventListener('pointerup', cleanup);
   };
 
+  const getColumnMotionStyle = (column: CustomPage['columns'][number]) => ({
+    width: column.width,
+    x: draggingColumnId === column.id ? Math.round(draggingColumnOffset) : 0,
+    zIndex: draggingColumnId === column.id ? 35 : 1,
+  });
+
+  const startColumnDrag = (event: React.PointerEvent, columnId: string) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest('[data-column-control="true"]')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startColumns = latestColumnsRef.current;
+    const draggedColumn = startColumns.find(column => column.id === columnId);
+    const startIndex = startColumns.findIndex(column => column.id === columnId);
+    if (!draggedColumn || startIndex < 0) return;
+
+    const startX = event.clientX;
+    const startLeft = startColumns
+      .slice(0, startIndex)
+      .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+    const draggedColumnWidth = getColumnWidthNumber(draggedColumn.width);
+    const tableRect = tableRef.current?.getBoundingClientRect();
+    if (!tableRect) return;
+
+    let latestOffset = 0;
+    let animationFrameId: number | null = null;
+    let lastRenderedIndicatorX: number | null = startLeft;
+
+    const getDropTarget = (offset: number) => {
+      const projectedCenter = startLeft + offset + draggedColumnWidth / 2;
+      const remainingColumns = startColumns.filter(column => column.id !== columnId);
+      let targetIndex = remainingColumns.length;
+      let runningLeft = 0;
+
+      for (let index = 0; index < remainingColumns.length; index += 1) {
+        const column = remainingColumns[index];
+        const originalIndex = startColumns.findIndex(startColumn => startColumn.id === column.id);
+        const visibleCenterOffset = originalIndex > startIndex ? draggedColumnWidth : 0;
+        const columnCenter = runningLeft + getColumnWidthNumber(column.width) / 2 + visibleCenterOffset;
+        if (projectedCenter < columnCenter) {
+          targetIndex = index;
+          break;
+        }
+        runningLeft += getColumnWidthNumber(column.width);
+      }
+
+      const indicatorX = remainingColumns
+        .slice(0, targetIndex)
+        .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+      const visualIndicatorX = targetIndex > startIndex || (targetIndex === startIndex && offset > 0)
+        ? indicatorX + draggedColumnWidth
+        : indicatorX;
+
+      return { targetIndex, indicatorX: visualIndicatorX };
+    };
+
+    const renderDragUpdate = () => {
+      animationFrameId = null;
+      const roundedOffset = Math.round(latestOffset);
+      const target = getDropTarget(roundedOffset);
+      const indicatorX = Math.round(target.indicatorX);
+      setDraggingColumnOffset(roundedOffset);
+      if (lastRenderedIndicatorX !== indicatorX) {
+        lastRenderedIndicatorX = indicatorX;
+        setColumnDropIndicatorX(indicatorX);
+      }
+    };
+
+    const scheduleDragUpdate = () => {
+      if (animationFrameId !== null) return;
+      animationFrameId = window.requestAnimationFrame(renderDragUpdate);
+    };
+
+    setDraggingColumnId(columnId);
+    setDraggingColumnOffset(0);
+    setColumnDropIndicatorX(startLeft);
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      latestOffset = pointerEvent.clientX - startX;
+      scheduleDragUpdate();
+    };
+
+    const cleanup = () => {
+      if (animationFrameId !== null) window.cancelAnimationFrame(animationFrameId);
+      const remainingColumns = startColumns.filter(column => column.id !== columnId);
+      const finalTarget = getDropTarget(Math.round(latestOffset));
+      const nextColumns = [...remainingColumns];
+      nextColumns.splice(finalTarget.targetIndex, 0, draggedColumn);
+      const nextLeft = nextColumns
+        .slice(0, finalTarget.targetIndex)
+        .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+
+      setColumnDropIndicatorX(Math.round(finalTarget.indicatorX));
+      setDraggingColumnOffset(Math.round(startLeft + latestOffset - nextLeft));
+      latestColumnsRef.current = nextColumns;
+      onUpdatePage({ ...page, columns: nextColumns });
+
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', cleanup);
+
+      window.setTimeout(() => setColumnDropIndicatorX(null), 120);
+      window.requestAnimationFrame(() => {
+        setDraggingColumnId(null);
+        setDraggingColumnOffset(0);
+      });
+    };
+
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', cleanup);
+  };
+
+
   useEffect(() => {
     if (!selectedCell) return;
 
@@ -199,15 +381,61 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     return { ...item, properties: { ...item.properties, [columnId]: value } };
   };
 
+  const updateSortAt = (sortIndex: number, nextSort: TableSortConfig) => {
+    const nextSorts = sortConfigs.map((sortConfig, index) => (
+      index === sortIndex ? nextSort : sortConfig
+    ));
+    setSortConfigs(nextSorts);
+    onUpdatePage({ ...page, sortConfigs: nextSorts });
+  };
+
+  const setPageSortConfigs = (nextSorts: TableSortConfig[]) => {
+    setSortConfigs(nextSorts);
+    onUpdatePage({ ...page, sortConfigs: nextSorts });
+  };
+
+  const getSortValue = (item: CustomPageItem, columnId: string) => {
+    const value = getCellValue(item, columnId);
+    if (columnId === 'priority') return ['low', 'medium', 'high'].indexOf(String(value));
+    if (columnId === 'date') return value ? new Date(value).getTime() : Number.POSITIVE_INFINITY;
+    if (typeof value === 'number') return value;
+    return String(value ?? '').toLowerCase();
+  };
+
+  const compareItemsBySort = (firstItem: CustomPageItem, secondItem: CustomPageItem, sortConfig: TableSortConfig) => {
+    const firstValue = getSortValue(firstItem, sortConfig.columnId);
+    const secondValue = getSortValue(secondItem, sortConfig.columnId);
+    let result = 0;
+
+    if (typeof firstValue === 'number' && typeof secondValue === 'number') {
+      result = firstValue - secondValue;
+    } else {
+      result = String(firstValue).localeCompare(String(secondValue), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    return sortConfig.direction === 'asc' ? result : -result;
+  };
+
+  const visibleItems = sortConfigs.length > 0
+    ? [...filteredItems].sort((firstItem, secondItem) => {
+        for (const sortConfig of sortConfigs) {
+          const result = compareItemsBySort(firstItem, secondItem, sortConfig);
+          if (result !== 0) return result;
+        }
+
+        return 0;
+      })
+    : filteredItems;
+
   const getFillRangeItemIds = (drag = fillDrag) => {
     if (!drag) return [];
 
-    const sourceIndex = filteredItems.findIndex(item => item.id === drag.sourceItemId);
-    const targetIndex = filteredItems.findIndex(item => item.id === drag.targetItemId);
+    const sourceIndex = visibleItems.findIndex(item => item.id === drag.sourceItemId);
+    const targetIndex = visibleItems.findIndex(item => item.id === drag.targetItemId);
     if (sourceIndex < 0 || targetIndex < 0) return [];
 
     const [start, end] = [sourceIndex, targetIndex].sort((a, b) => a - b);
-    return filteredItems.slice(start, end + 1).map(item => item.id);
+    return visibleItems.slice(start, end + 1).map(item => item.id);
   };
 
   const finishFillDrag = (drag = fillDragRef.current) => {
@@ -302,11 +530,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
   const handleNewItem = () => {
     const id = `item-${Date.now()}`;
+    const defaultStatus = activeTab === 'all' ? (page.tabs.find(tab => tab.id !== 'all')?.id || activeTab) : activeTab;
     const newItem: CustomPageItem = {
       id,
       title: 'Untitled Item',
       icon: 'File',
-      status: activeTab,
+      status: defaultStatus,
       priority: 'medium',
       progress: 0,
       properties: {}
@@ -330,9 +559,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     if (newTabName.trim()) {
       const id = newTabName.toLowerCase().replace(/\s+/g, '-');
       if (!page.tabs.find(t => t.id === id)) {
+        const nextTabs = [...page.tabs, { id, label: newTabName.trim(), icon: 'Target' }];
         onUpdatePage({
           ...page,
-          tabs: [...page.tabs, { id, label: newTabName.trim(), icon: 'Target' }]
+          tabs: nextTabs,
+          activeTab: id,
         });
         setActiveTab(id);
       }
@@ -343,70 +574,254 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     }
   };
 
+  const handleDeleteTab = (tabId: string) => {
+    if (page.tabs.length <= 1) return;
+
+    const nextTabs = page.tabs.filter(tab => tab.id !== tabId);
+    const fallbackTabId = nextTabs[0]?.id || activeTab;
+    const nextActiveTab = activeTab === tabId ? fallbackTabId : activeTab;
+    const nextItems = page.items.map(item => (
+      item.status === tabId ? { ...item, status: fallbackTabId } : item
+    ));
+
+    setActiveTab(nextActiveTab);
+    onUpdatePage({
+      ...page,
+      tabs: nextTabs,
+      activeTab: nextActiveTab,
+      items: nextItems,
+    });
+  };
+
+  const handleRenameTab = (tabId: string) => {
+    if (editingTabName.trim()) {
+      onUpdatePage({
+        ...page,
+        tabs: page.tabs.map(tab => (
+          tab.id === tabId ? { ...tab, label: editingTabName.trim() } : tab
+        )),
+      });
+    }
+    setEditingTabId(null);
+    setEditingTabName('');
+  };
+
+  const handleTabContextMenu = (event: React.MouseEvent, id: string) => {
+    event.preventDefault();
+    setTabContextMenu({ x: event.clientX, y: event.clientY, id });
+  };
+
+  const handleItemContextMenu = (event: React.MouseEvent, id: string) => {
+    event.preventDefault();
+    setSelectedCell(null);
+    setActiveFillDrag(null);
+    setItemContextMenu({ x: event.clientX, y: event.clientY, id });
+  };
+
+  const duplicateItem = (itemId: string) => {
+    const item = page.items.find(candidate => candidate.id === itemId);
+    if (!item) return;
+
+    const duplicate: CustomPageItem = {
+      ...item,
+      id: `item-${Date.now()}`,
+      title: `${item.title} Copy`,
+      properties: { ...item.properties },
+    };
+    const itemIndex = page.items.findIndex(candidate => candidate.id === itemId);
+    const nextItems = [...page.items];
+    nextItems.splice(itemIndex + 1, 0, duplicate);
+    onUpdatePage({ ...page, items: nextItems });
+  };
+
+  const deleteItem = (itemId: string) => {
+    onUpdatePage({ ...page, items: page.items.filter(item => item.id !== itemId) });
+  };
+
+  const getCompletedStatus = () => (
+    page.tabs.find(tab => tab.id === 'completed')?.id ||
+    page.tabs.find(tab => tab.id !== 'all')?.id ||
+    page.tabs[0]?.id ||
+    'completed'
+  );
+
+  const getActiveStatus = () => (
+    page.tabs.find(tab => tab.id === 'active')?.id ||
+    page.tabs.find(tab => tab.id === 'in-progress')?.id ||
+    page.tabs.find(tab => tab.id !== 'all' && tab.id !== 'completed')?.id ||
+    page.tabs[0]?.id ||
+    'active'
+  );
+
   const fillRangeItemIds = getFillRangeItemIds();
   const fillRangeItemIdSet = new Set(fillRangeItemIds);
-  const tableWidth = displayColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 64);
+  const tableWidth = displayColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+  const isTabDragActive = page.tabs.some(tab => tab.id === draggingId);
+  const handleRenamePage = () => {
+    const nextTitle = titleValue.trim() || page.title;
+    onUpdatePage({ ...page, title: nextTitle });
+    setTitleValue(nextTitle);
+    setIsEditingTitle(false);
+  };
+  const handleUpdateDescription = () => {
+    onUpdatePage({ ...page, description: descriptionValue.trim() || 'Database' });
+    setIsEditingDescription(false);
+  };
+  const handleCopyPageLink = async () => {
+    const href = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}#${page.id}` : '';
+    if (href && navigator.clipboard) await navigator.clipboard.writeText(href);
+    setIsShareMenuOpen(false);
+  };
 
   return (
-    <WorkspacePage>
-      <WorkspaceHeader
-        icon={
-          <button
+    <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+        <div className="flex items-center gap-5">
+          <div
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               setIconPickerId(page.id);
               setIconPickerType('main');
               setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
             }}
-            className="flex h-full w-full items-center justify-center"
+            className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-[var(--tokyo-hover)] transition-colors"
           >
-            {React.createElement(iconMap[page.icon] || FileIcon, { className: "h-4 w-4" })}
+            {React.createElement(iconMap[page.icon] || FileIcon, { className: "w-7 h-7" })}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <h1
+                ref={titleEditRef}
+                contentEditable={isEditingTitle}
+                suppressContentEditableWarning
+                className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight cursor-text outline-none"
+                onClick={() => {
+                  if (!isEditingTitle) {
+                    setTitleValue(page.title);
+                    setIsEditingTitle(true);
+                  }
+                }}
+                onInput={(e) => setTitleValue(e.currentTarget.textContent || '')}
+                onBlur={() => {
+                  if (isEditingTitle) handleRenamePage();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleRenamePage();
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setTitleValue(page.title);
+                    setIsEditingTitle(false);
+                  }
+                }}
+              >
+                {isEditingTitle ? titleValue : page.title}
+              </h1>
+              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+                {page.items.length}
+              </span>
+            </div>
+            <p
+              ref={descriptionEditRef}
+              contentEditable={isEditingDescription}
+              suppressContentEditableWarning
+              className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-[15px] leading-normal cursor-text outline-none"
+              onClick={() => {
+                if (!isEditingDescription) setIsEditingDescription(true);
+              }}
+              onInput={(e) => setDescriptionValue(e.currentTarget.textContent || '')}
+              onBlur={() => {
+                if (isEditingDescription) handleUpdateDescription();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleUpdateDescription();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setDescriptionValue(page.description || 'Database');
+                  setIsEditingDescription(false);
+                }
+              }}
+            >
+              {descriptionValue}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+          <div className="relative">
+            <button
+              onClick={() => setIsShareMenuOpen((open) => !open)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[rgba(218,204,216,0.08)] bg-transparent px-2.5 text-[12px] font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            >
+              <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+              Share
+              <ChevronDown className={cn("h-4 w-4 text-[var(--tokyo-text-faint)] transition-transform", isShareMenuOpen && "rotate-180")} />
+            </button>
+            {isShareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                  <button
+                    onClick={() => void handleCopyPageLink()}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                  >
+                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Copy page link
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Invite people
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => void handleCopyPageLink()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            title="Copy page link"
+          >
+            <Link className="h-[18px] w-[18px]" />
           </button>
-        }
-        title={page.title}
-        description="Database"
-        count={page.items.length}
-        actions={
-          <>
-            <SearchButton />
-            <ToolButton><FilterIcon className="h-4 w-4" /></ToolButton>
-            <ToolButton><Sort className="h-4 w-4" /></ToolButton>
-            <PrimaryButton onClick={handleNewItem}><Plus className="h-4 w-4" /> New</PrimaryButton>
-          </>
-        }
-      />
+          <button
+            onClick={() => setIsFavorite((favorite) => !favorite)}
+            className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]", isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]")}
+            title="Favorite"
+          >
+            <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+          </button>
+          <button className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]" title="More">
+            <MoreHorizontal className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      </header>
 
-      <ViewTabs
-        tabs={page.tabs.map(tab => ({
-          id: tab.id,
-          label: tab.label,
-          icon: React.createElement(iconMap[tab.icon] || Target, { className: "h-4 w-4" }),
-          count: page.items.filter(item => item.status === tab.id).length,
-        }))}
-        activeId={activeTab}
-        onChange={setActiveTab}
-      />
-
-      {/* Tabs & Toolbar */}
-      <div className="hidden flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)] pb-1">
-        <Reorder.Group 
+      <div className="flex flex-col gap-1 flex-1 overflow-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--tokyo-border)] pb-2">
+        <Reorder.Group
           as="div"
           ref={tabContainerRef}
-          axis="x" 
-          values={page.tabs} 
+          axis="x"
+          values={page.tabs}
           onReorder={(newTabs) => onUpdatePage({ ...page, tabs: newTabs })}
-          className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
+          className="hidden sm:flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
         >
           {page.tabs.map(tab => {
             const Icon = iconMap[tab.icon] || Target;
             return (
-              <Reorder.Item 
+              <Reorder.Item
+                as="div"
                 key={tab.id}
                 value={tab}
                 data-tab-id={tab.id}
                 layout="position"
                 drag="x"
                 dragElastic={0.04}
+                dragMomentum={false}
                 dragConstraints={{ top: 0, bottom: 0 }}
                 onDragStart={() => {
                   setDraggingId(tab.id);
@@ -414,31 +829,33 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 }}
                 onDragEnd={() => {
                   setDraggingId(null);
-                  setTimeout(() => {
+                  window.setTimeout(() => {
                     isDraggingRef.current = false;
                   }, 100);
                 }}
+                onContextMenu={(e) => handleTabContextMenu(e, tab.id)}
                 onClickCapture={(e) => {
                   if (isDraggingRef.current) {
                     e.stopPropagation();
                     e.preventDefault();
                     return;
                   }
-                  setActiveTab(tab.id);
+                  setActiveDatabaseTab(tab.id);
                 }}
                 className={cn(
-                  "flex items-center gap-1 pl-[7px] pr-[9px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap group relative",
-                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
+                  "shrink-0 whitespace-nowrap group relative outline-none focus:outline-none focus-visible:outline-none",
                   draggingId === tab.id ? "cursor-grabbing" : "cursor-pointer"
                 )}
-                whileDrag={{ scale: 1.03, y: -1 }}
-                transition={{
-                  layout: { duration: 0.08, ease: "easeOut" },
-                  scale: { duration: 0.08, ease: "easeOut" },
-                  y: { duration: 0.08, ease: "easeOut" },
-                }}
+                transition={{ layout: { duration: 0.08, ease: "easeOut" } }}
               >
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    activeTab === tab.id && !isTabDragActive ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
+                  )}
+                >
                 <button
+                  data-tab-control="true"
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -447,7 +864,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     setIconPickerType('tab');
                     setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
                   }}
-                  className="hover:bg-[var(--tokyo-hover)] rounded p-0.5 transition-colors cursor-pointer"
+                  className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--tokyo-hover)] cursor-pointer"
                 >
                   <Icon className="w-4 h-4" />
                 </button>
@@ -457,25 +874,25 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     value={editingTabName}
                     onChange={(e) => setEditingTabName(e.target.value)}
                     onBlur={() => {
-                      if (editingTabName.trim()) {
-                        onUpdatePage({
-                          ...page,
-                          tabs: page.tabs.map(t => t.id === tab.id ? { ...t, label: editingTabName.trim() } : t)
-                        });
-                      }
-                      setEditingTabId(null);
+                      handleRenameTab(tab.id);
                     }}
-                    onKeyDown={(e) => e.key === 'Enter' && setEditingTabId(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameTab(tab.id);
+                      if (e.key === 'Escape') setEditingTabId(null);
+                    }}
                     className="bg-transparent border-none outline-none w-20 text-white"
                   />
                 ) : (
-                  <span onDoubleClick={() => {
-                    setEditingTabId(tab.id);
-                    setEditingTabName(tab.label);
-                  }}>
+                  <span
+                    onDoubleClick={() => {
+                      setEditingTabId(tab.id);
+                      setEditingTabName(tab.label);
+                    }}
+                  >
                     {tab.label}
                   </span>
                 )}
+                </div>
               </Reorder.Item>
             );
           })}
@@ -495,69 +912,89 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           ) : (
             <button 
               onClick={() => setIsAddingTab(true)}
-              className="w-[34px] h-[34px] flex items-center justify-center text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] transition-colors rounded-lg hover:bg-[var(--tokyo-hover)] cursor-pointer shrink-0"
+              className="w-8 h-8 flex items-center justify-center text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] transition-colors rounded-lg hover:bg-[var(--tokyo-hover)] cursor-pointer shrink-0"
+              title="Add new tab"
             >
               <Plus className="w-4 h-4" />
             </button>
           )}
         </Reorder.Group>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)]">
-            <button className="p-1.5 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:text-white transition-colors"><Sort className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:text-white transition-colors"><Lightning className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:text-white transition-colors"><Settings className="w-4 h-4" /></button>
-          </div>
+        <div className="flex shrink-0 items-center justify-end gap-1 text-[var(--tokyo-text-faint)]">
+          <button className="p-2 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
+          <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setSortPopoverPos(sortPopoverPos ? null : { x: rect.right, y: rect.bottom + 8 });
+            }}
+            className={cn("p-2 rounded-lg transition-colors", sortConfigs.length > 0 ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-yellow)]" : "hover:text-white")}
+            title="Sort"
+          >
+            <Sort className="w-4 h-4" />
+          </button>
           <button 
             onClick={handleNewItem}
-            className="bg-[var(--tokyo-yellow-dim)] hover:bg-[var(--tokyo-yellow)] text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
           >
+            <Plus className="w-4 h-4 [stroke-width:2.4]" />
             New
-            <ChevronDown className="w-4 h-4 opacity-60" />
           </button>
         </div>
       </div>
 
       {/* Table Container */}
       <DatabasePanel className="flex-1">
-        <div className={cn("w-full h-full", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <table className="database-table table-fixed text-left" style={{ width: `${tableWidth}px` }}>
+        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId || draggingColumnId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+          <div ref={tableRef} className="relative min-h-full overflow-visible" style={{ width: `${tableWidth}px` }}>
+          <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${tableWidth}px` }}>
             <colgroup>
               {displayColumns.map(column => (
                 <col key={column.id} style={{ width: column.width }} />
               ))}
-              <col style={{ width: '64px' }} />
             </colgroup>
             <thead>
               <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
                 {displayColumns.map((col, index) => (
-                  <th 
+                  <motion.th
                     key={col.id} 
-                    style={{ width: col.width }}
+                    layout="position"
+                    transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
+                    style={getColumnMotionStyle(col)}
                     className={cn(
-                      "relative px-4 py-2 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
+                      "relative px-4 py-1 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
                       index === 0 && "pl-[5px]"
                     )}
                   >
-                    <div className="flex items-center gap-0.5 w-full overflow-hidden pr-2">
-                      <button
-                        onClick={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setIconPickerId(col.id);
-                          setIconPickerType('column');
-                          setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                        }}
-                        className="w-5 h-5 rounded-md transition-colors text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
-                      >
-                        {React.createElement(iconMap[col.icon] || Target, { className: "w-3.5 h-3.5" })}
-                      </button>
+                    <div
+                      onPointerDown={(event) => startColumnDrag(event, col.id)}
+                      className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2 cursor-grab active:cursor-grabbing"
+                    >
+                      {col.id !== 'progress' && (
+                        <button
+                          type="button"
+                          data-column-control="true"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setIconPickerId(col.id);
+                            setIconPickerType('column');
+                            setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                          }}
+                          className="w-6 h-6 rounded-md transition-colors text-[var(--tokyo-text-muted)]/80 hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
+                        >
+                          {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4 align-middle" })}
+                        </button>
+                      )}
                       {editingColumnId === col.id ? (
                         <input
+                          data-column-control="true"
                           autoFocus
                           value={editingColumnName}
                           onChange={(e) => setEditingColumnName(e.target.value)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
                           onBlur={() => {
                             if (editingColumnName.trim()) {
                               onUpdatePage({
@@ -568,11 +1005,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             setEditingColumnId(null);
                           }}
                           onKeyDown={(e) => e.key === 'Enter' && setEditingColumnId(null)}
-                          className="bg-[var(--tokyo-yellow-dim)] text-white pl-[7px] pr-[9px] h-8 rounded-lg outline-none text-sm font-medium border-none w-fit min-w-[60px]"
+                          className="bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)] px-2 h-7 rounded-md outline-none text-sm font-medium border border-[var(--tokyo-border)] min-w-0 w-full"
                         />
                       ) : (
                         <span 
-                          className="capitalize cursor-pointer hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1.5 h-8 rounded-lg transition-colors text-sm font-medium inline-flex items-center whitespace-nowrap overflow-hidden text-ellipsis w-fit"
+                          data-column-control="true"
+                          className="capitalize cursor-pointer text-[var(--tokyo-text-muted)]/80 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1 h-7 rounded-md transition-colors text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis"
+                          onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingColumnId(col.id);
@@ -585,23 +1024,107 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     </div>
                     <button
                       type="button"
+                      data-column-control="true"
                       aria-label={`Resize ${col.label} column`}
                       title="Drag to resize column"
                       onPointerDown={(e) => startColumnResize(e, col.id, col.width)}
                       style={{ cursor: 'col-resize' }}
-                      className="absolute right-0 top-1/2 z-20 h-8 w-3 -translate-y-1/2 !cursor-col-resize touch-none before:pointer-events-none before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-transparent before:transition-all before:duration-150 hover:before:h-6 hover:before:w-[2px] hover:before:bg-[var(--tokyo-yellow)]"
+                      className={cn(
+                        "absolute right-0 top-1/2 z-20 h-8 w-3 -translate-y-1/2 !cursor-col-resize touch-none before:pointer-events-none before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-px before:-translate-x-1/2 before:-translate-y-1/2 before:rounded-full before:bg-transparent before:transition-all before:duration-150 hover:before:h-6 hover:before:w-[2px] hover:before:bg-[var(--tokyo-yellow)]",
+                        draggingColumnId && "pointer-events-none opacity-0"
+                      )}
                     />
-                  </th>
+                  </motion.th>
                 ))}
-                <th className="px-6 py-2 border-b border-[var(--tokyo-border)] w-16 whitespace-nowrap text-right">
-                </th>
               </tr>
             </thead>
-            <tbody className="relative">
-              {filteredItems.map(item => (
-                <tr 
+            <Reorder.Group
+              as="tbody"
+              axis="y"
+              values={visibleItems}
+              onReorder={(newItems) => {
+                const visibleItemIds = new Set(visibleItems.map(item => item.id));
+                const otherItems = page.items.filter(item => !visibleItemIds.has(item.id));
+                onUpdatePage({ ...page, items: [...otherItems, ...newItems] });
+              }}
+              className="relative"
+            >
+              {visibleItems.map(item => (
+                  <Reorder.Item
                   key={item.id} 
-                  className="group transition-colors select-none hover:bg-white/[0.02] whitespace-nowrap"
+                  value={item}
+                  as="tr"
+                  layout="position"
+                  drag
+                  dragElastic={0.04}
+                  dragMomentum={false}
+                  initial={false}
+                  animate={{
+                    zIndex: 1,
+                    scale: 1,
+                    rotate: 0,
+                    boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
+                  }}
+                  whileDrag={{
+                    zIndex: 45,
+                    scale: 0.98,
+                    rotate: -2,
+                  }}
+                  transition={{
+                    layout: { type: 'spring', stiffness: 520, damping: 34, mass: 0.55 },
+                    scale: { type: 'spring', stiffness: 720, damping: 34, mass: 0.42 },
+                    x: { type: 'spring', stiffness: 720, damping: 34, mass: 0.42 },
+                    rotate: { type: 'spring', stiffness: 680, damping: 34, mass: 0.4 },
+                  }}
+                  style={{ transformOrigin: "left center" }}
+                  onDragStart={() => {
+                    setDraggingId(item.id);
+                    isDraggingRef.current = true;
+                    document.body.style.cursor = 'grabbing';
+                    setSelectedCell(null);
+                    setActiveFillDrag(null);
+                  }}
+                  onDragEnd={(_event, info) => {
+                    setDraggingId(null);
+                    setHoveredTabId(null);
+                    suppressOpenUntilRef.current = Date.now() + 250;
+                    document.body.style.cursor = '';
+                    window.setTimeout(() => {
+                      isDraggingRef.current = false;
+                    }, 80);
+
+                    if (!tabContainerRef.current) return;
+
+                    const tabsElements = tabContainerRef.current.querySelectorAll('[data-tab-id]');
+                    let droppedOnTabId: string | null = null;
+
+                    tabsElements.forEach((tabEl) => {
+                      const rect = tabEl.getBoundingClientRect();
+                      if (
+                        info.point.x >= rect.left &&
+                        info.point.x <= rect.right &&
+                        info.point.y >= rect.top &&
+                        info.point.y <= rect.bottom
+                      ) {
+                        droppedOnTabId = tabEl.getAttribute('data-tab-id');
+                      }
+                    });
+
+                    if (droppedOnTabId && droppedOnTabId !== item.status) {
+                      handleUpdateItem({ ...item, status: droppedOnTabId });
+                    }
+                  }}
+                  onContextMenu={(e) => handleItemContextMenu(e, item.id)}
+                  className={cn(
+                    "group cursor-grab transition-colors select-none whitespace-nowrap active:cursor-grabbing",
+                    draggingId === item.id && [
+                      "[&>td]:!border-b-transparent [&>td]:!bg-transparent [&>td]:!shadow-none",
+                      "[&>td:not([data-table-cell-column-id='title'])>*]:opacity-0",
+                      "[&>td[data-table-cell-column-id='title']]:relative [&>td[data-table-cell-column-id='title']]:z-20 [&>td[data-table-cell-column-id='title']]:rounded-lg [&>td[data-table-cell-column-id='title']]:!bg-[linear-gradient(135deg,rgba(216,170,21,0.82),rgba(163,126,10,0.72))]",
+                      "[&>td[data-table-cell-column-id='title']]:!text-[var(--tokyo-text-strong)] [&>td[data-table-cell-column-id='title']]:backdrop-blur-[1px] [&>td[data-table-cell-column-id='title']]:shadow-[0_18px_44px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.22)]",
+                      "[&>td[data-table-cell-column-id='title']_*]:!text-[var(--tokyo-text-strong)]"
+                    ]
+                  )}
                 >
                   {displayColumns.map((col, idx) => {
                     const isCellSelected = selectedCell?.itemId === item.id && selectedCell.columnId === col.id;
@@ -614,20 +1137,26 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     };
 
                     return (
-                    <td 
+                    <motion.td
                       key={col.id}
+                      layout="position"
+                      transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
                       data-table-cell-item-id={item.id}
                       data-table-cell-column-id={col.id}
-                      style={{ width: col.width }}
+                      style={getColumnMotionStyle(col)}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (col.id === 'title') {
+                          clearCellSelection();
+                          if (isDraggingRef.current || isFillDraggingRef.current || Date.now() < suppressOpenUntilRef.current) return;
+                          onItemClick(item.id);
+                          return;
+                        }
                         selectCell();
                       }}
                       className={cn(
-                        "relative h-11 cursor-pointer border-b border-[var(--tokyo-border)] whitespace-nowrap transition-[background-color,box-shadow] duration-100 overflow-visible",
-                        idx === 0 ? "pl-[5px] pr-4" : col.id === 'date' ? "pl-3 pr-1" : "px-4",
-                        idx === 0 && "rounded-l-lg",
-                        idx === displayColumns.length - 1 && "rounded-r-lg",
+                        "relative h-12 cursor-pointer border-b border-[var(--tokyo-border)] whitespace-nowrap transition-[background-color,box-shadow] duration-100 overflow-visible group-hover:bg-white/[0.02]",
+                        idx === 0 ? "pl-[5px] pr-4" : col.id === 'date' ? "pl-4 pr-1" : "px-4",
                         isCellSelected && "bg-[#1E90FF]/5 shadow-[inset_0_0_0_2px_#1E90FF]",
                         isInFillRange && !isCellSelected && "bg-[#1E90FF]/10 shadow-[inset_0_0_0_1px_rgba(30,144,255,0.48)]",
                         isFillColumn && fillDrag && "cursor-ns-resize"
@@ -655,8 +1184,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               onChange={(e) => setEditingItemTitle(e.target.value)}
                               onBlur={handleRenameItem}
                               onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => e.key === 'Enter' && handleRenameItem()}
-                              className="bg-transparent border-none outline-none text-sm text-[var(--tokyo-text-strong)] w-full"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameItem();
+                                if (e.key === 'Escape') setEditingItemId(null);
+                              }}
+                              className="bg-transparent border-none outline-none text-sm leading-5 font-medium text-[var(--tokyo-text-strong)]/70 w-full"
                             />
                           ) : (
                             <span 
@@ -664,15 +1196,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 clearCellSelection();
-                                if (isDraggingRef.current || isFillDraggingRef.current) return;
-                                onItemClick(item.id);
+                                setEditingItemId(item.id);
+                                setEditingItemTitle(item.title);
                               }}
                               onDoubleClick={(e) => {
                                 e.stopPropagation();
                                 setEditingItemId(item.id);
                                 setEditingItemTitle(item.title);
                               }}
-                              className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
+                              className="text-[var(--tokyo-text-strong)]/70 font-medium text-sm leading-5 cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
                             >
                               {item.title}
                             </span>
@@ -693,10 +1225,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               });
                             }}
                             className={cn(
-                              "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                              "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
                               item.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
-                              item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
-                              "bg-stone-500/20 text-stone-400"
+                              item.status === 'active' || item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
+                              item.status === 'planning' ? "bg-stone-500/20 text-stone-400" :
+                              "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]"
                             )}
                           >
                             {toSentenceCase(item.status)}
@@ -717,11 +1250,25 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                               });
                             }}
                             className={cn(
-                              "px-2 py-1 rounded-md font-medium text-xs cursor-pointer hover:opacity-80 transition-opacity",
+                              "inline-flex items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
                               getPriorityBadgeClasses(item.priority)
                             )}
                           >
                             {toSentenceCase(item.priority)}
+                          </span>
+                        </div>
+                      ) : col.id === 'areas' ? (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearCellSelection();
+                          }}
+                          className="relative flex items-center"
+                        >
+                          <span className="inline-flex max-w-full items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]">
+                            <span className="max-w-[140px] overflow-hidden text-ellipsis">
+                              {item.properties?.[col.id] || 'No Area'}
+                            </span>
                           </span>
                         </div>
                       ) : col.id === 'date' ? (
@@ -749,13 +1296,16 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             e.stopPropagation();
                             clearCellSelection();
                           }}
-                          className="flex items-center gap-1"
+                          className="flex w-full max-w-[136px] cursor-pointer items-center gap-2"
                         >
-                          <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[var(--tokyo-yellow)]/60">
-                            <Circle className="w-4 h-4" />
-                          </div>
-                          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
-                            <span className="text-xs font-medium">{item.progress}%</span>
+                          <span className="w-9 shrink-0 text-right text-xs font-medium text-[var(--tokyo-green)]">
+                            {item.progress}%
+                          </span>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(154,214,139,0.14)]">
+                            <div
+                              className="h-full rounded-full bg-[var(--tokyo-green)] transition-[width] duration-200 ease-out"
+                              style={{ width: `${Math.max(0, Math.min(100, item.progress))}%` }}
+                            />
                           </div>
                         </div>
                       ) : (
@@ -789,30 +1339,373 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           )}
                         />
                       )}
-                    </td>
+                    </motion.td>
                     );
                   })}
-                </tr>
+                </Reorder.Item>
               ))}
               <tr className="group">
-                <td 
-                  className="h-11 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors rounded-l-lg"
-                  onClick={handleNewItem}
-                >
-                  <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">
-                    <Plus className="w-4 h-4" />
-                    <span className="text-[14px]">New page</span>
-                  </div>
-                </td>
-                <td colSpan={displayColumns.length} className="h-11 border-b border-[var(--tokyo-border)] rounded-r-lg"></td>
+                {displayColumns.map(column => (
+                  column.id === 'title' ? (
+                    <motion.td
+                      key={column.id}
+                      layout="position"
+                      transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
+                      style={getColumnMotionStyle(column)}
+                      className="h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)] whitespace-nowrap cursor-pointer hover:bg-white/[0.02] transition-colors"
+                      onClick={handleNewItem}
+                    >
+                      <div className="flex items-center gap-1 text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]">
+                        <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                        <span className="text-[13px]">New page</span>
+                      </div>
+                    </motion.td>
+                  ) : (
+                    <motion.td
+                      key={column.id}
+                      layout="position"
+                      transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
+                      style={getColumnMotionStyle(column)}
+                      className="h-12 border-b border-[var(--tokyo-border)]"
+                    />
+                  )
+                ))}
               </tr>
-            </tbody>
+            </Reorder.Group>
           </table>
+          <AnimatePresence>
+            {draggingColumnId && columnDropIndicatorX !== null && (
+              <div
+                className="pointer-events-none absolute bottom-2 top-2 z-50 w-[2px] -translate-x-px origin-center rounded-full bg-[var(--tokyo-yellow)] shadow-[0_0_14px_rgba(224,175,104,0.42)]"
+                style={{ transform: `translateX(${columnDropIndicatorX}px)` }}
+              />
+            )}
+          </AnimatePresence>
+          </div>
         </div>
       </DatabasePanel>
+      </div>
 
       {/* Popovers */}
       <AnimatePresence>
+        {sortPopoverPos && (
+          <>
+            <div
+              className="fixed inset-0 z-[130]"
+              onClick={() => {
+                setSortPickerOpen(null);
+                setSortPopoverPos(null);
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              className="fixed z-[140] w-[360px] overflow-visible rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-2 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(sortPopoverPos.y, window.innerHeight - 220),
+                left: Math.max(12, Math.min(sortPopoverPos.x - 360, window.innerWidth - 372)),
+              }}
+              onPointerDownCapture={(event) => {
+                if (!sortPickerOpen) return;
+                const target = event.target as HTMLElement;
+                if (target.closest('[data-sort-picker="true"]')) return;
+                setSortPickerOpen(null);
+              }}
+            >
+              <div className="flex items-center justify-between px-1 pb-2">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--tokyo-text-muted)]">
+                  <Sort className="h-4 w-4" />
+                  <span>Sort</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPageSortConfigs([]);
+                    setSortPopoverPos(null);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Clear sort"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="border-t border-[var(--tokyo-border)] pt-2">
+                <div className="px-1 pb-1 font-medium text-[var(--tokyo-text-faint)]">Current sort</div>
+                <div className="space-y-1">
+                  {sortConfigs.length > 0 ? (
+                    sortConfigs.map((sortConfig, index) => {
+                      const sortColumn = displayColumns.find(column => column.id === sortConfig.columnId) || displayColumns[0];
+
+                      return (
+                        <div key={`${sortConfig.columnId}-${index}`} className="flex items-center gap-2 rounded-md bg-black/10 px-2 py-1.5 text-[var(--tokyo-text-muted)]">
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-faint)]">
+                            {index + 1}
+                          </span>
+                          <div className="relative min-w-0 flex-1">
+                            <button
+                              data-sort-picker="true"
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSortPickerOpen(sortPickerOpen === `current-column-${index}` ? null : `current-column-${index}`);
+                              }}
+                              className="flex h-7 w-full items-center justify-between gap-2 rounded-md px-1.5 text-left font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                            >
+                              <span className="min-w-0 truncate">{sortColumn?.label || sortConfig.columnId}</span>
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--tokyo-text-faint)]" />
+                            </button>
+                            {sortPickerOpen === `current-column-${index}` && (
+                              <div data-sort-picker="true" className="absolute left-0 right-0 top-full z-[150] mt-1 max-h-48 overflow-auto rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-1 shadow-2xl">
+                                {displayColumns.map(column => (
+                                  <button
+                                    key={column.id}
+                                    type="button"
+                                    onClick={() => {
+                                      updateSortAt(index, { ...sortConfig, columnId: column.id });
+                                      setSortPickerOpen(null);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center rounded-md px-2 py-1.5 text-left font-medium transition-colors",
+                                      sortConfig.columnId === column.id
+                                        ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+                                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                                    )}
+                                  >
+                                    {column.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="relative w-28 shrink-0">
+                            <button
+                              data-sort-picker="true"
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSortPickerOpen(sortPickerOpen === `current-direction-${index}` ? null : `current-direction-${index}`);
+                              }}
+                              className="flex h-7 w-full items-center justify-between gap-2 rounded-md px-1.5 text-left font-medium text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                            >
+                              <span>{sortConfig.direction === 'asc' ? 'Ascending' : 'Descending'}</span>
+                              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[var(--tokyo-text-faint)]" />
+                            </button>
+                            {sortPickerOpen === `current-direction-${index}` && (
+                              <div data-sort-picker="true" className="absolute left-0 right-0 top-full z-[150] mt-1 rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-1 shadow-2xl">
+                                {(['asc', 'desc'] as const).map(direction => (
+                                  <button
+                                    key={direction}
+                                    type="button"
+                                    onClick={() => {
+                                      updateSortAt(index, { ...sortConfig, direction });
+                                      setSortPickerOpen(null);
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center rounded-md px-2 py-1.5 text-left font-medium transition-colors",
+                                      sortConfig.direction === direction
+                                        ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+                                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                                    )}
+                                  >
+                                    {direction === 'asc' ? 'Ascending' : 'Descending'}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPageSortConfigs(sortConfigs.filter((_, sortIndex) => sortIndex !== index))}
+                            className="flex h-6 w-6 items-center justify-center rounded text-[var(--tokyo-text-faint)] transition-colors hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)]"
+                            title="Remove sort"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-md px-2 py-1.5 text-[var(--tokyo-text-faint)]">No sort applied</div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 space-y-0.5 border-t border-[var(--tokyo-border)] pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPageSortConfigs([...sortConfigs, { columnId: displayColumns[0]?.id || DEFAULT_TABLE_SORT.columnId, direction: DEFAULT_TABLE_SORT.direction }]);
+                    setSortPickerOpen(null);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Sort</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPageSortConfigs([])}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete sort</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {tabContextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[130]"
+              onClick={() => setTabContextMenu(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setTabContextMenu(null);
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -4 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
+              className="fixed z-[140] w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(tabContextMenu.y, window.innerHeight - 100),
+                left: Math.min(tabContextMenu.x, window.innerWidth - 200),
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const tab = page.tabs.find(candidate => candidate.id === tabContextMenu.id);
+                  if (tab) {
+                    setEditingTabId(tab.id);
+                    setEditingTabName(tab.label);
+                  }
+                  setTabContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <Pencil className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                Rename
+              </button>
+              <div className="my-1 h-px bg-[var(--tokyo-border)]" />
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteTab(tabContextMenu.id);
+                  setTabContextMenu(null);
+                }}
+                disabled={page.tabs.length <= 1}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-pink)] transition-colors hover:bg-[rgba(255,77,125,0.12)] disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+            </motion.div>
+          </>
+        )}
+
+        {itemContextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[130]"
+              onClick={() => setItemContextMenu(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setItemContextMenu(null);
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -4 }}
+              transition={{ duration: 0.1, ease: "easeOut" }}
+              className="fixed z-[140] w-60 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(itemContextMenu.y, window.innerHeight - 220),
+                left: Math.min(itemContextMenu.x, window.innerWidth - 252),
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const item = page.items.find(candidate => candidate.id === itemContextMenu.id);
+                  if (item) {
+                    setEditingItemId(item.id);
+                    setEditingItemTitle(item.title);
+                  }
+                  setItemContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <Pencil className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                Rename
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIconPickerId(itemContextMenu.id);
+                  setIconPickerType('item');
+                  setIconPickerPos({ x: itemContextMenu.x, y: itemContextMenu.y });
+                  setItemContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <Smile className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                Change Icon
+              </button>
+              <div className="my-1 h-px bg-[var(--tokyo-border)]" />
+              <button
+                type="button"
+                onClick={() => {
+                  const item = page.items.find(candidate => candidate.id === itemContextMenu.id);
+                  if (item) {
+                    const completedStatus = getCompletedStatus();
+                    handleUpdateItem({
+                      ...item,
+                      status: item.status === completedStatus ? getActiveStatus() : completedStatus,
+                    });
+                  }
+                  setItemContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <CheckCircle className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                {page.items.find(candidate => candidate.id === itemContextMenu.id)?.status === getCompletedStatus() ? 'Mark as Active' : 'Mark as Completed'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  duplicateItem(itemContextMenu.id);
+                  setItemContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <Copy className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                Duplicate Page
+              </button>
+              <div className="my-1 h-px bg-[var(--tokyo-border)]" />
+              <button
+                type="button"
+                onClick={() => {
+                  deleteItem(itemContextMenu.id);
+                  setItemContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-pink)] transition-colors hover:bg-[rgba(255,77,125,0.12)]"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Page
+              </button>
+            </motion.div>
+          </>
+        )}
+
         {customDropdown && (
           <>
             <div className="fixed inset-0 z-[130]" onClick={() => setCustomDropdown(null)} />
@@ -917,6 +1810,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           </>
         )}
       </AnimatePresence>
-    </WorkspacePage>
+    </div>
   );
 }

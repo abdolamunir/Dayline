@@ -27,6 +27,7 @@ import { format } from 'date-fns';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { BlockEditor } from '../components/BlockEditor';
 import { DatabasePanel, EmptyState, PrimaryButton, SearchButton, StatusPill, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
+import { TableView } from '../components/TableView';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -36,20 +37,26 @@ const iconMap: Record<string, React.ElementType> = {
   Target: Target,
 };
 
+const GOALS_TEMPLATE_VERSION = 'goals-database-v1';
+
 const DEFAULT_NOTE_TABS = [
-  { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
-  { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
+  { id: 'planning', label: 'Planning', icon: 'Clock' },
+  { id: 'active', label: 'Active', icon: 'Target' },
   { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+  { id: 'paused', label: 'Paused', icon: 'Circle' },
 ];
 
 const DEFAULT_NOTE_COLUMNS = [
-  { id: 'title', label: 'Title', icon: 'Pencil', width: '400px' },
-  { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
-  { id: 'date', label: 'Date', icon: 'CalendarIcon', width: '140px' },
+  { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
+  { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
+  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
+  { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
+  { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
 ];
 
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
-  const { notes, updateNote, reorderNotes, addNote, viewSettings, updateViewSettings } = useAppStore();
+  const { notes, updateNote, addNote, reorderNotes, replaceNotes, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
   const savedNoteSettings = viewSettings.notes || {};
   const [localSelectedNoteId, setLocalSelectedNoteId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -62,11 +69,12 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   const tabContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
-  const [tabs, setTabs] = useState(savedNoteSettings.tabs || DEFAULT_NOTE_TABS);
+  const shouldUseSavedTemplate = savedNoteSettings.templateVersion === GOALS_TEMPLATE_VERSION;
+  const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedNoteSettings.tabs ? savedNoteSettings.tabs : DEFAULT_NOTE_TABS);
 
-  const [activeTab, setActiveTab] = useState<string>(savedNoteSettings.activeTab || 'in-progress');
+  const [activeTab, setActiveTab] = useState<string>(shouldUseSavedTemplate ? (savedNoteSettings.activeTab || 'planning') : 'planning');
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
-  const [columns, setColumns] = useState(savedNoteSettings.columns || DEFAULT_NOTE_COLUMNS);
+  const [columns, setColumns] = useState(shouldUseSavedTemplate && savedNoteSettings.columns ? savedNoteSettings.columns : DEFAULT_NOTE_COLUMNS);
 
   const filteredNotes = notes.filter(note => note.status === activeTab);
 
@@ -76,6 +84,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   useEffect(() => {
     const settings = viewSettings.notes;
     if (!settings) return;
+    if (settings.templateVersion !== GOALS_TEMPLATE_VERSION) return;
     if (settings.tabs) setTabs(settings.tabs);
     if (settings.columns) setColumns(settings.columns);
     if (settings.activeTab) setActiveTab(settings.activeTab);
@@ -86,6 +95,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       tabs,
       columns,
       activeTab,
+      templateVersion: GOALS_TEMPLATE_VERSION,
     });
   }, [tabs, columns, activeTab]);
 
@@ -103,6 +113,77 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       />
     );
   }
+
+  const noteDatabasePage = {
+    id: 'notes',
+    title: savedNoteSettings.title || 'Notes',
+    description: savedNoteSettings.description || 'Documents, outlines, and reference material.',
+    icon: savedNoteSettings.icon || 'Pencil',
+    kind: 'database' as const,
+    activeTab,
+    tabs,
+    columns,
+    sortConfigs: shouldUseSavedTemplate ? (savedNoteSettings.sortConfigs || []) : [],
+    items: notes.map(note => ({
+      id: note.id,
+      title: note.title,
+      icon: 'Pencil',
+      status: note.status === 'in-progress' ? 'active' : note.status === 'inbox' ? 'planning' : note.status,
+      priority: note.priority,
+      date: note.createdAt,
+      progress: note.progress,
+      properties: {
+        areas: 'No Area',
+      },
+    })),
+    properties: [],
+    content: '',
+  };
+
+  return (
+    <TableView
+      page={noteDatabasePage}
+      onItemClick={(itemId) => {
+        if (onViewChange) onViewChange(`note-details:${itemId}`);
+        else setLocalSelectedNoteId(itemId);
+      }}
+      onUpdatePage={(updatedPage) => {
+        setTabs(updatedPage.tabs);
+        setColumns(updatedPage.columns);
+        updateViewSettings('notes', {
+          ...savedNoteSettings,
+          title: updatedPage.title,
+          description: updatedPage.description,
+          icon: updatedPage.icon,
+          tabs: updatedPage.tabs,
+          columns: updatedPage.columns,
+          activeTab: updatedPage.activeTab || activeTab,
+          sortConfigs: updatedPage.sortConfigs || [],
+          templateVersion: GOALS_TEMPLATE_VERSION,
+        });
+        updateSidebarItem('notes', updatedPage.title, updatedPage.icon);
+        if (updatedPage.activeTab) setActiveTab(updatedPage.activeTab);
+
+        const nextNotes = updatedPage.items.map(item => {
+          const existingNote = notes.find(note => note.id === item.id);
+          return existingNote
+            ? { ...existingNote, title: item.title, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt }
+            : {
+              id: item.id,
+              title: item.title,
+              content: '',
+              ideaIds: [],
+              createdAt: item.date || new Date().toISOString(),
+              status: item.status,
+              priority: item.priority,
+              progress: item.progress,
+              assignee: '',
+            };
+        });
+        replaceNotes(nextNotes);
+      }}
+    />
+  );
 
   return (
     <WorkspacePage>

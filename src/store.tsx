@@ -50,17 +50,20 @@ interface AppState {
   deleteProject: (projectId: string) => void;
   duplicateProject: (projectId: string) => void;
   reorderProjects: (projects: Project[]) => void;
+  replaceProjects: (projects: Project[]) => void;
   addArea: (area: Area) => void;
   updateArea: (id: string, updates: Partial<Area>) => void;
   deleteArea: (areaId: string) => void;
   duplicateArea: (areaId: string) => void;
   reorderAreas: (areas: Area[]) => void;
+  replaceAreas: (areas: Area[]) => void;
   addJournalEntry: (entry: JournalEntry) => void;
   addIdea: (idea: Idea) => void;
   addNote: (note: Note) => void;
   updateNote: (note: Note) => void;
   deleteNote: (noteId: string) => void;
   reorderNotes: (notes: Note[]) => void;
+  replaceNotes: (notes: Note[]) => void;
   addCustomPage: (page: CustomPage) => void;
   updateCustomPage: (page: CustomPage) => void;
   moveToTrash: (type: TrashItem['type'], id: string) => void;
@@ -383,6 +386,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setProjects(newProjects);
   };
 
+  const replaceProjects = (nextProjects: Project[]) => {
+    setProjects(nextProjects);
+  };
+
   const addArea = (area: Area) => {
     setAreas([...areas, area]);
   };
@@ -416,6 +423,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       newAreas[indices[i]] = area;
     });
     setAreas(newAreas);
+  };
+
+  const replaceAreas = (nextAreas: Area[]) => {
+    setAreas(nextAreas);
   };
 
   const addJournalEntry = (entry: JournalEntry) => {
@@ -456,6 +467,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     
     setNotes(newNotes);
+  };
+
+  const replaceNotes = (nextNotes: Note[]) => {
+    setNotes(nextNotes);
   };
 
   const addCustomPage = (page: CustomPage) => {
@@ -651,9 +666,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider value={{
       tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash, viewSettings, user, loading,
       updateTask, addTask, deleteTask, updateHabit, addHabit, addMood, addGoal, updateGoal, deleteGoal, duplicateGoal, reorderGoals,
-      addProject, updateProject, deleteProject, duplicateProject, reorderProjects,
-      addArea, updateArea, deleteArea, duplicateArea, reorderAreas,
-      addJournalEntry, addIdea, addNote, updateNote, deleteNote, reorderNotes, addCustomPage, updateCustomPage, 
+      addProject, updateProject, deleteProject, duplicateProject, reorderProjects, replaceProjects,
+      addArea, updateArea, deleteArea, duplicateArea, reorderAreas, replaceAreas,
+      addJournalEntry, addIdea, addNote, updateNote, deleteNote, reorderNotes, replaceNotes, addCustomPage, updateCustomPage, 
       moveToTrash, restoreFromTrash, emptyTrash,
       reorderSidebarItems, deleteSidebarItem, updateSidebarItem, duplicateSidebarItem,
       updateViewSettings, addFolder, toggleFolderExpansion, moveSidebarItem
