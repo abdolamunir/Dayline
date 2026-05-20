@@ -156,7 +156,7 @@ function AppContent() {
       <div className="grid h-screen place-items-center bg-[#07070a] font-sans text-[var(--tokyo-text)]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[rgba(214,204,219,0.16)] border-t-[var(--tokyo-yellow)]" />
-          <p className="text-sm font-bold text-[var(--tokyo-text-muted)]">Opening your Dayline workspace...</p>
+          <p className="text-sm font-bold text-[var(--tokyo-text-muted)]">Loading Your Workspace...</p>
         </div>
       </div>
     );
