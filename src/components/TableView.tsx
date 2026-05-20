@@ -1907,7 +1907,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                   if (item) {
                     handleUpdateItem({ ...item, date: date.toISOString() });
                   }
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />

@@ -195,7 +195,6 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
                 selectedDate={datePickerConfig.currentDate}
                 onSelect={(date) => {
                   updateProperty(datePickerConfig.id, 'value', date.toISOString());
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />
@@ -912,7 +911,6 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   } else {
                     onUpdateItem({ ...item, date: date.toISOString() });
                   }
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />

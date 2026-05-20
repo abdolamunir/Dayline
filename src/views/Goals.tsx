@@ -2162,7 +2162,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       });
                     }
                   }
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />
@@ -2943,7 +2942,6 @@ function GoalDetailsPage({ goal, onBack }: {
                       repeat: config?.repeat
                     });
                   }
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />

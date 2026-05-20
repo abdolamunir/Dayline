@@ -78,7 +78,7 @@ const DEFAULT_PROJECT_COLUMNS = [
 ];
 
 export function Projects() {
-  const { projects, updateProject, replaceProjects, goals, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const { projects, updateProject, replaceProjects, goals, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedProjectSettings = viewSettings.projects || {};
   const [localSelectedProjectId, setLocalSelectedProjectId] = useState<string | null>(null);
 
@@ -105,11 +105,13 @@ export function Projects() {
     );
   }
 
+  const sidebarItem = sidebarItems.find(i => i.id === 'projects');
+
   const projectDatabasePage = {
     id: 'projects',
-    title: savedProjectSettings.title || 'Projects',
+    title: sidebarItem?.label || savedProjectSettings.title || 'Projects',
     description: savedProjectSettings.description || 'Containers for your tasks.',
-    icon: savedProjectSettings.icon || 'FolderKanban',
+    icon: sidebarItem?.icon || savedProjectSettings.icon || 'FolderKanban',
     kind: 'database' as const,
     activeTab: shouldUseSavedTemplate ? savedProjectSettings.activeTab : 'planning',
     tabs,
@@ -786,7 +788,6 @@ function ProjectDetailsPage({ project, onBack }: {
                       deadline: format(date, 'yyyy-MM-dd')
                     });
                   }
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />

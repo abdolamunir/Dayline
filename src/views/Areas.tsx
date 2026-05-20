@@ -78,7 +78,7 @@ const DEFAULT_AREA_COLUMNS = [
 ];
 
 export function Areas() {
-  const { areas, replaceAreas, projects, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const { areas, replaceAreas, projects, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedAreaSettings = viewSettings.areas || {};
   const [localSelectedAreaId, setLocalSelectedAreaId] = useState<string | null>(null);
 
@@ -105,11 +105,13 @@ export function Areas() {
     );
   }
 
+  const sidebarItem = sidebarItems.find(i => i.id === 'areas');
+
   const areaDatabasePage = {
     id: 'areas',
-    title: savedAreaSettings.title || 'Areas',
+    title: sidebarItem?.label || savedAreaSettings.title || 'Areas',
     description: savedAreaSettings.description || 'Life categories and continuous responsibilities.',
-    icon: savedAreaSettings.icon || 'Layers',
+    icon: sidebarItem?.icon || savedAreaSettings.icon || 'Layers',
     kind: 'database' as const,
     activeTab: shouldUseSavedTemplate ? savedAreaSettings.activeTab : 'active',
     tabs,
@@ -742,7 +744,6 @@ function AreaDetailsPage({ area, onBack }: {
                       ))
                     });
                   }
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />

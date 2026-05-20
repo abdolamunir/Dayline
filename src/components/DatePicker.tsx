@@ -67,12 +67,7 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
 
   const handleDateClick = (day: Date) => {
     setTempDate(day);
-  };
-
-  const handleSave = () => {
-    if (tempDate) {
-      onSelect(tempDate, config);
-    }
+    onSelect(day, config);
   };
 
   return (
@@ -137,7 +132,11 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
           <input 
             type="time" 
             value={config.time}
-            onChange={(e) => setConfig({ ...config, time: e.target.value })}
+            onChange={(e) => {
+              const newConfig = { ...config, time: e.target.value };
+              setConfig(newConfig);
+              if (tempDate) onSelect(tempDate, newConfig);
+            }}
             className="bg-transparent text-[var(--tokyo-text-strong)] text-[13px] border-none outline-none focus:text-white cursor-pointer [color-scheme:dark]"
           />
         </div>
@@ -150,7 +149,11 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
           </div>
           <select 
             value={config.reminder}
-            onChange={(e) => setConfig({ ...config, reminder: e.target.value })}
+            onChange={(e) => {
+              const newConfig = { ...config, reminder: e.target.value };
+              setConfig(newConfig);
+              if (tempDate) onSelect(tempDate, newConfig);
+            }}
             className="bg-transparent text-[var(--tokyo-text-strong)] text-[13px] border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
           >
             <option value="none">None</option>
@@ -169,7 +172,11 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
           </div>
           <select 
             value={config.repeat}
-            onChange={(e) => setConfig({ ...config, repeat: e.target.value })}
+            onChange={(e) => {
+              const newConfig = { ...config, repeat: e.target.value };
+              setConfig(newConfig);
+              if (tempDate) onSelect(tempDate, newConfig);
+            }}
             className="bg-transparent text-[var(--tokyo-text-strong)] text-[13px] border-none outline-none focus:text-white cursor-pointer appearance-none text-right font-medium"
           >
             <option value="none">Don't repeat</option>
@@ -180,21 +187,6 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="p-2 bg-white/[0.02] border-t border-[var(--tokyo-border)] flex gap-2">
-        <button 
-          onClick={onClose}
-          className="flex-1 py-1.5 rounded-md text-[13px] font-semibold text-[var(--tokyo-text-faint)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-all"
-        >
-          Cancel
-        </button>
-        <button 
-          onClick={handleSave}
-          className="flex-1 py-1.5 rounded-md text-[13px] font-semibold bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)] hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all shadow-lg shadow-black/25"
-        >
-          Done
-        </button>
-      </div>
     </div>
   );
 }

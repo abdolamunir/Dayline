@@ -64,7 +64,7 @@ export interface Goal {
   status: string;
   priority: 'low' | 'medium' | 'high';
   assignee?: string;
-  customProperties?: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>;
+  customProperties?: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any; icon?: string }>;
   icon?: string;
 }
 
@@ -78,7 +78,7 @@ export interface Project {
   taskIds: ID[];
   priority?: 'low' | 'medium' | 'high';
   assignee?: string;
-  customProperties?: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>;
+  customProperties?: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any; icon?: string }>;
   icon?: string;
   targetDate?: string;
   targetTime?: string;
@@ -96,7 +96,7 @@ export interface Area {
   status?: string;
   priority?: 'low' | 'medium' | 'high';
   assignee?: string;
-  customProperties?: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>;
+  customProperties?: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any; icon?: string }>;
   icon?: string;
   targetDate?: string;
   targetTime?: string;
@@ -155,7 +155,7 @@ export interface CustomPage {
   columns: Array<{ id: string; label: string; icon: string; width: string; hidden?: boolean }>;
   sortConfigs?: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   items: CustomPageItem[];
-  properties: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>;
+  properties: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any; icon?: string }>;
   content: string;
 }
 

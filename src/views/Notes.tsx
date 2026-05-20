@@ -68,7 +68,7 @@ const DEFAULT_NOTE_COLUMNS = [
 ];
 
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
-  const { notes, updateNote, addNote, reorderNotes, replaceNotes, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const { notes, updateNote, addNote, reorderNotes, replaceNotes, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedNoteSettings = viewSettings.notes || {};
   const [localSelectedNoteId, setLocalSelectedNoteId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -126,11 +126,13 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
     );
   }
 
+  const sidebarItem = sidebarItems.find(i => i.id === 'notes');
+
   const noteDatabasePage = {
     id: 'notes',
-    title: savedNoteSettings.title || 'Notes',
+    title: sidebarItem?.label || savedNoteSettings.title || 'Notes',
     description: savedNoteSettings.description || 'Documents, outlines, and reference material.',
-    icon: savedNoteSettings.icon || 'Pencil',
+    icon: sidebarItem?.icon || savedNoteSettings.icon || 'Pencil',
     kind: 'database' as const,
     activeTab,
     tabs,
@@ -675,7 +677,6 @@ function NoteDetailsPage({ note, onBack }: {
                 selectedDate={datePickerConfig.currentDate}
                 onSelect={(date) => {
                   handleUpdate({ createdAt: date.toISOString() });
-                  setDatePickerConfig(null);
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />
