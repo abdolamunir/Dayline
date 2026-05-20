@@ -1,6 +1,5 @@
 import React from 'react';
 import { Pencil, Image, Trash2 } from 'lucide-react';
-import { cn } from '../utils/cn';
 
 interface PropertyContextMenuProps {
   pos: { x: number; y: number };
@@ -27,7 +26,7 @@ export function PropertyContextMenu({
     <>
       <div className="fixed inset-0 z-[150]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
       <div 
-        className="fixed z-[160] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl py-1"
+        className="property-context-menu fixed z-[160] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl py-1"
         style={{ top: y, left: x }}
       >
         <button

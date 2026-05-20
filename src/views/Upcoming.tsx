@@ -26,7 +26,7 @@ import {
 } from 'date-fns';
 import { TaskModal } from '../components/TaskModal';
 import { Task } from '../types';
-import { WorkspaceHeader } from '../components/ui/DatabaseSurface';
+import { WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -37,7 +37,7 @@ export function Upcoming() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const calendarSurfaceStyle = { backgroundColor: 'var(--tokyo-bg)' } as const;
+  const calendarSurfaceStyle = { backgroundColor: '#130a19' } as const;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -177,6 +177,15 @@ export function Upcoming() {
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar relative" style={calendarSurfaceStyle}>
           <div className="flex min-h-[1920px]" style={calendarSurfaceStyle}> {/* 24 hours * 80px */}
+            <div className="w-16 shrink-0 border-r border-[var(--tokyo-border)]" style={calendarSurfaceStyle}>
+              {hours.map(h => (
+                <div key={h} className="h-[80px] relative">
+                  <span className="absolute right-3 top-2 text-[11px] font-medium text-[var(--tokyo-text-faint)]">
+                    {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
+                  </span>
+                </div>
+              ))}
+            </div>
             <div className="flex-1 grid grid-cols-7 relative" style={calendarSurfaceStyle}>
               {/* Tasks */}
               {days.map((d) => {
@@ -304,7 +313,7 @@ export function Upcoming() {
             <div className="w-20 shrink-0 border-r border-[var(--tokyo-border-strong)]" style={calendarSurfaceStyle}>
               {hours.map(h => (
                 <div key={h} className="h-[80px] relative">
-                  <span className="absolute -top-2.5 right-4 text-xs font-medium text-[var(--tokyo-text-faint)]">
+                  <span className="absolute right-4 top-2 text-xs font-medium text-[var(--tokyo-text-faint)]">
                     {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
                   </span>
                 </div>
@@ -356,19 +365,19 @@ export function Upcoming() {
   };
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6 bg-transparent p-4 pt-7 text-white md:px-8 md:pb-8 md:pt-10">
+    <WorkspacePage className="pl-[19px] text-white md:pl-[35px]">
       <WorkspaceHeader
         icon={<CalendarDays className="text-[var(--tokyo-pink)]" />}
         title="Sprint"
-        description={getHeaderDateText()}
+        description="To-Dos That Are Coming Up Next"
         count={tasks.filter(task => task.dueDate).length}
         actions={
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-[var(--tokyo-panel-2)] rounded-md border border-[var(--tokyo-border-strong)] p-0.5 mr-4">
+            <div className="flex h-8 items-center rounded border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-0.5">
               <button
                 onClick={() => setViewMode('week')}
                 className={cn(
-                  "px-3 py-1 text-sm font-medium rounded transition-colors",
+                  "flex h-7 items-center rounded px-3 text-sm font-medium transition-colors",
                   viewMode === 'week' ? "bg-[var(--tokyo-panel-3)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                 )}
               >
@@ -377,7 +386,7 @@ export function Upcoming() {
               <button
                 onClick={() => setViewMode('month')}
                 className={cn(
-                  "px-3 py-1 text-sm font-medium rounded transition-colors",
+                  "flex h-7 items-center rounded px-3 text-sm font-medium transition-colors",
                   viewMode === 'month' ? "bg-[var(--tokyo-panel-3)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                 )}
               >
@@ -398,7 +407,7 @@ export function Upcoming() {
         }
       />
 
-      <div className="flex-1 min-h-0 overflow-hidden" style={calendarSurfaceStyle}>
+      <div className="min-h-[620px] flex-1 overflow-hidden" style={calendarSurfaceStyle}>
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
@@ -409,6 +418,6 @@ export function Upcoming() {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
       />
-    </div>
+    </WorkspacePage>
   );
 }

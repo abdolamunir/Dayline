@@ -62,11 +62,11 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
       open={open} 
       onOpenChange={setOpen}
       label="Global Command Menu"
-      className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-start justify-center pt-[13vh] bg-black/40 backdrop-blur-sm"
       onClick={() => setOpen(false)}
     >
       <div 
-        className="w-[calc(100vw-3rem)] max-w-[720px] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col font-sans"
+        className="dayline-command-palette w-[calc(100vw-3rem)] max-w-[660px] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         <VisuallyHidden>
@@ -81,7 +81,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
           />
         </div>
 
-        <Command.List className="max-h-[420px] overflow-y-auto p-2 custom-scrollbar">
+        <Command.List className="dayline-command-list max-h-[380px] overflow-y-auto p-2 custom-scrollbar">
           <Command.Empty className="py-6 text-center text-[15px] text-[var(--tokyo-text-faint)]">
             No results found.
           </Command.Empty>
@@ -239,7 +239,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                       onSelect={() => runCommand(() => onViewChange(item.id))}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
                     >
-                      <Icon className="w-[22px] h-[22px] text-[var(--tokyo-green)]" />
+                      <Icon className="w-[22px] h-[22px] text-[var(--tokyo-text-muted)]" />
                       <span className="flex-1">{item.label}</span>
                       <span className="text-sm text-[var(--tokyo-text-faint)]">Page</span>
                     </Command.Item>

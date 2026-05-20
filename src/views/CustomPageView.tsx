@@ -459,8 +459,8 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     <div className="w-40 shrink-0 flex items-center">
       <div
         className={propertyLabelClass}
-        onContextMenu={(e) => {
-          e.preventDefault();
+        onClick={(e) => {
+          e.stopPropagation();
           setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
         }}
       >

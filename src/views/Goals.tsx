@@ -2424,7 +2424,7 @@ function GoalDetailsPage({ goal, onBack }: {
   const assignedCol = getCol('assigned', 'Assigned', 'Users');
 
   const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop -mx-2 px-2 py-1 relative";
-  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+  const propertyLabelClass = "property-label-trigger flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
 
   const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
     const IconComponent = ALL_ICONS[iconName] || fallback;
@@ -2562,9 +2562,10 @@ function GoalDetailsPage({ goal, onBack }: {
           {!assignedCol.hidden && (
             <div 
               className={propertyRowClass}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: true });
+              onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: true });
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
@@ -2601,9 +2602,10 @@ function GoalDetailsPage({ goal, onBack }: {
           {!dateCol.hidden && (
             <div 
               className={propertyRowClass}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'date', isSystem: true });
+              onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'date', isSystem: true });
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
@@ -2650,9 +2652,10 @@ function GoalDetailsPage({ goal, onBack }: {
           {!priorityCol.hidden && (
             <div 
               className={propertyRowClass}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: true });
+              onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: true });
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
@@ -2699,9 +2702,10 @@ function GoalDetailsPage({ goal, onBack }: {
           {!statusCol.hidden && (
             <div 
               className={propertyRowClass}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: true });
+              onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: true });
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
@@ -2748,9 +2752,10 @@ function GoalDetailsPage({ goal, onBack }: {
           {!progressCol.hidden && (
             <div 
               className={propertyRowClass}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'progress', isSystem: true });
+              onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'progress', isSystem: true });
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
@@ -2791,9 +2796,10 @@ function GoalDetailsPage({ goal, onBack }: {
           {!creatorCol.hidden && (
             <div 
               className={propertyRowClass}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: true });
+              onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: true });
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
@@ -2834,9 +2840,10 @@ function GoalDetailsPage({ goal, onBack }: {
               <div 
                 key={prop.id} 
                 className={propertyRowClass}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: false });
+                onClick={(e) => {
+if (!(e.target as HTMLElement).closest('.property-label-trigger')) return;
+e.stopPropagation();
+setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: false });
                 }}
               >
                 <div className="w-40 shrink-0 flex items-center">
