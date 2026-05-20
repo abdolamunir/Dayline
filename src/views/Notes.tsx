@@ -28,7 +28,8 @@ import {
   AttachmentIcon as Attachment,
   UserGroupIcon as Users,
   ZapIcon as Zap,
-  UserIcon as User
+  UserIcon as User,
+  Activity01Icon as Activity
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -37,9 +38,10 @@ import { format } from 'date-fns';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker } from '../components/DatePicker';
 import { BlockEditor } from '../components/BlockEditor';
-import { DatabasePanel, EmptyState, PrimaryButton, SearchButton, StatusPill, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
+import { EmptyState, PrimaryButton, SearchButton, StatusPill, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 import { TableView } from '../components/TableView';
 import { getPriorityBadgeClasses } from '../utils/badges';
+import { PropertyContextMenu } from '../components/PropertyContextMenu';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -68,7 +70,7 @@ const DEFAULT_NOTE_COLUMNS = [
 ];
 
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
-  const { notes, updateNote, addNote, reorderNotes, replaceNotes, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
+  const { notes, updateNote, addNote, reorderNotes, replaceNotes, areas, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedNoteSettings = viewSettings.notes || {};
   const [localSelectedNoteId, setLocalSelectedNoteId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -127,7 +129,14 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   }
 
   const sidebarItem = sidebarItems.find(i => i.id === 'notes');
-
+  const getNoteAreaId = (note: any) => {
+    const areaIds = Array.isArray(note.areaIds)
+      ? note.areaIds
+      : note.areaId
+        ? [note.areaId]
+        : [];
+    return areaIds[0] || '';
+  };
   const noteDatabasePage = {
     id: 'notes',
     title: sidebarItem?.label || savedNoteSettings.title || 'Notes',
@@ -147,7 +156,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       date: note.createdAt,
       progress: note.progress,
       properties: {
-        areas: 'No Area',
+        areas: getNoteAreaId(note),
       },
     })),
     properties: [],
@@ -180,8 +189,10 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
 
         const nextNotes = updatedPage.items.map(item => {
           const existingNote = notes.find(note => note.id === item.id);
+          const areaValue = String(item.properties.areas || '');
+          const areaId = areas.find(area => area.id === areaValue || area.name === areaValue)?.id;
           return existingNote
-            ? { ...existingNote, title: item.title, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt }
+            ? { ...existingNote, title: item.title, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId }
             : {
               id: item.id,
               title: item.title,
@@ -192,6 +203,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
               priority: item.priority,
               progress: item.progress,
               assignee: '',
+              areaId,
             };
         });
         replaceNotes(nextNotes);
@@ -203,7 +215,7 @@ function NoteDetailsPage({ note, onBack }: {
   note: any;
   onBack: () => void;
 }) {
-  const { updateNote, deleteNote, user } = useAppStore();
+  const { updateNote, deleteNote, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('Document');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([
@@ -236,6 +248,10 @@ function NoteDetailsPage({ note, onBack }: {
     pos: { x: number, y: number };
     currentDate?: Date;
   } | null>(null);
+  const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [propertyIconPicker, setPropertyIconPicker] = useState<{ id: string; pos: { x: number; y: number } } | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [editingPropertyName, setEditingPropertyName] = useState('');
 
   const toSentenceCase = (str: string) => {
     if (!str) return '';
@@ -279,6 +295,73 @@ function NoteDetailsPage({ note, onBack }: {
   };
 
   const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
+  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+  const noteColumns = viewSettings?.notes?.columns || [];
+  const getCol = (id: string, defaultLabel: string, defaultIcon: string) => {
+    const col = noteColumns.find((column: any) => column.id === id);
+    return { label: col?.label || defaultLabel, icon: col?.icon || defaultIcon, hidden: col?.hidden };
+  };
+  const updateColumnMeta = (id: string, updates: Partial<{ label: string; icon: string; hidden: boolean }>) => {
+    const savedSettings = viewSettings.notes || {};
+    const cols = savedSettings.columns || [];
+    const existing = cols.find((column: any) => column.id === id);
+    const current = getCol(id, id, 'File');
+    const updatedColumns = existing
+      ? cols.map((column: any) => column.id === id ? { ...column, ...updates } : column)
+      : [...cols, { id, label: updates.label || current.label, icon: updates.icon || current.icon, width: '150px', hidden: updates.hidden }];
+    updateViewSettings('notes', { ...savedSettings, columns: updatedColumns });
+  };
+  const handleRenameProperty = (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    updateColumnMeta(id, { label: newName.trim() });
+  };
+  const handleUpdatePropertyIcon = (id: string, icon: string) => {
+    updateColumnMeta(id, { icon });
+  };
+  const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
+    const IconComponent = ALL_ICONS[iconName] || fallback;
+    return <IconComponent className={className} />;
+  };
+  const renderPropertyLabel = (id: string, label: string, iconName: string, fallback: React.ElementType) => (
+    <div className="w-40 shrink-0 flex items-center">
+      <div
+        className={propertyLabelClass}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setPropertyContextMenu({ x: e.clientX, y: e.clientY, id });
+        }}
+      >
+        {renderIcon(iconName, fallback, "w-4 h-4")}
+        {editingPropertyId === id ? (
+          <input
+            type="text"
+            value={editingPropertyName}
+            onChange={(e) => setEditingPropertyName(e.target.value)}
+            onBlur={() => {
+              handleRenameProperty(id, editingPropertyName);
+              setEditingPropertyId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleRenameProperty(id, editingPropertyName);
+                setEditingPropertyId(null);
+              }
+            }}
+            className="w-full bg-transparent border-none p-0 text-sm font-medium text-[var(--tokyo-text-strong)] outline-none focus:ring-0"
+            autoFocus
+          />
+        ) : (
+          <span>{label}</span>
+        )}
+      </div>
+    </div>
+  );
+  const assignedCol = getCol('assigned', 'Assigned', 'Users');
+  const dateCol = getCol('date', 'Created Date', 'Calendar');
+  const priorityCol = getCol('priority', 'Priority', 'Zap');
+  const statusCol = getCol('status', 'Status', 'CheckCircle2');
+  const creatorCol = getCol('creator', 'Creator', 'User');
+  const progressCol = getCol('progress', 'Progress', 'Circle');
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
@@ -357,13 +440,9 @@ function NoteDetailsPage({ note, onBack }: {
         {/* Properties - Vertical List */}
         <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
           {/* Assigned */}
+          {!assignedCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Users className="w-4 h-4" />
-                <span>Assigned</span>
-              </div>
-            </div>
+            {renderPropertyLabel('assigned', assignedCol.label, assignedCol.icon, Users)}
             <div className="flex -space-x-2">
               {[
                 'https://i.pravatar.cc/150?u=5',
@@ -374,15 +453,12 @@ function NoteDetailsPage({ note, onBack }: {
               ))}
             </div>
           </div>
+          )}
 
           {/* Created Date */}
+          {!dateCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <CalendarIcon className="w-4 h-4" />
-                <span>Created Date</span>
-              </div>
-            </div>
+            {renderPropertyLabel('date', dateCol.label, dateCol.icon, CalendarIcon)}
             <div 
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -396,15 +472,12 @@ function NoteDetailsPage({ note, onBack }: {
               {note.createdAt ? format(new Date(note.createdAt), 'MMM d, yyyy') : 'Set date...'}
             </div>
           </div>
+          )}
 
           {/* Priority */}
+          {!priorityCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Zap className="w-4 h-4" />
-                <span>Priority</span>
-              </div>
-            </div>
+            {renderPropertyLabel('priority', priorityCol.label, priorityCol.icon, Zap)}
             <div className="relative flex items-center">
               <div 
                 onClick={(e) => {
@@ -424,15 +497,12 @@ function NoteDetailsPage({ note, onBack }: {
               </div>
             </div>
           </div>
+          )}
 
           {/* Status */}
+          {!statusCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <CheckCircle className="w-4 h-4" />
-                <span>Status</span>
-              </div>
-            </div>
+            {renderPropertyLabel('status', statusCol.label, statusCol.icon, CheckCircle)}
             <div className="relative flex items-center gap-2">
               <div 
                 onClick={(e) => {
@@ -455,29 +525,23 @@ function NoteDetailsPage({ note, onBack }: {
               </div>
             </div>
           </div>
+          )}
 
           {/* Creator */}
+          {!creatorCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <User className="w-4 h-4" />
-                <span>Creator</span>
-              </div>
-            </div>
+            {renderPropertyLabel('creator', creatorCol.label, creatorCol.icon, User)}
             <div className="flex items-center gap-2">
               <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
               <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
             </div>
           </div>
+          )}
 
           {/* Progress */}
+          {!progressCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Circle className="w-4 h-4" />
-                <span>Progress</span>
-              </div>
-            </div>
+            {renderPropertyLabel('progress', progressCol.label, progressCol.icon, Circle)}
             <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
@@ -492,6 +556,7 @@ function NoteDetailsPage({ note, onBack }: {
               </div>
             </div>
           </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -613,12 +678,52 @@ function NoteDetailsPage({ note, onBack }: {
               style={{ top: iconPickerPos.y, left: iconPickerPos.x }}
             >
               <IconPicker 
-                selectedIcon={note.icon || 'Pencil'}
+                currentIcon={note.icon || 'Pencil'}
                 onSelect={(iconName) => {
                   handleUpdate({ icon: iconName });
                   setIsIconPickerOpen(false);
                 }}
                 onClose={() => setIsIconPickerOpen(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {propertyContextMenu && (
+          <PropertyContextMenu
+            pos={{ x: propertyContextMenu.x, y: propertyContextMenu.y }}
+            onClose={() => setPropertyContextMenu(null)}
+            onRename={() => {
+              setEditingPropertyId(propertyContextMenu.id);
+              setEditingPropertyName(getCol(propertyContextMenu.id, propertyContextMenu.id, 'File').label);
+            }}
+            onChangeIcon={() => {
+              setPropertyIconPicker({
+                id: propertyContextMenu.id,
+                pos: { x: propertyContextMenu.x, y: propertyContextMenu.y }
+              });
+            }}
+            onHide={() => updateColumnMeta(propertyContextMenu.id, { hidden: true })}
+          />
+        )}
+
+        {propertyIconPicker && (
+          <>
+            <div className="fixed inset-0 z-[160]" onClick={() => setPropertyIconPicker(null)} />
+            <div
+              className="fixed z-[170]"
+              style={{
+                top: Math.min(propertyIconPicker.pos.y, window.innerHeight - 350),
+                left: Math.min(propertyIconPicker.pos.x, window.innerWidth - 280)
+              }}
+            >
+              <IconPicker
+                currentIcon={getCol(propertyIconPicker.id, propertyIconPicker.id, 'File').icon}
+                onSelect={(iconName) => {
+                  handleUpdatePropertyIcon(propertyIconPicker.id, iconName);
+                  setPropertyIconPicker(null);
+                }}
+                onClose={() => setPropertyIconPicker(null)}
               />
             </div>
           </>

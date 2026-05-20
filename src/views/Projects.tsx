@@ -79,7 +79,7 @@ const DEFAULT_PROJECT_COLUMNS = [
 ];
 
 export function Projects() {
-  const { projects, updateProject, replaceProjects, goals, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
+  const { projects, updateProject, replaceProjects, goals, areas, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedProjectSettings = viewSettings.projects || {};
   const [localSelectedProjectId, setLocalSelectedProjectId] = useState<string | null>(null);
 
@@ -107,7 +107,15 @@ export function Projects() {
   }
 
   const sidebarItem = sidebarItems.find(i => i.id === 'projects');
+  const getProjectAreaId = (project: Project) => {
+    if (project.areaId) return project.areaId;
 
+    const directArea = areas.find(area => area.projectIds?.includes(project.id));
+    if (directArea) return directArea.id;
+
+    const linkedGoal = goals.find(goal => goal.id === project.goalId);
+    return linkedGoal?.areaId || '';
+  };
   const projectDatabasePage = {
     id: 'projects',
     title: sidebarItem?.label || savedProjectSettings.title || 'Projects',
@@ -127,7 +135,7 @@ export function Projects() {
       date: project.deadline || project.targetDate,
       progress: 0,
       properties: {
-        areas: goals.find(goal => goal.id === project.goalId)?.title || 'No Area',
+        areas: getProjectAreaId(project),
         assigned: project.assignee || 'Unassigned',
         ...Object.fromEntries((project.customProperties || []).map(property => [property.id, property.value])),
       },
@@ -169,14 +177,17 @@ export function Projects() {
           const assignee = item.properties.assigned && item.properties.assigned !== 'Unassigned'
             ? String(item.properties.assigned)
             : existingProject?.assignee;
+          const areaValue = String(item.properties.areas || '');
+          const areaId = areas.find(area => area.id === areaValue || area.name === areaValue)?.id;
           return existingProject
-            ? { ...existingProject, name: item.title, icon: item.icon, status: item.status as Project['status'], priority: item.priority, deadline: item.date, assignee, customProperties }
+            ? { ...existingProject, name: item.title, icon: item.icon, status: item.status as Project['status'], priority: item.priority, deadline: item.date, assignee, areaId, customProperties }
             : {
               id: item.id,
               name: item.title,
               description: '',
               status: item.status as Project['status'],
               taskIds: [],
+              areaId,
               priority: item.priority,
               icon: item.icon || 'FolderKanban',
               deadline: item.date,
@@ -317,7 +328,8 @@ function ProjectDetailsPage({ project, onBack }: {
   const progressCol = getCol('progress', 'Progress', 'Circle');
   const assignedCol = getCol('assigned', 'Assigned', 'Users');
 
-  const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop rounded-lg -mx-2 px-2 py-1 hover:bg-white/[0.02] transition-colors relative";
+  const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop -mx-2 px-2 py-1 relative";
+  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
 
   const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
     const IconComponent = ALL_ICONS[iconName] || fallback;
@@ -462,7 +474,7 @@ function ProjectDetailsPage({ project, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(assignedCol.icon, Users, "w-4 h-4")}
                   {editingPropertyId === 'assigned' ? (
                     <input 
@@ -501,7 +513,7 @@ function ProjectDetailsPage({ project, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(dateCol.icon, CalendarIcon, "w-4 h-4")}
                   {editingPropertyId === 'deadline' ? (
                     <input 
@@ -544,7 +556,7 @@ function ProjectDetailsPage({ project, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(priorityCol.icon, Zap, "w-4 h-4")}
                   {editingPropertyId === 'priority' ? (
                     <input 
@@ -593,7 +605,7 @@ function ProjectDetailsPage({ project, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(statusCol.icon, CheckCircle, "w-4 h-4")}
                   {editingPropertyId === 'status' ? (
                     <input 
@@ -645,7 +657,7 @@ function ProjectDetailsPage({ project, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(creatorCol.icon, User, "w-4 h-4")}
                   {editingPropertyId === 'creator' ? (
                     <input 
@@ -688,7 +700,7 @@ function ProjectDetailsPage({ project, onBack }: {
                 }}
               >
                 <div className="w-40 shrink-0 flex items-center">
-                  <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  <div className={propertyLabelClass}>
                     {prop.icon ? renderIcon(prop.icon, PropIcon, "w-4 h-4") : <PropIcon className="w-4 h-4" />}
                     {editingPropertyId === prop.id ? (
                       <input 

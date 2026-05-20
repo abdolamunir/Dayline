@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil, Image, EyeOff, Trash2 } from 'lucide-react';
+import { Pencil, Image, Trash2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface PropertyContextMenuProps {
@@ -53,8 +53,8 @@ export function PropertyContextMenu({
                 onClick={() => { onHide(); onClose(); }}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] transition-colors text-left"
               >
-                <EyeOff className="w-3.5 h-3.5" />
-                <span>Hide Property</span>
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Property</span>
               </button>
             )}
             {onDelete && (

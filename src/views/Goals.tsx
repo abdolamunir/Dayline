@@ -1533,7 +1533,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                               "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]"
                             )}
                           >
-                            <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : 'No Area'}</span>
+                            <span className="max-w-[140px] overflow-hidden text-ellipsis">{area?.name ? area.name.split('&')[0].trim() : ''}</span>
                           </span>
                         </div>
                         {goalFillHandle('areas')}
@@ -2026,19 +2026,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   ))
                 ) : (
                   <>
-                    <button
-                      onClick={() => {
-                        const goal = goals.find(g => g.id === customDropdown.id);
-                        if (goal) updateGoal({ ...goal, areaId: undefined });
-                        setCustomDropdown(null);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
-                        !customDropdown.currentValue ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
-                      )}
-                    >
-                      <span>No Area</span>
-                    </button>
                     {areas.map((area) => (
                       <button
                         key={area.id}
@@ -2436,7 +2423,8 @@ function GoalDetailsPage({ goal, onBack }: {
   const progressCol = getCol('progress', 'Progress', 'Circle');
   const assignedCol = getCol('assigned', 'Assigned', 'Users');
 
-  const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop rounded-lg -mx-2 px-2 py-1 hover:bg-white/[0.02] transition-colors relative";
+  const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop -mx-2 px-2 py-1 relative";
+  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
 
   const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
     const IconComponent = ALL_ICONS[iconName] || fallback;
@@ -2580,7 +2568,7 @@ function GoalDetailsPage({ goal, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(assignedCol.icon, Users, "w-4 h-4")}
                   {editingPropertyId === 'assigned' ? (
                     <input 
@@ -2619,7 +2607,7 @@ function GoalDetailsPage({ goal, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(dateCol.icon, CalendarIcon, "w-4 h-4")}
                   {editingPropertyId === 'date' ? (
                     <input 
@@ -2668,7 +2656,7 @@ function GoalDetailsPage({ goal, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(priorityCol.icon, Zap, "w-4 h-4")}
                   {editingPropertyId === 'priority' ? (
                     <input 
@@ -2717,7 +2705,7 @@ function GoalDetailsPage({ goal, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(statusCol.icon, CheckCircle, "w-4 h-4")}
                   {editingPropertyId === 'status' ? (
                     <input 
@@ -2766,7 +2754,7 @@ function GoalDetailsPage({ goal, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(progressCol.icon, Circle, "w-4 h-4")}
                   {editingPropertyId === 'progress' ? (
                     <input 
@@ -2809,7 +2797,7 @@ function GoalDetailsPage({ goal, onBack }: {
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <div className={propertyLabelClass}>
                   {renderIcon(creatorCol.icon, User, "w-4 h-4")}
                   {editingPropertyId === 'creator' ? (
                     <input 
@@ -2852,7 +2840,7 @@ function GoalDetailsPage({ goal, onBack }: {
                 }}
               >
                 <div className="w-40 shrink-0 flex items-center">
-                  <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  <div className={propertyLabelClass}>
                     {prop.icon ? renderIcon(prop.icon, PropIcon, "w-4 h-4") : <PropIcon className="w-4 h-4" />}
                     {editingPropertyId === prop.id ? (
                       <input 

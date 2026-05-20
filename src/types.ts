@@ -19,6 +19,7 @@ export interface Note {
   priority: 'low' | 'medium' | 'high';
   progress: number; // 0-100
   assignee?: string;
+  areaId?: ID;
 }
 
 export type TaskStatus = 'todo' | 'doing' | 'done';
@@ -74,6 +75,7 @@ export interface Project {
   description: string;
   status: 'planning' | 'active' | 'completed' | 'paused';
   deadline?: string;
+  areaId?: ID;
   goalId?: ID;
   taskIds: ID[];
   priority?: 'low' | 'medium' | 'high';

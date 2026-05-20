@@ -51,6 +51,7 @@ import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
 import { TableView } from '../components/TableView';
+import { PropertyContextMenu } from '../components/PropertyContextMenu';
 
 const iconMap: Record<string, any> = ALL_ICONS;
 
@@ -191,7 +192,7 @@ function AreaDetailsPage({ area, onBack }: {
   area: Area, 
   onBack: () => void
 }) {
-  const { updateArea, deleteArea, projects, goals, user } = useAppStore();
+  const { updateArea, deleteArea, projects, goals, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('Projects');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -212,8 +213,12 @@ function AreaDetailsPage({ area, onBack }: {
   } | null>(null);
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number; y: number; id: string; isSystem: boolean } | null>(null);
+  const [propertyIconPicker, setPropertyIconPicker] = useState<{ id: string; isSystem: boolean; pos: { x: number; y: number } } | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [editingPropertyName, setEditingPropertyName] = useState('');
   const [comments, setComments] = useState([
-    { id: '1', name: 'Raheem Sterling', time: '25m ago', text: 'This area needs more focus.', avatar: 'https://i.pravatar.cc/150?u=5' }
+    { id: '1', name: 'Raheem Sterling', time: '25m ago', text: 'This area needs more focus.', avatar: 'https://i.pravatar.cc/150?u=5', reactions: [] as Array<{ emoji: string; count: number }> }
   ]);
 
   const priorities = ['low', 'medium', 'high'];
@@ -259,6 +264,52 @@ function AreaDetailsPage({ area, onBack }: {
     });
   };
 
+  const columns = viewSettings?.areas?.columns || [];
+  const getCol = (id: string, defaultLabel: string, defaultIcon: string) => {
+    const col = columns.find((column: any) => column.id === id);
+    return { label: col?.label || defaultLabel, icon: col?.icon || defaultIcon, hidden: col?.hidden };
+  };
+
+  const updateColumnMeta = (id: string, updates: Partial<{ label: string; icon: string; hidden: boolean }>) => {
+    const savedSettings = viewSettings.areas || {};
+    const cols = savedSettings.columns || [];
+    const existing = cols.find((column: any) => column.id === id);
+    const current = getCol(id, id, 'File');
+    const updatedColumns = existing
+      ? cols.map((column: any) => column.id === id ? { ...column, ...updates } : column)
+      : [...cols, { id, label: updates.label || current.label, icon: updates.icon || current.icon, width: '150px', hidden: updates.hidden }];
+    updateViewSettings('areas', { ...savedSettings, columns: updatedColumns });
+  };
+
+  const handleRenameProperty = (id: string, isSystem: boolean, newName: string) => {
+    if (!newName.trim()) return;
+    if (isSystem) {
+      updateColumnMeta(id, { label: newName.trim() });
+      return;
+    }
+    handleUpdate({
+      customProperties: area.customProperties?.map((prop) => prop.id === id ? { ...prop, name: newName.trim() } : prop)
+    });
+  };
+
+  const handleUpdatePropertyIcon = (id: string, isSystem: boolean, icon: string) => {
+    if (isSystem) {
+      updateColumnMeta(id, { icon });
+      return;
+    }
+    handleUpdate({
+      customProperties: area.customProperties?.map((prop) => prop.id === id ? { ...prop, icon } : prop)
+    });
+  };
+
+  const handleDeletePropertyAction = (id: string, isSystem: boolean) => {
+    if (isSystem) {
+      updateColumnMeta(id, { hidden: true });
+      return;
+    }
+    handleDeleteProperty(id);
+  };
+
   const handleAddComment = () => {
     if (commentText.trim()) {
       setComments([
@@ -267,7 +318,8 @@ function AreaDetailsPage({ area, onBack }: {
           name: 'Abdola Munir',
           time: 'Just now',
           text: commentText,
-          avatar: user?.photoURL || 'https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff'
+          avatar: user?.photoURL || 'https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff',
+          reactions: []
         },
         ...comments
       ]);
@@ -278,6 +330,55 @@ function AreaDetailsPage({ area, onBack }: {
   const areaProjects = projects.filter(p => area.projectIds?.includes(p.id));
   const areaGoals = goals.filter(g => area.goalIds?.includes(g.id));
   const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
+  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+  const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
+    const IconComponent = ALL_ICONS[iconName] || fallback;
+    return <IconComponent className={className} />;
+  };
+  const renderPropertyLabel = (
+    id: string,
+    isSystem: boolean,
+    label: string,
+    iconName: string | undefined,
+    fallback: React.ElementType
+  ) => (
+    <div className="w-40 shrink-0 flex items-center">
+      <div
+        className={propertyLabelClass}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
+        }}
+      >
+        {renderIcon(iconName || '', fallback, "w-4 h-4")}
+        {editingPropertyId === id ? (
+          <input
+            type="text"
+            value={editingPropertyName}
+            onChange={(e) => setEditingPropertyName(e.target.value)}
+            onBlur={() => {
+              handleRenameProperty(id, isSystem, editingPropertyName);
+              setEditingPropertyId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleRenameProperty(id, isSystem, editingPropertyName);
+                setEditingPropertyId(null);
+              }
+            }}
+            className="w-full bg-transparent border-none p-0 text-sm font-medium text-[var(--tokyo-text-strong)] outline-none focus:ring-0"
+            autoFocus
+          />
+        ) : (
+          <span>{label}</span>
+        )}
+      </div>
+    </div>
+  );
+  const assignedCol = getCol('assigned', 'Assigned', 'Users');
+  const priorityCol = getCol('priority', 'Priority', 'Zap');
+  const statusCol = getCol('status', 'Status', 'CheckCircle');
+  const creatorCol = getCol('creator', 'Creator', 'User');
 
   const handleCopyAreaLink = async () => {
     const href = typeof window !== 'undefined'
@@ -365,13 +466,9 @@ function AreaDetailsPage({ area, onBack }: {
           {/* Properties - Vertical List */}
           <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
             {/* Assigned */}
+            {!assignedCol.hidden && (
             <div className={propertyRowClass}>
-              <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                  <Users className="w-4 h-4" />
-                  <span>Assigned</span>
-                </div>
-              </div>
+              {renderPropertyLabel('assigned', true, assignedCol.label, assignedCol.icon, Users)}
               <div className="flex -space-x-2">
                 {[
                   'https://i.pravatar.cc/150?u=5',
@@ -381,15 +478,12 @@ function AreaDetailsPage({ area, onBack }: {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Priority */}
+            {!priorityCol.hidden && (
             <div className={propertyRowClass}>
-              <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                  <Zap className="w-4 h-4" />
-                  <span>Priority</span>
-                </div>
-              </div>
+              {renderPropertyLabel('priority', true, priorityCol.label, priorityCol.icon, Zap)}
               <div className="relative flex items-center">
                 <div 
                   onClick={(e) => {
@@ -410,15 +504,12 @@ function AreaDetailsPage({ area, onBack }: {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Status */}
+            {!statusCol.hidden && (
             <div className={propertyRowClass}>
-              <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Status</span>
-                </div>
-              </div>
+              {renderPropertyLabel('status', true, statusCol.label, statusCol.icon, CheckCircle)}
               <div className="relative flex items-center gap-2">
                 <div 
                   onClick={(e) => {
@@ -441,20 +532,18 @@ function AreaDetailsPage({ area, onBack }: {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Creator */}
+            {!creatorCol.hidden && (
             <div className={propertyRowClass}>
-              <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                  <User className="w-4 h-4" />
-                  <span>Creator</span>
-                </div>
-              </div>
+              {renderPropertyLabel('creator', true, creatorCol.label, creatorCol.icon, User)}
               <div className="flex items-center gap-2">
                 <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
                 <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
               </div>
             </div>
+            )}
 
             {/* Custom Properties */}
             {area.customProperties?.map(prop => {
@@ -467,12 +556,7 @@ function AreaDetailsPage({ area, onBack }: {
 
               return (
                 <div key={prop.id} className={propertyRowClass}>
-                  <div className="w-40 shrink-0 flex items-center">
-                    <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                      <PropIcon className="w-4 h-4" />
-                      <span>{prop.name}</span>
-                    </div>
-                  </div>
+                  {renderPropertyLabel(prop.id, false, prop.name, prop.icon, PropIcon)}
                   <div className="flex-1 flex items-center gap-4">
                     {prop.type === 'date' ? (
                       <div 
@@ -820,6 +904,56 @@ function AreaDetailsPage({ area, onBack }: {
                 onClose={() => {
                   setIconPickerId(null);
                 }}
+              />
+            </div>
+          </>
+        )}
+
+        {propertyContextMenu && (
+          <PropertyContextMenu
+            pos={{ x: propertyContextMenu.x, y: propertyContextMenu.y }}
+            onClose={() => setPropertyContextMenu(null)}
+            onRename={() => {
+              setEditingPropertyId(propertyContextMenu.id);
+              setEditingPropertyName(
+                propertyContextMenu.isSystem
+                  ? getCol(propertyContextMenu.id, propertyContextMenu.id, 'File').label
+                  : (area.customProperties?.find((prop) => prop.id === propertyContextMenu.id)?.name || '')
+              );
+            }}
+            onChangeIcon={() => {
+              setPropertyIconPicker({
+                id: propertyContextMenu.id,
+                isSystem: propertyContextMenu.isSystem,
+                pos: { x: propertyContextMenu.x, y: propertyContextMenu.y }
+              });
+            }}
+            onHide={propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, true) : undefined}
+            onDelete={!propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, false) : undefined}
+          />
+        )}
+
+        {propertyIconPicker && (
+          <>
+            <div className="fixed inset-0 z-[160]" onClick={() => setPropertyIconPicker(null)} />
+            <div
+              className="fixed z-[170]"
+              style={{
+                top: Math.min(propertyIconPicker.pos.y, window.innerHeight - 350),
+                left: Math.min(propertyIconPicker.pos.x, window.innerWidth - 280)
+              }}
+            >
+              <IconPicker
+                currentIcon={
+                  propertyIconPicker.isSystem
+                    ? getCol(propertyIconPicker.id, propertyIconPicker.id, 'File').icon
+                    : (area.customProperties?.find((prop) => prop.id === propertyIconPicker.id)?.icon || 'File')
+                }
+                onSelect={(iconName) => {
+                  handleUpdatePropertyIcon(propertyIconPicker.id, propertyIconPicker.isSystem, iconName);
+                  setPropertyIconPicker(null);
+                }}
+                onClose={() => setPropertyIconPicker(null)}
               />
             </div>
           </>

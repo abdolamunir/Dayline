@@ -35,6 +35,7 @@ import { WorkspacePage, WorkspaceHeader, ToolButton } from '../components/ui/Dat
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
+import { PropertyContextMenu } from '../components/PropertyContextMenu';
 
 interface CustomPageViewProps {
   page: CustomPage;
@@ -310,6 +311,10 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number; y: number } | null>(null);
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number; y: number } | null>(null);
+  const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number; y: number; id: string; isSystem: boolean } | null>(null);
+  const [propertyIconPicker, setPropertyIconPicker] = useState<{ id: string; isSystem: boolean; pos: { x: number; y: number } } | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [editingPropertyName, setEditingPropertyName] = useState('');
   const [customDropdown, setCustomDropdown] = useState<{
     type: 'status' | 'priority' | string;
     pos: { x: number, y: number };
@@ -338,6 +343,47 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     });
   };
 
+  const getCol = (id: string, defaultLabel: string, defaultIcon: string) => {
+    const col = page.columns?.find((column) => column.id === id);
+    return { label: col?.label || defaultLabel, icon: col?.icon || defaultIcon, hidden: col?.hidden };
+  };
+
+  const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
+    const IconComponent = ALL_ICONS[iconName] || fallback;
+    return <IconComponent className={className} />;
+  };
+
+  const updateColumnMeta = (id: string, updates: Partial<{ label: string; icon: string; hidden: boolean }>) => {
+    const existing = page.columns?.find((column) => column.id === id);
+    const nextColumns = existing
+      ? page.columns.map((column) => column.id === id ? { ...column, ...updates } : column)
+      : [...(page.columns || []), { id, label: updates.label || id, icon: updates.icon || 'File', width: '150px', hidden: updates.hidden }];
+    updateCustomPage({ ...page, columns: nextColumns });
+  };
+
+  const handleRenameProperty = (id: string, isSystem: boolean, newName: string) => {
+    if (!newName.trim()) return;
+    if (isSystem) {
+      updateColumnMeta(id, { label: newName.trim() });
+      return;
+    }
+    updateCustomPage({
+      ...page,
+      properties: page.properties.map((prop) => prop.id === id ? { ...prop, name: newName.trim() } : prop)
+    });
+  };
+
+  const handleUpdatePropertyIcon = (id: string, isSystem: boolean, icon: string) => {
+    if (isSystem) {
+      updateColumnMeta(id, { icon });
+      return;
+    }
+    updateCustomPage({
+      ...page,
+      properties: page.properties.map((prop) => prop.id === id ? { ...prop, icon } : prop)
+    });
+  };
+
   const handleDeleteProperty = (propId: string) => {
     const newProps = page.properties.filter(p => p.id !== propId);
     const newItemProperties = { ...item.properties };
@@ -347,6 +393,14 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       properties: newProps,
       items: page.items.map(i => i.id === item.id ? { ...i, properties: newItemProperties } : i)
     });
+  };
+
+  const handleDeletePropertyAction = (id: string, isSystem: boolean) => {
+    if (isSystem) {
+      updateColumnMeta(id, { hidden: true });
+      return;
+    }
+    handleDeleteProperty(id);
   };
 
   const addProperty = (type: 'text' | 'number' | 'select' | 'date') => {
@@ -392,7 +446,55 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     setCommentText('');
   };
 
-  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
+  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group/prop";
+  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+
+  const renderPropertyLabel = (
+    id: string,
+    isSystem: boolean,
+    label: string,
+    iconName: string | undefined,
+    fallback: React.ElementType
+  ) => (
+    <div className="w-40 shrink-0 flex items-center">
+      <div
+        className={propertyLabelClass}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
+        }}
+      >
+        {renderIcon(iconName || '', fallback, "w-4 h-4")}
+        {editingPropertyId === id ? (
+          <input
+            type="text"
+            value={editingPropertyName}
+            onChange={(e) => setEditingPropertyName(e.target.value)}
+            onBlur={() => {
+              handleRenameProperty(id, isSystem, editingPropertyName);
+              setEditingPropertyId(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleRenameProperty(id, isSystem, editingPropertyName);
+                setEditingPropertyId(null);
+              }
+            }}
+            className="w-full bg-transparent border-none p-0 text-sm font-medium text-[var(--tokyo-text-strong)] outline-none focus:ring-0"
+            autoFocus
+          />
+        ) : (
+          <span>{label}</span>
+        )}
+      </div>
+    </div>
+  );
+
+  const statusCol = getCol('status', 'Status', 'CheckCircle2');
+  const priorityCol = getCol('priority', 'Priority', 'Zap');
+  const dateCol = getCol('date', 'Date', 'Calendar');
+  const progressCol = getCol('progress', 'Progress', 'Circle');
+  const creatorCol = getCol('creator', 'Creator', 'User');
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
@@ -471,13 +573,9 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         {/* Properties - Vertical List */}
         <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
           {/* Status */}
+          {!statusCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <CheckCircle className="w-4 h-4" />
-                <span>Status</span>
-              </div>
-            </div>
+            {renderPropertyLabel('status', true, statusCol.label, statusCol.icon, CheckCircle)}
             <div className="relative flex items-center gap-2">
               <div 
                 onClick={(e) => {
@@ -500,15 +598,12 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               </div>
             </div>
           </div>
+          )}
 
           {/* Priority */}
+          {!priorityCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Zap className="w-4 h-4" />
-                <span>Priority</span>
-              </div>
-            </div>
+            {renderPropertyLabel('priority', true, priorityCol.label, priorityCol.icon, Zap)}
             <div className="relative flex items-center">
               <div 
                 onClick={(e) => {
@@ -528,15 +623,12 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               </div>
             </div>
           </div>
+          )}
 
           {/* Date */}
+          {!dateCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <CalendarIcon className="w-4 h-4" />
-                <span>Date</span>
-              </div>
-            </div>
+            {renderPropertyLabel('date', true, dateCol.label, dateCol.icon, CalendarIcon)}
             <div 
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -550,15 +642,12 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               {item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'Set date...'}
             </div>
           </div>
+          )}
 
           {/* Progress */}
+          {!progressCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Circle className="w-4 h-4" />
-                <span>Progress</span>
-              </div>
-            </div>
+            {renderPropertyLabel('progress', true, progressCol.label, progressCol.icon, Circle)}
             <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
@@ -573,33 +662,29 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               </div>
             </div>
           </div>
+          )}
 
           {/* Creator */}
+          {!creatorCol.hidden && (
           <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <User className="w-4 h-4" />
-                <span>Creator</span>
-              </div>
-            </div>
+            {renderPropertyLabel('creator', true, creatorCol.label, creatorCol.icon, User)}
             <div className="flex items-center gap-2">
               <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
               <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
             </div>
           </div>
+          )}
 
           {/* Custom Properties */}
           {page.properties.map(prop => (
             <div key={prop.id} className={propertyRowClass}>
-              <div className="w-40 shrink-0 flex items-center">
-                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                  {prop.type === 'date' ? <CalendarIcon className="w-4 h-4" /> :
-                   prop.type === 'number' ? <Hash className="w-4 h-4" /> :
-                   prop.type === 'select' ? <List className="w-4 h-4" /> :
-                   <Type className="w-4 h-4" />}
-                  <span>{prop.name}</span>
-                </div>
-              </div>
+              {renderPropertyLabel(
+                prop.id,
+                false,
+                prop.name,
+                prop.icon,
+                prop.type === 'date' ? CalendarIcon : prop.type === 'number' ? Hash : prop.type === 'select' ? List : Type
+              )}
               <div className="flex-1 flex items-center gap-4">
                 {prop.type === 'date' ? (
                   <div 
@@ -791,12 +876,62 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               style={{ top: iconPickerPos.y, left: iconPickerPos.x }}
             >
               <IconPicker 
-                selectedIcon={item.icon || 'File01Icon'}
+                currentIcon={item.icon || 'File'}
                 onSelect={(iconName) => {
                   onUpdateItem({ ...item, icon: iconName });
                   setIsIconPickerOpen(false);
                 }}
                 onClose={() => setIsIconPickerOpen(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {propertyContextMenu && (
+          <PropertyContextMenu
+            pos={{ x: propertyContextMenu.x, y: propertyContextMenu.y }}
+            onClose={() => setPropertyContextMenu(null)}
+            onRename={() => {
+              setEditingPropertyId(propertyContextMenu.id);
+              setEditingPropertyName(
+                propertyContextMenu.isSystem
+                  ? getCol(propertyContextMenu.id, propertyContextMenu.id, 'File').label
+                  : (page.properties.find((prop) => prop.id === propertyContextMenu.id)?.name || '')
+              );
+            }}
+            onChangeIcon={() => {
+              setPropertyIconPicker({
+                id: propertyContextMenu.id,
+                isSystem: propertyContextMenu.isSystem,
+                pos: { x: propertyContextMenu.x, y: propertyContextMenu.y }
+              });
+            }}
+            onHide={propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, true) : undefined}
+            onDelete={!propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, false) : undefined}
+          />
+        )}
+
+        {propertyIconPicker && (
+          <>
+            <div className="fixed inset-0 z-[160]" onClick={() => setPropertyIconPicker(null)} />
+            <div
+              className="fixed z-[170]"
+              style={{
+                top: Math.min(propertyIconPicker.pos.y, window.innerHeight - 350),
+                left: Math.min(propertyIconPicker.pos.x, window.innerWidth - 280)
+              }}
+            >
+              <IconPicker
+                currentIcon={
+                  propertyIconPicker.isSystem
+                    ? getCol(propertyIconPicker.id, propertyIconPicker.id, 'File').icon
+                    : (page.properties.find((prop) => prop.id === propertyIconPicker.id)?.icon || 'File')
+                }
+                onSelect={(iconName) => {
+                  handleUpdatePropertyIcon(propertyIconPicker.id, propertyIconPicker.isSystem, iconName);
+                  setPropertyIconPicker(null);
+                }}
+                onClose={() => setPropertyIconPicker(null)}
               />
             </div>
           </>

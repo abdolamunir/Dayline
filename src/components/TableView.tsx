@@ -48,7 +48,7 @@ import { IconPicker, ALL_ICONS } from './IconPicker';
 import { DatePicker, DateConfig } from './DatePicker';
 import { format } from 'date-fns';
 import { CustomPage, CustomPageItem } from '../types';
-import { DatabasePanel } from './ui/DatabaseSurface';
+import { useAppStore } from '../store';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -84,6 +84,7 @@ type TableSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_TABLE_SORT: TableSortConfig = { columnId: 'title', direction: 'asc' };
 
 export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
+  const { areas } = useAppStore();
   const [activeTab, setActiveTab] = useState<string>(page.activeTab || page.tabs[1]?.id || page.tabs[0]?.id);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ itemId: string; columnId: string } | null>(null);
@@ -109,6 +110,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     id: string;
     type: 'status' | 'priority';
     pos: { x: number, y: number };
+    currentValue: string;
+  } | null>(null);
+  const [areaDropdown, setAreaDropdown] = useState<{
+    id: string;
+    pos: { x: number; y: number };
     currentValue: string;
   } | null>(null);
   const [datePickerConfig, setDatePickerConfig] = useState<{
@@ -413,6 +419,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     return item.properties?.[columnId];
   };
 
+  const getAreaLabel = (value: any) => {
+    if (!value) return '';
+    const stringValue = String(value);
+    return areas.find(area => area.id === stringValue)?.name || stringValue || '';
+  };
+
   const withCellValue = (item: CustomPageItem, columnId: string, value: any): CustomPageItem => {
     if (columnId === 'title') return { ...item, title: String(value ?? '') };
     if (columnId === 'status') return { ...item, status: String(value ?? '') };
@@ -510,6 +522,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     isFillDraggingRef.current = true;
     isDraggingRef.current = true;
     setCustomDropdown(null);
+    setAreaDropdown(null);
     setDatePickerConfig(null);
     setSelectedCell({ itemId: sourceItemId, columnId });
     setActiveFillDrag(sourceDrag);
@@ -983,7 +996,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       </div>
 
       {/* Table Container */}
-      <DatabasePanel className="flex-1">
+      <div className="flex-1 overflow-visible">
         <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId || draggingColumnId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
           <div ref={tableRef} className="relative min-h-full overflow-visible" style={{ width: `${tableWidth}px` }}>
           <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${tableWidth}px` }}>
@@ -1312,12 +1325,18 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           onClick={(e) => {
                             e.stopPropagation();
                             clearCellSelection();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setAreaDropdown({
+                              id: item.id,
+                              pos: { x: rect.left, y: rect.bottom + 8 },
+                              currentValue: String(item.properties?.[col.id] || '')
+                            });
                           }}
                           className="relative flex items-center"
                         >
                           <span className="inline-flex max-w-full items-center px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]">
                             <span className="max-w-[140px] overflow-hidden text-ellipsis">
-                              {item.properties?.[col.id] || 'No Area'}
+                              {getAreaLabel(item.properties?.[col.id])}
                             </span>
                           </span>
                         </div>
@@ -1435,7 +1454,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           </AnimatePresence>
           </div>
         </div>
-      </DatabasePanel>
+      </div>
       </div>
 
       {/* Popovers */}
@@ -1836,6 +1855,47 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     )}
                   >
                     <span>{toSentenceCase(option)}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {areaDropdown && (
+          <>
+            <div className="fixed inset-0 z-[130]" onClick={() => setAreaDropdown(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-lg shadow-2xl p-1 w-48 overflow-hidden text-[13px]"
+              style={{
+                top: Math.min(areaDropdown.pos.y, window.innerHeight - 200),
+                left: Math.min(areaDropdown.pos.x, window.innerWidth - 200)
+              }}
+            >
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-normal">
+                Select Area
+              </div>
+              <div className="space-y-0.5">
+                {areas.map(area => (
+                  <button
+                    key={area.id}
+                    type="button"
+                    onClick={() => {
+                      const item = page.items.find(candidate => candidate.id === areaDropdown.id);
+                      if (item) handleUpdateItem(withCellValue(item, 'areas', area.id));
+                      setAreaDropdown(null);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left transition-colors",
+                      areaDropdown.currentValue === area.id || areaDropdown.currentValue === area.name
+                        ? "bg-[var(--tokyo-yellow-dim)] text-white"
+                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
+                    )}
+                  >
+                    <span className="truncate">{area.name}</span>
                   </button>
                 ))}
               </div>
