@@ -22,7 +22,8 @@ import {
   AttachmentIcon as Attachment,
   Message02Icon as MessageSquare,
   Activity01Icon as Activity,
-  CircleIcon as Circle
+  CircleIcon as Circle,
+  StarIcon as Star
 } from 'hugeicons-react';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker } from '../components/DatePicker';
@@ -283,7 +284,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
   onBack: () => void;
   onUpdateItem: (item: CustomPageItem) => void;
 }) {
-  const { user } = useAppStore();
+  const { user, updateCustomPage } = useAppStore();
   const [activeTab, setActiveTab] = useState('Overview');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([
@@ -292,7 +293,8 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       name: 'Stephen Robert',
       avatar: 'https://i.pravatar.cc/150?u=4',
       time: '50m ago',
-      text: 'Create a comprehensive set of UI components, ensuring consistency in style and functionality.'
+      text: 'Create a comprehensive set of UI components, ensuring consistency in style and functionality.',
+      reactions: [{ emoji: '👍', count: 1 }]
     },
     {
       id: 2,
@@ -302,6 +304,12 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       text: 'I will do it ASAP.'
     }
   ]);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [iconPickerPos, setIconPickerPos] = useState<{ x: number; y: number } | null>(null);
+  const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
+  const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number; y: number } | null>(null);
   const [customDropdown, setCustomDropdown] = useState<{
     type: 'status' | 'priority' | string;
     pos: { x: number, y: number };
@@ -330,6 +338,44 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     });
   };
 
+  const handleDeleteProperty = (propId: string) => {
+    const newProps = page.properties.filter(p => p.id !== propId);
+    const newItemProperties = { ...item.properties };
+    delete newItemProperties[propId];
+    updateCustomPage({
+      ...page,
+      properties: newProps,
+      items: page.items.map(i => i.id === item.id ? { ...i, properties: newItemProperties } : i)
+    });
+  };
+
+  const addProperty = (type: 'text' | 'number' | 'select' | 'date') => {
+    const newProp = {
+      id: `prop-${Date.now()}`,
+      name: `New ${type}`,
+      type,
+      value: ''
+    };
+    updateCustomPage({ ...page, properties: [...page.properties, newProp] });
+    setIsPropertyPickerOpen(false);
+  };
+
+  const handleDelete = () => {
+    const newItems = page.items.filter(i => i.id !== item.id);
+    updateCustomPage({ ...page, items: newItems });
+    onBack();
+  };
+
+  const handleCopyLink = async () => {
+    const href = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}#item-details:${item.id}`
+      : '';
+    if (href && navigator.clipboard) {
+      await navigator.clipboard.writeText(href);
+    }
+    setIsShareMenuOpen(false);
+  };
+
   const handleAddComment = () => {
     if (!commentText.trim()) return;
 
@@ -346,46 +392,94 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     setCommentText('');
   };
 
+  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
+
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      {/* Header */}
-      <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
-            <button onClick={onBack} className="hover:text-white transition-colors">{page.title}</button>
-            <span>/</span>
-            <span className="text-[var(--tokyo-text-muted)] whitespace-nowrap">{item.title}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={onBack}
-              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+        {/* Header */}
+        <div className="flex-shrink-0 w-full">
+          <div className="mb-5 flex items-center gap-3">
+            <div 
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                setIsIconPickerOpen(true);
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
             >
-              <X className="w-5 h-5" />
-            </button>
+              {React.createElement(ALL_ICONS[item.icon] || FileIcon, { className: "w-6 h-6" })}
+            </div>
+            <div className="min-w-0 flex-1">
+              <input 
+                type="text"
+                value={item.title}
+                onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
+                className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                placeholder="Untitled Item"
+              />
+            </div>
+            <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+              <button
+                onClick={() => setIsFavorite((favorite) => !favorite)}
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                  isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                )}
+                title="Favorite"
+              >
+                <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+              </button>
+              <button
+                onClick={() => setIsShareMenuOpen((open) => !open)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                title="More"
+              >
+                <MoreHorizontal className="h-[18px] w-[18px]" />
+              </button>
+              <button 
+                onClick={onBack}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                title="Close"
+              >
+                <X className="h-[18px] w-[18px]" />
+              </button>
+              {isShareMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                    <button
+                      onClick={() => void handleCopyLink()}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                    >
+                      <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                      Copy page link
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                    >
+                      <X className="h-4 w-4 text-red-400" />
+                      Delete item
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-
-        <input 
-          type="text"
-          value={item.title}
-          onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
-          className="w-full bg-transparent text-2xl md:text-[28px] font-semibold leading-tight text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
-          placeholder="Untitled Item"
-        />
         
-        {/* Properties */}
-        <div className="space-y-2 mb-12 max-w-2xl">
+        {/* Properties - Vertical List */}
+        <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
           {/* Status */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CheckCircle className="w-4 h-4" />
-              <span>Status</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <CheckCircle className="w-4 h-4" />
+                <span>Status</span>
+              </div>
             </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+            <div className="relative flex items-center gap-2">
               <div 
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -396,24 +490,32 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   });
                 }}
                 className={cn(
-                  "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                  "flex items-center gap-2 px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
                   item.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
                   item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                   "bg-stone-500/20 text-stone-400"
                 )}
               >
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  item.status === 'completed' ? "bg-[var(--tokyo-green)]" :
+                  item.status === 'in-progress' || item.status === 'inbox' ? "bg-[var(--tokyo-purple)]" :
+                  "bg-stone-400"
+                )} />
                 <span>{toSentenceCase(item.status)}</span>
               </div>
             </div>
           </div>
 
           {/* Priority */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Zap className="w-4 h-4" />
-              <span>Priority</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Zap className="w-4 h-4" />
+                <span>Priority</span>
+              </div>
             </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+            <div className="relative flex items-center">
               <div 
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -424,7 +526,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   });
                 }}
                 className={cn(
-                  "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
                   getPriorityBadgeClasses(item.priority)
                 )}
               >
@@ -434,10 +536,12 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           </div>
 
           {/* Date */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CalendarIcon className="w-4 h-4" />
-              <span>Date</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <CalendarIcon className="w-4 h-4" />
+                <span>Date</span>
+              </div>
             </div>
             <div 
               onClick={(e) => {
@@ -447,19 +551,21 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   currentDate: item.date ? new Date(item.date) : undefined
                 });
               }}
-              className="hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 flex items-center text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer"
+              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
             >
               {item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'Set date...'}
             </div>
           </div>
 
           {/* Progress */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Circle className="w-4 h-4" />
-              <span>Progress</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Circle className="w-4 h-4" />
+                <span>Progress</span>
+              </div>
             </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+            <div className="flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
               <div className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
                 <span className="text-[13px] font-medium">{item.progress}%</span>
               </div>
@@ -468,15 +574,17 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
 
           {/* Custom Properties */}
           {page.properties.map(prop => (
-            <div key={prop.id} className="flex items-center h-8 rounded-xl group">
-              <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-                {prop.type === 'date' ? <CalendarIcon className="w-4 h-4" /> :
-                 prop.type === 'number' ? <Hash className="w-4 h-4" /> :
-                 prop.type === 'select' ? <List className="w-4 h-4" /> :
-                 <Type className="w-4 h-4" />}
-                <span className="text-[13px] text-[var(--tokyo-text-faint)] font-medium">{prop.name}</span>
+            <div key={prop.id} className={propertyRowClass}>
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {prop.type === 'date' ? <CalendarIcon className="w-4 h-4" /> :
+                   prop.type === 'number' ? <Hash className="w-4 h-4" /> :
+                   prop.type === 'select' ? <List className="w-4 h-4" /> :
+                   <Type className="w-4 h-4" />}
+                  <span>{prop.name}</span>
+                </div>
               </div>
-              <div className="flex-1 hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 flex items-center">
+              <div className="flex-1 flex items-center gap-4">
                 {prop.type === 'date' ? (
                   <div 
                     onClick={(e) => {
@@ -487,9 +595,9 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer w-full"
+                    className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
                   >
-                    {item.properties[prop.id] ? format(new Date(item.properties[prop.id]), 'MMM d, yyyy') : 'Set date...'}
+                    {item.properties[prop.id] ? format(new Date(item.properties[prop.id]), 'MMM d, yyyy') : 'Empty'}
                   </div>
                 ) : prop.type === 'select' ? (
                   <div 
@@ -502,132 +610,203 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer w-full"
+                    className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
                   >
                     {item.properties[prop.id] || 'Select...'}
                   </div>
                 ) : (
-                  <input
-                    type={prop.type === 'number' ? 'number' : 'text'}
-                    value={item.properties[prop.id] || ''}
-                    onChange={(e) => updateProperty(prop.id, e.target.value)}
-                    placeholder="Empty"
-                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none"
-                  />
+                  <div className="flex-1 flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all group/val">
+                    <input
+                      type={prop.type === 'number' ? 'number' : 'text'}
+                      value={item.properties[prop.id] || ''}
+                      onChange={(e) => updateProperty(prop.id, e.target.value)}
+                      placeholder="Empty"
+                      className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-sm font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none"
+                    />
+                  </div>
                 )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-5 border-b border-[var(--tokyo-border)]">
-          {['Overview', 'Comments', 'Activity'].map(tabId => (
-            <div
-              key={tabId}
-              onClick={() => setActiveTab(tabId)}
-              className={cn(
-                "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tabId
-                  ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                  : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
-              )}
-            >
-              {tabId}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 max-w-6xl mx-auto w-full px-8 pt-4 pb-8">
-        {activeTab === 'Overview' && (
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <h3 className="text-[12px] font-semibold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Description</h3>
-              <textarea
-                value={item.properties.description || ''}
-                onChange={(e) => updateProperty('description', e.target.value)}
-                placeholder="Add a description..."
-                className="w-full min-h-[200px] bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/10 resize-none text-[13px] leading-relaxed focus:outline-none focus:ring-0 focus:ring-transparent"
-              />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'Comments' && (
-          <>
-            {/* Comment Input */}
-            <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
-              <div className="flex gap-2.5 mb-2.5">
-                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
-                <textarea 
-                  rows={1.5}
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add your comment..." 
-                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
-                  <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Hashtag className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
-                </div>
                 <button 
-                  onClick={handleAddComment}
-                  className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
+                  onClick={() => handleDeleteProperty(prop.id)}
+                  className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all cursor-pointer"
                 >
-                  Comment
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
+          ))}
 
-            {/* Comment List */}
-            <div className="space-y-7 pb-20">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3 group">
-                  <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
-                        <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[11px] font-medium">•</span>
-                        <span className="text-[var(--tokyo-text-faint)] text-[11px] font-medium">{comment.time}</span>
+          {/* Add property */}
+          <div className="flex items-center h-8">
+            <button 
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setPropertyPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                setIsPropertyPickerOpen(true);
+              }}
+              className="flex items-center gap-1.5 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] text-[11px] font-semibold transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add property</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
+            {['Overview', 'Comments', 'Activity'].map(tabId => (
+              <div
+                key={tabId}
+                onClick={() => setActiveTab(tabId)}
+                className={cn(
+                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  activeTab === tabId
+                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
+                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                )}
+              >
+                {tabId}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 w-full pl-2.5 pt-4">
+          {activeTab === 'Overview' && (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h3 className="text-[12px] font-semibold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Description</h3>
+                <textarea
+                  value={item.properties.description || ''}
+                  onChange={(e) => updateProperty('description', e.target.value)}
+                  placeholder="Add a description..."
+                  className="w-full min-h-[200px] bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/10 resize-none text-[13px] leading-relaxed focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent py-0 shadow-none"
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Comments' && (
+            <>
+              {/* Comment Input */}
+              <div className="bg-white/[0.015] border border-[var(--tokyo-border)] rounded-xl p-3 mb-8">
+                <div className="flex gap-2.5 mb-2.5">
+                  <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full shrink-0 border border-white/5" alt="me" />
+                  <textarea 
+                    rows={1.5}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add your comment..." 
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-xs resize-none py-0.5 shadow-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                    <button className="hover:text-white transition-colors cursor-pointer"><Smile className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors cursor-pointer"><AtSign className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors cursor-pointer"><Link className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors cursor-pointer"><Hashtag className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors cursor-pointer"><Attachment className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <button 
+                    onClick={handleAddComment}
+                    className="bg-[var(--tokyo-yellow-dim)] text-white px-3.5 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20 cursor-pointer"
+                  >
+                    Comment
+                  </button>
+                </div>
+              </div>
+
+              {/* Comment List */}
+              <div className="space-y-4 pb-20">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-3 group bg-white/[0.01] border border-[var(--tokyo-border)] rounded-xl p-3.5 hover:bg-white/[0.02] transition-all">
+                    <img src={comment.avatar} className="w-7 h-7 rounded-full shrink-0 border border-white/5" alt="avatar" />
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-xs">{comment.name}</span>
+                          <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[10px]">•</span>
+                          <span className="text-[var(--tokyo-text-faint)] text-[10px]">{comment.time}</span>
+                        </div>
+                        <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors cursor-pointer">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
-                      {comment.text}
-                    </p>
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
-                      <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                      <p className="text-[var(--tokyo-text)] text-xs leading-relaxed break-words">
+                        {comment.text}
+                      </p>
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors h-5 w-5 flex items-center justify-center rounded hover:bg-white/5 cursor-pointer"><Smile className="w-3.5 h-3.5" /></button>
+                        {comment.reactions?.map((reaction, ri) => (
+                          <button key={ri} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--tokyo-yellow-soft)] border border-[var(--tokyo-yellow-dim)] text-[10px] text-[var(--tokyo-yellow)] font-medium hover:bg-[var(--tokyo-yellow-dim)]/20 transition-all h-5 cursor-pointer">
+                            <span>{reaction.emoji}</span>
+                            <span>{reaction.count}</span>
+                          </button>
+                        ))}
+                        <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors ml-1 cursor-pointer">Reply</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+                ))}
+              </div>
+            </>
+          )}
 
-        {activeTab === 'Activity' && (
-          <div className="space-y-5">
-            <div className="flex items-center gap-3 text-[13px] text-[var(--tokyo-text-faint)]">
-              <Activity className="w-3.5 h-3.5" />
-              <span>No recent activity</span>
+          {activeTab === 'Activity' && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3 text-[13px] text-[var(--tokyo-text-faint)]">
+                <Activity className="w-3.5 h-3.5" />
+                <span>No recent activity</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Popovers */}
       <AnimatePresence>
+        {isIconPickerOpen && iconPickerPos && (
+          <>
+            <div className="fixed inset-0 z-[110]" onClick={() => setIsIconPickerOpen(false)} />
+            <div 
+              className="fixed z-[120]"
+              style={{ top: iconPickerPos.y, left: iconPickerPos.x }}
+            >
+              <IconPicker 
+                selectedIcon={item.icon || 'File01Icon'}
+                onSelect={(iconName) => {
+                  onUpdateItem({ ...item, icon: iconName });
+                  setIsIconPickerOpen(false);
+                }}
+                onClose={() => setIsIconPickerOpen(false)}
+              />
+            </div>
+          </>
+        )}
+
+        {isPropertyPickerOpen && propertyPickerPos && (
+          <>
+            <div className="fixed inset-0 z-[110]" onClick={() => setIsPropertyPickerOpen(false)} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="fixed z-[120] bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl py-1.5 w-48 overflow-hidden"
+              style={{ top: propertyPickerPos.y, left: propertyPickerPos.x }}
+            >
+              <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Property Types</div>
+              <div className="space-y-0.5">
+                <button onClick={() => addProperty('text')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><Type className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Text</button>
+                <button onClick={() => addProperty('number')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><Hash className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Number</button>
+                <button onClick={() => addProperty('select')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><List className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Select</button>
+                <button onClick={() => addProperty('date')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><CalendarIcon className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Date</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
         {customDropdown && (
           <>
             <div className="fixed inset-0 z-[130]" onClick={() => setCustomDropdown(null)} />
@@ -647,8 +826,8 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               <div className="space-y-0.5">
                 {(customDropdown.type === 'status' ? page.tabs.map(t => t.id) : 
                   customDropdown.type === 'priority' ? ['low', 'medium', 'high'] :
-                  [] // For custom-select, we'd need options defined in the property schema
-                ).map((option) => (
+                  customDropdown.propId ? (page.properties.find(p => p.id === customDropdown.propId)?.value || '').split(',').map((s: string) => s.trim()).filter(Boolean) : []
+                ).map((option: string) => (
                   <button
                     key={option}
                     onClick={() => {
@@ -660,13 +839,39 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                       setCustomDropdown(null);
                     }}
                     className={cn(
-                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-md transition-colors text-left group cursor-pointer",
                       customDropdown.currentValue === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                     )}
                   >
                     <span>{toSentenceCase(option)}</span>
                   </button>
                 ))}
+                {customDropdown.type === 'custom-select' && customDropdown.propId && (
+                  <div className="px-2 py-1 border-t border-[var(--tokyo-border)] mt-1.5">
+                    <input
+                      type="text"
+                      placeholder="Add option..."
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                          const val = e.currentTarget.value.trim();
+                          const prop = page.properties.find(p => p.id === customDropdown.propId);
+                          const existingOptions = prop?.value ? prop.value.split(',').map((s: string) => s.trim()) : [];
+                          if (!existingOptions.includes(val)) {
+                            const newOptions = [...existingOptions, val].join(', ');
+                            const newProps = page.properties.map(p => p.id === customDropdown.propId ? { ...p, value: newOptions } : p);
+                            updateCustomPage({ ...page, properties: newProps });
+                            updateProperty(customDropdown.propId, val);
+                          } else {
+                            updateProperty(customDropdown.propId, val);
+                          }
+                          e.currentTarget.value = '';
+                          setCustomDropdown(null);
+                        }
+                      }}
+                      className="w-full bg-transparent border-none p-0 text-xs text-[var(--tokyo-text-strong)] focus:ring-0 outline-none focus:outline-none focus:ring-transparent"
+                    />
+                  </div>
+                )}
               </div>
             </motion.div>
           </>

@@ -39,7 +39,8 @@ import {
   PencilEdit01Icon as Pencil,
   Delete02Icon as Trash2,
   Copy01Icon as Copy,
-  Target01Icon as Target
+  Target01Icon as Target,
+  StarIcon as Star
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -77,59 +78,13 @@ const DEFAULT_PROJECT_COLUMNS = [
 ];
 
 export function Projects() {
-  const { projects, updateProject, addProject, deleteProject, duplicateProject, reorderProjects, replaceProjects, goals, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const { projects, updateProject, replaceProjects, goals, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
   const savedProjectSettings = viewSettings.projects || {};
-  const [activeTabId, setActiveTabId] = useState('all');
   const [localSelectedProjectId, setLocalSelectedProjectId] = useState<string | null>(null);
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [editingProjectName, setEditingProjectName] = useState('');
-  const [projectContextMenu, setProjectContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
-  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
-  const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
-  const [customDropdown, setCustomDropdown] = useState<{ id: string, type: 'status' | 'priority', pos: { x: number, y: number }, currentValue: string } | null>(null);
-  const [datePickerConfig, setDatePickerConfig] = useState<{ id: string, pos: { x: number, y: number }, currentDate?: Date, config?: DateConfig } | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const isDraggingRef = useRef(false);
 
   const shouldUseSavedTemplate = savedProjectSettings.templateVersion === GOALS_TEMPLATE_VERSION;
   const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedProjectSettings.tabs ? savedProjectSettings.tabs : DEFAULT_PROJECT_TABS);
-
   const [columns, setColumns] = useState(shouldUseSavedTemplate && savedProjectSettings.columns ? savedProjectSettings.columns : DEFAULT_PROJECT_COLUMNS);
-
-  const filteredProjects = projects.filter(p => {
-    if (activeTabId === 'all') return true;
-    return p.status === activeTabId;
-  });
-
-  const handleNewProject = () => {
-    const id = `project-${Date.now()}`;
-    addProject({
-      id,
-      name: 'Untitled Project',
-      description: '',
-      status: 'planning',
-      taskIds: [],
-      priority: 'medium',
-      icon: 'FolderKanban'
-    });
-    setEditingProjectId(id);
-    setEditingProjectName('Untitled Project');
-  };
-
-  const handleRenameProject = () => {
-    if (editingProjectId && editingProjectName.trim()) {
-      const project = projects.find(p => p.id === editingProjectId);
-      if (project) {
-        updateProject(editingProjectId, { name: editingProjectName.trim() });
-      }
-    }
-    setEditingProjectId(null);
-  };
-
-  const handleProjectContextMenu = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    setProjectContextMenu({ x: e.clientX, y: e.clientY, id });
-  };
 
   const selectedProject = projects.find(p => p.id === localSelectedProjectId);
   const projectDetailProperties = [
@@ -146,8 +101,6 @@ export function Projects() {
       <ProjectDetailsPage 
         project={selectedProject} 
         onBack={() => setLocalSelectedProjectId(null)}
-        setCustomDropdown={setCustomDropdown}
-        setDatePickerConfig={setDatePickerConfig}
       />
     );
   }
@@ -231,349 +184,39 @@ export function Projects() {
       }}
     />
   );
-
-  return (
-    <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
-            <FolderKanban className="w-7 h-7" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <h1 className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight">Projects</h1>
-              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
-                {projects.length}
-              </span>
-            </div>
-            <p className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-[15px] leading-normal">Containers for your tasks.</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1 text-[var(--tokyo-text-faint)]">
-          <button className="p-2 hover:text-white transition-colors">
-            <Search className="w-4 h-4" />
-          </button>
-          <button className="p-2 hover:text-white transition-colors">
-            <FilterIcon className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={handleNewProject}
-            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4 [stroke-width:2.4]" />
-            New Project
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-col gap-1 flex-1 overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-[var(--tokyo-border)] pb-2 overflow-x-auto no-scrollbar">
-          {tabs.map(tab => {
-            const TabIcon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
-                className={cn(
-                  "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                  activeTabId === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
-                )}
-              >
-                <span className="flex h-6 w-6 items-center justify-center rounded"><TabIcon className="w-4 h-4" /></span>
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-      <div className="flex-1 overflow-visible">
-      <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-        <table className="text-left border-separate border-spacing-0 table-fixed min-w-[800px] w-full">
-          <thead>
-            <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
-              {columns.map((col, index) => (
-                <th 
-                  key={col.id}
-                  style={{ width: col.width }}
-                  className={cn(
-                    "relative px-4 py-1 h-12 text-left border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
-                    index === 0 && "pl-[5px]"
-                  )}
-                >
-                  <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2">
-                    <span className="w-6 h-6 rounded-md text-[var(--tokyo-text-muted)]/80 flex items-center justify-center shrink-0">
-                      <col.icon className="w-4 h-4" />
-                    </span>
-                    <span className="capitalize text-[var(--tokyo-text-muted)]/80 px-1 h-7 rounded-md text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis">
-                      {col.label.toLowerCase()}
-                    </span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <Reorder.Group 
-            as="tbody" 
-            values={filteredProjects} 
-            onReorder={(newProjects) => {
-              reorderProjects(newProjects);
-            }}
-            className="relative"
-          >
-            {filteredProjects.map(project => {
-              const goal = goals.find(g => g.id === project.goalId);
-              return (
-                <Reorder.Item 
-                  key={project.id} 
-                  value={project}
-                  as="tr"
-                  layout="position"
-                  dragElastic={0.2}
-                  initial={false}
-                  animate={{
-                    scale: 1,
-                    zIndex: 1,
-                    boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
-                  }}
-                  whileDrag={{
-                    scale: 1.01,
-                    zIndex: 100,
-                    boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.5)",
-                  }}
-                  transition={{ 
-                    layout: { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
-                    scale: { duration: 0.2 },
-                    boxShadow: { duration: 0.2 },
-                    zIndex: { delay: 0.2 }
-                  }}
-                  onDragStart={() => {
-                    setDraggingId(project.id);
-                    isDraggingRef.current = true;
-                  }}
-                  onDragEnd={() => {
-                    setDraggingId(null);
-                    setTimeout(() => {
-                      isDraggingRef.current = false;
-                    }, 100);
-                  }}
-                  onContextMenu={(e) => handleProjectContextMenu(e, project.id)}
-                  className={cn("group transition-colors select-none cursor-grab active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap", draggingId === project.id ? "cursor-grabbing bg-white/[0.04]" : "")}
-                >
-                  <td className="h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
-                    <div className="flex items-center gap-1">
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setIconPickerId(project.id);
-                          setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                        }}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
-                      >
-                        {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-4 h-4" })}
-                      </div>
-                      {editingProjectId === project.id ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editingProjectName}
-                          onChange={(e) => setEditingProjectName(e.target.value)}
-                          onBlur={handleRenameProject}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameProject();
-                            if (e.key === 'Escape') setEditingProjectId(null);
-                          }}
-                          className="bg-transparent border-none outline-none text-sm text-[var(--tokyo-text-strong)] w-full"
-                        />
-                      ) : (
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocalSelectedProjectId(project.id);
-                          }}
-                          className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
-                        >
-                          {project.name}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
-                    <span 
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setCustomDropdown({
-                          id: project.id,
-                          type: 'status',
-                          pos: { x: rect.left, y: rect.bottom + 8 },
-                          currentValue: project.status
-                        });
-                      }}
-                      className={cn(
-                        "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                        project.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
-                        project.status === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
-                        project.status === 'planning' ? "bg-stone-500/20 text-stone-400" :
-                        "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]"
-                      )}
-                    >
-                      {toSentenceCase(project.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
-                    {project.deadline || 'No deadline'}
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
-                    <span 
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setCustomDropdown({
-                          id: project.id,
-                          type: 'priority',
-                          pos: { x: rect.left, y: rect.bottom + 8 },
-                          currentValue: project.priority || 'medium'
-                        });
-                      }}
-                      className={cn(
-                        "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                        getPriorityBadgeClasses(project.priority || 'medium')
-                      )}
-                    >
-                      {toSentenceCase(project.priority || 'medium')}
-                    </span>
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
-                    {goal?.title || 'No goal'}
-                  </td>
-                </Reorder.Item>
-              );
-            })}
-          </Reorder.Group>
-        </table>
-      </div>
-      </div>
-      </div>
-
-      {/* Popovers & Context Menus */}
-      <AnimatePresence>
-        {iconPickerId && iconPickerPos && (
-          <div 
-            className="fixed z-[160]"
-            onClick={(e) => e.stopPropagation()}
-            style={{ 
-              top: Math.min(iconPickerPos.y, window.innerHeight - 350), 
-              left: Math.min(iconPickerPos.x, window.innerWidth - 280) 
-            }}
-          >
-            <IconPicker 
-              currentIcon={projects.find(p => p.id === iconPickerId)?.icon || 'FolderKanban'}
-              onSelect={(icon) => {
-                updateProject(iconPickerId, { icon });
-                setIconPickerId(null);
-                setIconPickerPos(null);
-              }}
-              onClose={() => {
-                setIconPickerId(null);
-                setIconPickerPos(null);
-              }}
-            />
-          </div>
-        )}
-
-        {customDropdown && (
-          <>
-            <div className="fixed inset-0 z-[150]" onClick={() => setCustomDropdown(null)} />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[160] w-40 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden"
-              style={{ top: customDropdown.pos.y, left: customDropdown.pos.x }}
-            >
-              {(customDropdown.type === 'status' ? ['planning', 'active', 'completed', 'paused'] : ['low', 'medium', 'high']).map(val => (
-                <button
-                  key={val}
-                  onClick={() => {
-                    updateProject(customDropdown.id, { [customDropdown.type]: val });
-                    setCustomDropdown(null);
-                  }}
-                  className={cn(
-                    "w-full px-3 py-1.5 text-sm text-left transition-colors",
-                    customDropdown.currentValue === val ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
-                  )}
-                >
-                  {toSentenceCase(val)}
-                </button>
-              ))}
-            </motion.div>
-          </>
-        )}
-
-        {projectContextMenu && (
-          <>
-            <div className="fixed inset-0 z-[130]" onClick={() => setProjectContextMenu(null)} />
-            <div 
-              className="fixed z-[140] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden"
-              style={{ top: projectContextMenu.y, left: projectContextMenu.x }}
-            >
-              <button 
-                onClick={() => {
-                  const project = projects.find(p => p.id === projectContextMenu.id);
-                  if (project) {
-                    setEditingProjectId(project.id);
-                    setEditingProjectName(project.name);
-                  }
-                  setProjectContextMenu(null);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] transition-colors"
-              >
-                <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                Rename
-              </button>
-              <button 
-                onClick={() => {
-                  duplicateProject(projectContextMenu.id);
-                  setProjectContextMenu(null);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] transition-colors"
-              >
-                <Copy className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                Duplicate
-              </button>
-              <div className="h-px bg-[var(--tokyo-border)] my-1" />
-              <button 
-                onClick={() => {
-                  deleteProject(projectContextMenu.id);
-                  setProjectContextMenu(null);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
-
-function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerConfig }: { 
+function ProjectDetailsPage({ project, onBack }: { 
   project: Project, 
-  onBack: () => void,
-  setCustomDropdown: (val: any) => void,
-  setDatePickerConfig: (val: any) => void
+  onBack: () => void
 }) {
   const { updateProject, deleteProject, tasks, addTask, updateTask, user } = useAppStore();
   const [activeTab, setActiveTab] = useState('Todo list');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [customDropdown, setCustomDropdown] = useState<{
+    id: string;
+    type: 'status' | 'priority';
+    pos: { x: number, y: number };
+    currentValue: string;
+  } | null>(null);
+  const [datePickerConfig, setDatePickerConfig] = useState<{ 
+    id: string;
+    pos: { x: number, y: number };
+    currentDate?: Date;
+    config?: DateConfig;
+  } | null>(null);
+  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [comments, setComments] = useState([
     { id: '1', name: 'Raheem Sterling', time: '25m ago', text: '@stephenrobert I will do it ASAP.', avatar: 'https://i.pravatar.cc/150?u=5' },
     { id: '2', name: 'Stephen Robert', time: '50m ago', text: 'Project looks good, let\'s focus on the UI components.', avatar: 'https://i.pravatar.cc/150?u=4', reactions: [{ emoji: '👍', count: 1 }] }
   ]);
+
+  const priorities = ['low', 'medium', 'high'];
+  const statuses = ['planning', 'active', 'completed', 'paused'];
 
   const handleUpdate = (updates: Partial<Project>) => {
     updateProject(project.id, updates);
@@ -593,7 +236,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
   const confirmAddProperty = (type: 'text' | 'number' | 'select' | 'date') => {
     const newProp = {
       id: `p${Date.now()}`,
-      name: `New ${toSentenceCase(type)}`,
+      name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
       type,
       value: ''
     };
@@ -632,6 +275,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
   };
 
   const projectTasks = tasks.filter(t => t.projectId === project.id);
+  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
 
   const handleAddTask = () => {
     const id = `t${Date.now()}`;
@@ -645,63 +289,119 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
     });
   };
 
+  const handleCopyProjectLink = async () => {
+    const href = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}#project-details:${project.id}`
+      : '';
+    if (href && navigator.clipboard) {
+      await navigator.clipboard.writeText(href);
+    }
+    setIsShareMenuOpen(false);
+  };
+
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      {/* Header */}
-      <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
-            <button onClick={onBack} className="hover:text-white transition-colors">Projects</button>
-            <span>/</span>
-            <span className="text-[var(--tokyo-text-muted)] whitespace-nowrap">{project.name}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={onBack}
-              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+        {/* Header */}
+        <div className="flex-shrink-0 w-full">
+          <div className="mb-5 flex items-center gap-3">
+            <div 
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setIconPickerId(project.id);
+                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
             >
-              <X className="w-5 h-5" />
-            </button>
+              {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
+            </div>
+            <div className="min-w-0 flex-1">
+              <input 
+                type="text"
+                value={project.name}
+                onChange={(e) => handleUpdate({ name: e.target.value })}
+                className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                placeholder="Untitled Project"
+              />
+            </div>
+            <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+              <button
+                onClick={() => setIsFavorite((favorite) => !favorite)}
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                  isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                )}
+                title="Favorite"
+              >
+                <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+              </button>
+              <button
+                onClick={() => setIsShareMenuOpen((open) => !open)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                title="More"
+              >
+                <MoreHorizontal className="h-[18px] w-[18px]" />
+              </button>
+              <button 
+                onClick={onBack}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                title="Close"
+              >
+                <X className="h-[18px] w-[18px]" />
+              </button>
+              {isShareMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                    <button
+                      onClick={() => void handleCopyProjectLink()}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                    >
+                      <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                      Copy page link
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                    >
+                      <Trash2 className="h-4 w-4 text-red-400" />
+                      Delete project
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        <input 
-          type="text"
-          value={project.name}
-          onChange={(e) => handleUpdate({ name: e.target.value })}
-          className="w-full bg-transparent text-2xl md:text-[28px] font-semibold leading-tight text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
-          placeholder="Untitled Project"
-        />
-        
-        {/* Properties */}
-        <div className="space-y-2 mb-12 max-w-2xl">
+        {/* Properties - Vertical List */}
+        <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
           {/* Assigned */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Users className="w-4 h-4" />
-              <span>Assigned</span>
-            </div>
-            <div className="flex items-center hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 cursor-pointer">
-              <div className="flex -space-x-2">
-                {[
-                  'https://i.pravatar.cc/150?u=5',
-                  'https://i.pravatar.cc/150?u=4',
-                  'https://i.pravatar.cc/150?u=6'
-                ].map((url, i) => (
-                  <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-                ))}
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Users className="w-4 h-4" />
+                <span>Assigned</span>
               </div>
+            </div>
+            <div className="flex -space-x-2">
+              {[
+                'https://i.pravatar.cc/150?u=5',
+                'https://i.pravatar.cc/150?u=4',
+                'https://i.pravatar.cc/150?u=6'
+              ].map((url, i) => (
+                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
+              ))}
             </div>
           </div>
 
           {/* Deadline */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CalendarIcon className="w-4 h-4" />
-              <span>Deadline</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <CalendarIcon className="w-4 h-4" />
+                <span>Deadline</span>
+              </div>
             </div>
             <div 
               onClick={(e) => {
@@ -712,19 +412,21 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   currentDate: project.deadline ? new Date(project.deadline) : undefined
                 });
               }}
-              className="hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 flex items-center text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer"
+              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
             >
-              {project.deadline || 'Set deadline...'}
+              {project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Set deadline...'}
             </div>
           </div>
 
           {/* Priority */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Zap className="w-4 h-4" />
-              <span>Priority</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Zap className="w-4 h-4" />
+                <span>Priority</span>
+              </div>
             </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+            <div className="relative flex items-center">
               <div 
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -736,7 +438,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   });
                 }}
                 className={cn(
-                  "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
                   getPriorityBadgeClasses(project.priority || 'medium')
                 )}
               >
@@ -746,12 +448,14 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
           </div>
 
           {/* Status */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CheckCircle className="w-4 h-4" />
-              <span>Status</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <CheckCircle className="w-4 h-4" />
+                <span>Status</span>
+              </div>
             </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+            <div className="relative flex items-center gap-2">
               <div 
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -763,7 +467,7 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   });
                 }}
                 className={cn(
-                  "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                  "flex items-center gap-2 px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
                   project.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
                   project.status === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                   "bg-stone-500/20 text-stone-400"
@@ -790,22 +494,42 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
             }[prop.type] || Text;
 
             return (
-              <div key={prop.id} className="flex items-center h-8 rounded-xl group">
-                <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-                  <PropIcon className="w-4 h-4" />
-                  <span className="text-[13px] text-[var(--tokyo-text-faint)] font-medium">{prop.name}</span>
+              <div key={prop.id} className={propertyRowClass}>
+                <div className="w-40 shrink-0 flex items-center">
+                  <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                    <PropIcon className="w-4 h-4" />
+                    <span>{prop.name}</span>
+                  </div>
                 </div>
-                <div className="flex-1 flex items-center gap-2 hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7">
-                  <input 
-                    type={prop.type === 'number' ? 'number' : 'text'}
-                    value={prop.value}
-                    onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
-                    placeholder="Empty"
-                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none"
-                  />
+                <div className="flex-1 flex items-center gap-4">
+                  {prop.type === 'date' ? (
+                    <div 
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setDatePickerConfig({
+                          id: `prop:${prop.id}`,
+                          pos: { x: rect.left, y: rect.bottom + 8 },
+                          currentDate: prop.value ? new Date(prop.value) : undefined
+                        });
+                      }}
+                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                    >
+                      {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all group/val">
+                      <input 
+                        type={prop.type === 'number' ? 'number' : 'text'}
+                        value={prop.value}
+                        onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
+                        placeholder="Empty"
+                        className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-sm font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5 outline-none focus:outline-none focus:ring-transparent shadow-none"
+                      />
+                    </div>
+                  )}
                   <button 
                     onClick={() => handleDeleteProperty(prop.id)}
-                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all cursor-pointer"
+                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -814,167 +538,273 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
             );
           })}
 
-          <button 
-            onClick={handleAddProperty}
-            className="text-[var(--tokyo-yellow)] text-[11px] font-semibold flex items-center gap-1 hover:text-[var(--tokyo-yellow)] transition-colors mt-2"
-          >
-            <Plus className="w-3 h-3" />
-            Add property
-          </button>
+          {/* Add new property */}
+          <div className="flex items-center h-8">
+            <button 
+              onClick={handleAddProperty}
+              className="flex items-center gap-1.5 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] text-[11px] font-semibold transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add property</span>
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-5 border-b border-[var(--tokyo-border)]">
-          {['Todo list', 'Comments', 'Activity'].map(tabId => (
-            <div
-              key={tabId}
-              onClick={() => setActiveTab(tabId)}
-              className={cn(
-                "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tabId
-                  ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                  : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
-              )}
-            >
-              {tabId}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 max-w-6xl mx-auto w-full px-8 pt-4 pb-8">
-        {activeTab === 'Todo list' && (
-          <div className="space-y-2">
-            {projectTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
-                <button 
-                  onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
-                  className={cn(
-                    "w-[18px] h-[18px] shrink-0 rounded-[4px] border-[2px] flex items-center justify-center transition-all cursor-pointer",
-                    task.status === 'done' 
-                      ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]" 
-                      : "border-[var(--tokyo-yellow)] bg-transparent hover:bg-[var(--tokyo-yellow)]/10"
-                  )}
-                >
-                  {task.status === 'done' && (
-                    <svg className="w-3 h-3 text-[var(--tokyo-bg)] stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
-                  )}
-                </button>
-                <input 
-                  type="text"
-                  value={task.title}
-                  onChange={(e) => updateTask({ ...task, title: e.target.value })}
-                  placeholder="Task description..."
-                  className={cn(
-                    "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",
-                    task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
-                  )}
-                />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
+            {['Todo list', 'Comments', 'Activity'].map(tabId => (
+              <div
+                key={tabId}
+                onClick={() => setActiveTab(tabId)}
+                className={cn(
+                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  activeTab === tabId
+                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
+                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                )}
+              >
+                {tabId}
               </div>
             ))}
-            <button 
-              onClick={handleAddTask}
-              className="flex items-center gap-2 px-1 py-2 text-[12px] text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-yellow)] transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="font-medium">Add new task</span>
-            </button>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'Comments' && (
-          <>
-            {/* Comment Input */}
-            <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
-              <div className="flex gap-2.5 mb-2.5">
-                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
-                <textarea 
-                  rows={1.5}
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add your comment..." 
-                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
-                  <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Hash className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
+        {/* Content Area */}
+        <div className="flex-1 w-full pl-2.5">
+          {activeTab === 'Todo list' && (
+            <div className="space-y-2">
+              {projectTasks.map((task) => (
+                <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
+                  <button 
+                    onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
+                    className={cn(
+                      "w-[18px] h-[18px] shrink-0 rounded-[4px] border-[2px] flex items-center justify-center transition-all cursor-pointer",
+                      task.status === 'done' 
+                        ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]" 
+                        : "border-[var(--tokyo-yellow)] bg-transparent hover:bg-[var(--tokyo-yellow)]/10"
+                    )}
+                  >
+                    {task.status === 'done' && (
+                      <svg className="w-3 h-3 text-[var(--tokyo-bg)] stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </button>
+                  <input 
+                    type="text"
+                    value={task.title}
+                    onChange={(e) => updateTask({ ...task, title: e.target.value })}
+                    placeholder="Task description..."
+                    className={cn(
+                      "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",
+                      task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
+                    )}
+                  />
                 </div>
-                <button 
-                  onClick={handleAddComment}
-                  className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
-                >
-                  Comment
-                </button>
-              </div>
+              ))}
+              <button 
+                onClick={handleAddTask}
+                className="flex items-center gap-2 px-1 py-2 text-sm text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-yellow)] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="font-medium">Add new task</span>
+              </button>
             </div>
+          )}
 
-            {/* Comment List */}
-            <div className="space-y-7 pb-20">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3 group">
-                  <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
-                        <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[11px] font-medium">•</span>
-                        <span className="text-[var(--tokyo-text-faint)] text-[11px] font-medium">{comment.time}</span>
-                      </div>
-                      <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
-                      {comment.text}
-                    </p>
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
-                      {comment.reactions?.map((r, ri) => (
-                        <button key={ri} className="flex items-center gap-1 px-1.5 h-5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[10px] font-medium">
-                          <span>{r.emoji}</span>
-                          <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
+          {activeTab === 'Comments' && (
+            <>
+              {/* Comment Input */}
+              <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
+                <div className="flex gap-2.5 mb-2.5">
+                  <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
+                  <textarea 
+                    rows={1.5}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add your comment..." 
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                    <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><Hash className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <button 
+                    onClick={handleAddComment}
+                    className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
+                  >
+                    Comment
+                  </button>
+                </div>
+              </div>
+
+              {/* Comment List */}
+              <div className="space-y-7 pb-20">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-3 group">
+                    <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
+                          <span className="text-white/20 text-xs">•</span>
+                          <span className="text-[var(--tokyo-text-faint)] text-[11px]">{comment.time}</span>
+                        </div>
+                        <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
                         </button>
-                      ))}
-                      <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                      </div>
+                      <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
+                        {comment.text}
+                      </p>
+                      <div className="flex items-center gap-2.5 pt-1">
+                        <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                        {comment.reactions?.map((r, ri) => (
+                          <button key={ri} className="flex items-center gap-1 px-1.5 h-5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[10px] font-medium">
+                            <span>{r.emoji}</span>
+                            <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
+                          </button>
+                        ))}
+                        <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                      </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'Activity' && (
+            <div className="space-y-5">
+              {[
+                { user: 'Abdola Munir', action: 'changed status to', value: project.status, time: 'Just now' },
+                { user: 'Abdola Munir', action: 'created this project', value: '', time: '3h ago' },
+              ].map((activity, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <img src={activity.user === 'Abdola Munir' ? (user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff") : "https://i.pravatar.cc/150?u=abdolamunir"} className="w-7 h-7 rounded-full" alt="avatar" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.user}</span>
+                    <span className="text-[var(--tokyo-text-faint)]">{activity.action}</span>
+                    {activity.value && <span className="text-[var(--tokyo-text-strong)] font-medium">{toSentenceCase(activity.value)}</span>}
+                    <span className="text-white/20">•</span>
+                    <span className="text-[var(--tokyo-text-faint)]">{activity.time}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </>
-        )}
-
-        {activeTab === 'Activity' && (
-          <div className="space-y-5">
-            <div className="flex items-center gap-3 text-[13px] text-[var(--tokyo-text-faint)]">
-              <Activity className="w-3.5 h-3.5" />
-              <span>No recent activity</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Property Picker Popover */}
+      {/* Popovers */}
       <AnimatePresence>
-        {isPropertyPickerOpen && propertyPickerPos && (
+        {customDropdown && (
           <>
-            <div className="fixed inset-0 z-[110]" onClick={() => setIsPropertyPickerOpen(false)} />
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setCustomDropdown(null)}
+            />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl p-2 w-64"
-              style={{ top: propertyPickerPos.y, left: propertyPickerPos.x }}
+              className="property-popover fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              style={{ 
+                top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
+                left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
+              }}
             >
-              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">Basic properties</div>
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Select {toSentenceCase(customDropdown.type)}
+              </div>
+              <div className="space-y-0.5">
+                {(customDropdown.type === 'status' ? statuses : priorities).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      if (customDropdown.type === 'status') {
+                        handleUpdate({ status: option as any });
+                      } else {
+                        handleUpdate({ priority: option as any });
+                      }
+                      setCustomDropdown(null);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                      customDropdown.currentValue === option
+                        ? "bg-[var(--tokyo-yellow-dim)] text-white"
+                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
+                    )}
+                  >
+                    <span>{toSentenceCase(option)}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {datePickerConfig && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setDatePickerConfig(null)}
+            />
+            <div 
+              className="fixed z-[120]"
+              style={{ 
+                top: Math.min(datePickerConfig.pos.y, window.innerHeight - 450), 
+                left: Math.min(datePickerConfig.pos.x, window.innerWidth - 300) 
+              }}
+            >
+              <DatePicker 
+                selectedDate={datePickerConfig.currentDate}
+                onSelect={(date) => {
+                  if (datePickerConfig.id.startsWith('prop:')) {
+                    const propId = datePickerConfig.id.replace('prop:', '');
+                    handleUpdate({
+                      customProperties: project.customProperties?.map(p => (
+                        p.id === propId ? { ...p, value: date.toISOString() } : p
+                      ))
+                    });
+                  } else {
+                    handleUpdate({
+                      deadline: format(date, 'yyyy-MM-dd')
+                    });
+                  }
+                  setDatePickerConfig(null);
+                }}
+                onClose={() => setDatePickerConfig(null)}
+              />
+            </div>
+          </>
+        )}
+
+        {isPropertyPickerOpen && propertyPickerPos && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setIsPropertyPickerOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
+              style={{ 
+                top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
+                left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
+              }}
+            >
+              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Basic properties
+              </div>
               <div className="space-y-0.5">
                 {[
                   { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
@@ -985,9 +815,9 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                   <button
                     key={type.id}
                     onClick={() => confirmAddProperty(type.id as any)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
                       <type.icon className="w-4 h-4" />
                     </div>
                     <div>
@@ -998,6 +828,35 @@ function ProjectDetailsPage({ project, onBack, setCustomDropdown, setDatePickerC
                 ))}
               </div>
             </motion.div>
+          </>
+        )}
+
+        {iconPickerId && iconPickerPos && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => {
+                setIconPickerId(null);
+              }}
+            />
+            <div 
+              className="fixed z-[120]"
+              style={{ 
+                top: Math.min(iconPickerPos.y, window.innerHeight - 350), 
+                left: Math.min(iconPickerPos.x, window.innerWidth - 280) 
+              }}
+            >
+              <IconPicker 
+                currentIcon={project.icon || 'FolderKanban'}
+                onSelect={(iconName) => {
+                  handleUpdate({ icon: iconName });
+                  setIconPickerId(null);
+                }}
+                onClose={() => {
+                  setIconPickerId(null);
+                }}
+              />
+            </div>
           </>
         )}
       </AnimatePresence>

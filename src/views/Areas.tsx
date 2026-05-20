@@ -39,7 +39,8 @@ import {
   Delete02Icon as Trash2,
   Copy01Icon as Copy,
   Target01Icon as Target,
-  Folder01Icon as FolderKanban
+  Folder01Icon as FolderKanban,
+  StarIcon as Star
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -77,60 +78,13 @@ const DEFAULT_AREA_COLUMNS = [
 ];
 
 export function Areas() {
-  const { areas, updateArea, addArea, deleteArea, duplicateArea, reorderAreas, replaceAreas, projects, goals, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
+  const { areas, replaceAreas, projects, viewSettings, updateViewSettings, updateSidebarItem } = useAppStore();
   const savedAreaSettings = viewSettings.areas || {};
-  const [activeTabId, setActiveTabId] = useState('all');
   const [localSelectedAreaId, setLocalSelectedAreaId] = useState<string | null>(null);
-  const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
-  const [editingAreaName, setEditingAreaName] = useState('');
-  const [areaContextMenu, setAreaContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
-  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
-  const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
-  const [customDropdown, setCustomDropdown] = useState<{ id: string, type: 'status' | 'priority', pos: { x: number, y: number }, currentValue: string } | null>(null);
-  const [datePickerConfig, setDatePickerConfig] = useState<{ id: string, pos: { x: number, y: number }, currentDate?: Date, config?: DateConfig } | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const isDraggingRef = useRef(false);
 
   const shouldUseSavedTemplate = savedAreaSettings.templateVersion === GOALS_TEMPLATE_VERSION;
   const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedAreaSettings.tabs ? savedAreaSettings.tabs : DEFAULT_AREA_TABS);
-
   const [columns, setColumns] = useState(shouldUseSavedTemplate && savedAreaSettings.columns ? savedAreaSettings.columns : DEFAULT_AREA_COLUMNS);
-
-  const filteredAreas = areas.filter(a => {
-    if (activeTabId === 'all') return true;
-    return a.status === activeTabId;
-  });
-
-  const handleNewArea = () => {
-    const id = `area-${Date.now()}`;
-    addArea({
-      id,
-      name: 'Untitled Area',
-      description: '',
-      status: 'active',
-      goalIds: [],
-      projectIds: [],
-      priority: 'medium',
-      icon: 'Layers'
-    });
-    setEditingAreaId(id);
-    setEditingAreaName('Untitled Area');
-  };
-
-  const handleRenameArea = () => {
-    if (editingAreaId && editingAreaName.trim()) {
-      const area = areas.find(a => a.id === editingAreaId);
-      if (area) {
-        updateArea(editingAreaId, { name: editingAreaName.trim() });
-      }
-    }
-    setEditingAreaId(null);
-  };
-
-  const handleAreaContextMenu = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    setAreaContextMenu({ x: e.clientX, y: e.clientY, id });
-  };
 
   const selectedArea = areas.find(a => a.id === localSelectedAreaId);
   const areaDetailProperties = [
@@ -147,8 +101,6 @@ export function Areas() {
       <AreaDetailsPage 
         area={selectedArea} 
         onBack={() => setLocalSelectedAreaId(null)}
-        setCustomDropdown={setCustomDropdown}
-        setDatePickerConfig={setDatePickerConfig}
       />
     );
   }
@@ -159,7 +111,7 @@ export function Areas() {
     description: savedAreaSettings.description || 'Life categories and continuous responsibilities.',
     icon: savedAreaSettings.icon || 'Layers',
     kind: 'database' as const,
-    activeTab: shouldUseSavedTemplate ? savedAreaSettings.activeTab : 'planning',
+    activeTab: shouldUseSavedTemplate ? savedAreaSettings.activeTab : 'active',
     tabs,
     columns,
     sortConfigs: shouldUseSavedTemplate ? (savedAreaSettings.sortConfigs || []) : [],
@@ -167,7 +119,7 @@ export function Areas() {
       id: area.id,
       title: area.name,
       icon: area.icon || 'Layers',
-      status: area.status || 'active',
+      status: area.status,
       priority: area.priority || 'medium',
       progress: 0,
       properties: {
@@ -231,346 +183,39 @@ export function Areas() {
       }}
     />
   );
-
-  return (
-    <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
-            <LayoutGrid className="w-7 h-7" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <h1 className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight">Areas</h1>
-              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
-                {areas.length}
-              </span>
-            </div>
-            <p className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-[15px] leading-normal">Life categories and continuous responsibilities.</p>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1 text-[var(--tokyo-text-faint)]">
-          <button className="p-2 hover:text-white transition-colors">
-            <Search className="w-4 h-4" />
-          </button>
-          <button className="p-2 hover:text-white transition-colors">
-            <FilterIcon className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={handleNewArea}
-            className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4 [stroke-width:2.4]" />
-            New Area
-          </button>
-        </div>
-      </header>
-
-      <div className="flex flex-col gap-1 flex-1 overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-[var(--tokyo-border)] pb-2 overflow-x-auto no-scrollbar">
-          {tabs.map(tab => {
-            const TabIcon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTabId(tab.id)}
-                className={cn(
-                  "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                  activeTabId === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
-                )}
-              >
-                <span className="flex h-6 w-6 items-center justify-center rounded"><TabIcon className="w-4 h-4" /></span>
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-      <div className="flex-1 overflow-visible">
-      <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-        <table className="text-left border-separate border-spacing-0 table-fixed min-w-[800px] w-full">
-          <thead>
-            <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
-              {columns.map((col, index) => (
-                <th 
-                  key={col.id}
-                  style={{ width: col.width }}
-                  className={cn(
-                    "relative px-4 py-1 h-12 text-left border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
-                    index === 0 && "pl-[5px]"
-                  )}
-                >
-                  <div className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2">
-                    <span className="w-6 h-6 rounded-md text-[var(--tokyo-text-muted)]/80 flex items-center justify-center shrink-0">
-                      <col.icon className="w-4 h-4" />
-                    </span>
-                    <span className="capitalize text-[var(--tokyo-text-muted)]/80 px-1 h-7 rounded-md text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis">
-                      {col.label.toLowerCase()}
-                    </span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <Reorder.Group 
-            as="tbody" 
-            values={filteredAreas} 
-            onReorder={(newAreas) => {
-              reorderAreas(newAreas);
-            }}
-            className="relative"
-          >
-            {filteredAreas.map(area => {
-              return (
-                <Reorder.Item 
-                  key={area.id} 
-                  value={area}
-                  as="tr"
-                  layout="position"
-                  dragElastic={0.2}
-                  initial={false}
-                  animate={{
-                    scale: 1,
-                    zIndex: 1,
-                    boxShadow: "0 0 0 rgba(0, 0, 0, 0)",
-                  }}
-                  whileDrag={{
-                    scale: 1.01,
-                    zIndex: 100,
-                    boxShadow: "0 20px 40px -10px rgba(0, 0, 0, 0.5)",
-                  }}
-                  transition={{ 
-                    layout: { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
-                    scale: { duration: 0.2 },
-                    boxShadow: { duration: 0.2 },
-                    zIndex: { delay: 0.2 }
-                  }}
-                  onDragStart={() => {
-                    setDraggingId(area.id);
-                    isDraggingRef.current = true;
-                  }}
-                  onDragEnd={() => {
-                    setDraggingId(null);
-                    setTimeout(() => {
-                      isDraggingRef.current = false;
-                    }, 100);
-                  }}
-                  onContextMenu={(e) => handleAreaContextMenu(e, area.id)}
-                  className={cn("group transition-colors select-none cursor-grab active:cursor-grabbing hover:bg-white/[0.02] whitespace-nowrap", draggingId === area.id ? "cursor-grabbing bg-white/[0.04]" : "")}
-                >
-                  <td className="h-12 pl-[5px] pr-4 border-b border-[var(--tokyo-border)]">
-                    <div className="flex items-center gap-1">
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setIconPickerId(area.id);
-                          setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                        }}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center text-[var(--tokyo-text-faint)] shrink-0 cursor-pointer transition-colors"
-                      >
-                        {React.createElement(iconMap[area.icon || 'Layers'] || Layers, { className: "w-4 h-4" })}
-                      </div>
-                      {editingAreaId === area.id ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={editingAreaName}
-                          onChange={(e) => setEditingAreaName(e.target.value)}
-                          onBlur={handleRenameArea}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRenameArea();
-                            if (e.key === 'Escape') setEditingAreaId(null);
-                          }}
-                          className="bg-transparent border-none outline-none text-sm text-[var(--tokyo-text-strong)] w-full"
-                        />
-                      ) : (
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLocalSelectedAreaId(area.id);
-                          }}
-                          className="text-[var(--tokyo-text-strong)]/60 font-medium text-[14px] tracking-tight cursor-pointer hover:text-[var(--tokyo-text-strong)] transition-colors"
-                        >
-                          {area.name}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
-                    {area.projectIds.length} Projects
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)] text-[13px] text-[var(--tokyo-text-faint)]">
-                    {area.goalIds.length} Goals
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
-                    <span 
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setCustomDropdown({
-                          id: area.id,
-                          type: 'status',
-                          pos: { x: rect.left, y: rect.bottom + 8 },
-                          currentValue: area.status || 'active'
-                        });
-                      }}
-                      className={cn(
-                        "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                        area.status === 'active' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
-                        area.status === 'archived' ? "bg-stone-500/20 text-stone-400" :
-                        "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]"
-                      )}
-                    >
-                      {toSentenceCase(area.status || 'active')}
-                    </span>
-                  </td>
-                  <td className="px-4 h-12 border-b border-[var(--tokyo-border)]">
-                    <span 
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setCustomDropdown({
-                          id: area.id,
-                          type: 'priority',
-                          pos: { x: rect.left, y: rect.bottom + 8 },
-                          currentValue: area.priority || 'medium'
-                        });
-                      }}
-                      className={cn(
-                        "px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                        getPriorityBadgeClasses(area.priority || 'medium')
-                      )}
-                    >
-                      {toSentenceCase(area.priority || 'medium')}
-                    </span>
-                  </td>
-                </Reorder.Item>
-              );
-            })}
-          </Reorder.Group>
-        </table>
-      </div>
-      </div>
-      </div>
-
-      {/* Popovers & Context Menus */}
-      <AnimatePresence>
-        {iconPickerId && iconPickerPos && (
-          <div 
-            className="fixed z-[160]"
-            onClick={(e) => e.stopPropagation()}
-            style={{ 
-              top: Math.min(iconPickerPos.y, window.innerHeight - 350), 
-              left: Math.min(iconPickerPos.x, window.innerWidth - 280) 
-            }}
-          >
-            <IconPicker 
-              currentIcon={areas.find(a => a.id === iconPickerId)?.icon || 'Layers'}
-              onSelect={(icon) => {
-                updateArea(iconPickerId, { icon });
-                setIconPickerId(null);
-                setIconPickerPos(null);
-              }}
-              onClose={() => {
-                setIconPickerId(null);
-                setIconPickerPos(null);
-              }}
-            />
-          </div>
-        )}
-
-        {customDropdown && (
-          <>
-            <div className="fixed inset-0 z-[150]" onClick={() => setCustomDropdown(null)} />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[160] w-40 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden"
-              style={{ top: customDropdown.pos.y, left: customDropdown.pos.x }}
-            >
-              {(customDropdown.type === 'status' ? ['active', 'archived'] : ['low', 'medium', 'high']).map(val => (
-                <button
-                  key={val}
-                  onClick={() => {
-                    updateArea(customDropdown.id, { [customDropdown.type]: val });
-                    setCustomDropdown(null);
-                  }}
-                  className={cn(
-                    "w-full px-3 py-1.5 text-sm text-left transition-colors",
-                    customDropdown.currentValue === val ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
-                  )}
-                >
-                  {toSentenceCase(val)}
-                </button>
-              ))}
-            </motion.div>
-          </>
-        )}
-
-        {areaContextMenu && (
-          <>
-            <div className="fixed inset-0 z-[130]" onClick={() => setAreaContextMenu(null)} />
-            <div 
-              className="fixed z-[140] w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 overflow-hidden"
-              style={{ top: areaContextMenu.y, left: areaContextMenu.x }}
-            >
-              <button 
-                onClick={() => {
-                  const area = areas.find(a => a.id === areaContextMenu.id);
-                  if (area) {
-                    setEditingAreaId(area.id);
-                    setEditingAreaName(area.name);
-                  }
-                  setAreaContextMenu(null);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] transition-colors"
-              >
-                <Pencil className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                Rename
-              </button>
-              <button 
-                onClick={() => {
-                  duplicateArea(areaContextMenu.id);
-                  setAreaContextMenu(null);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] transition-colors"
-              >
-                <Copy className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                Duplicate
-              </button>
-              <div className="h-px bg-[var(--tokyo-border)] my-1" />
-              <button 
-                onClick={() => {
-                  deleteArea(areaContextMenu.id);
-                  setAreaContextMenu(null);
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }
 
-function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig }: { 
+function AreaDetailsPage({ area, onBack }: { 
   area: Area, 
-  onBack: () => void,
-  setCustomDropdown: (val: any) => void,
-  setDatePickerConfig: (val: any) => void
+  onBack: () => void
 }) {
   const { updateArea, deleteArea, projects, goals, user } = useAppStore();
   const [activeTab, setActiveTab] = useState('Projects');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [customDropdown, setCustomDropdown] = useState<{
+    id: string;
+    type: 'status' | 'priority';
+    pos: { x: number, y: number };
+    currentValue: string;
+  } | null>(null);
+  const [datePickerConfig, setDatePickerConfig] = useState<{ 
+    id: string;
+    pos: { x: number, y: number };
+    currentDate?: Date;
+    config?: DateConfig;
+  } | null>(null);
+  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [comments, setComments] = useState([
     { id: '1', name: 'Raheem Sterling', time: '25m ago', text: 'This area needs more focus.', avatar: 'https://i.pravatar.cc/150?u=5' }
   ]);
+
+  const priorities = ['low', 'medium', 'high'];
+  const statuses = ['active', 'archived'];
 
   const handleUpdate = (updates: Partial<Area>) => {
     updateArea(area.id, updates);
@@ -628,49 +273,101 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
     }
   };
 
-  const areaProjects = projects.filter(p => area.projectIds.includes(p.id));
-  const areaGoals = goals.filter(g => area.goalIds.includes(g.id));
+  const areaProjects = projects.filter(p => area.projectIds?.includes(p.id));
+  const areaGoals = goals.filter(g => area.goalIds?.includes(g.id));
+  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
+
+  const handleCopyAreaLink = async () => {
+    const href = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}#area-details:${area.id}`
+      : '';
+    if (href && navigator.clipboard) {
+      await navigator.clipboard.writeText(href);
+    }
+    setIsShareMenuOpen(false);
+  };
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      {/* Header */}
-      <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
-            <button onClick={onBack} className="hover:text-white transition-colors">Areas</button>
-            <span>/</span>
-            <span className="text-[var(--tokyo-text-muted)] whitespace-nowrap">{area.name}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={onBack}
-              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+        {/* Header */}
+        <div className="flex-shrink-0 w-full">
+          <div className="mb-5 flex items-center gap-3">
+            <div 
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setIconPickerId(area.id);
+                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        <input 
-          type="text"
-          value={area.name}
-          onChange={(e) => handleUpdate({ name: e.target.value })}
-          className="w-full bg-transparent text-2xl md:text-[28px] font-semibold leading-tight text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
-          placeholder="Untitled Area"
-        />
-        
-        {/* Properties */}
-        <div className="space-y-2 mb-12 max-w-2xl">
-          {/* Assigned */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Users className="w-4 h-4" />
-              <span>Assigned</span>
+              {React.createElement(iconMap[area.icon || 'Layers'] || Layers, { className: "w-6 h-6" })}
             </div>
-            <div className="flex items-center hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 cursor-pointer">
+            <div className="min-w-0 flex-1">
+              <input 
+                type="text"
+                value={area.name}
+                onChange={(e) => handleUpdate({ name: e.target.value })}
+                className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                placeholder="Untitled Area"
+              />
+            </div>
+            <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+              <button
+                onClick={() => setIsFavorite((favorite) => !favorite)}
+                className={cn(
+                  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                  isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                )}
+                title="Favorite"
+              >
+                <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+              </button>
+              <button
+                onClick={() => setIsShareMenuOpen((open) => !open)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                title="More"
+              >
+                <MoreHorizontal className="h-[18px] w-[18px]" />
+              </button>
+              <button 
+                onClick={onBack}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                title="Close"
+              >
+                <X className="h-[18px] w-[18px]" />
+              </button>
+              {isShareMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                  <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                    <button
+                      onClick={() => void handleCopyAreaLink()}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                    >
+                      <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                      Copy page link
+                    </button>
+                    <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                      <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                      Invite people
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          
+          {/* Properties - Vertical List */}
+          <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
+            {/* Assigned */}
+            <div className={propertyRowClass}>
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  <Users className="w-4 h-4" />
+                  <span>Assigned</span>
+                </div>
+              </div>
               <div className="flex -space-x-2">
                 {[
                   'https://i.pravatar.cc/150?u=5',
@@ -680,260 +377,386 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Priority */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Zap className="w-4 h-4" />
-              <span>Priority</span>
-            </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
-              <div 
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setCustomDropdown({
-                    id: area.id,
-                    type: 'priority',
-                    pos: { x: rect.left, y: rect.bottom + 8 },
-                    currentValue: area.priority || 'medium'
-                  });
-                }}
-                className={cn(
-                  "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                  getPriorityBadgeClasses(area.priority || 'medium')
-                )}
-              >
-                {toSentenceCase(area.priority || 'medium')}
-              </div>
-            </div>
-          </div>
-
-          {/* Status */}
-          <div className="flex items-center h-8 rounded-xl">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CheckCircle className="w-4 h-4" />
-              <span>Status</span>
-            </div>
-            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
-              <div 
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setCustomDropdown({
-                    id: area.id,
-                    type: 'status',
-                    pos: { x: rect.left, y: rect.bottom + 8 },
-                    currentValue: area.status || 'active'
-                  });
-                }}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                  area.status === 'active' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
-                  "bg-stone-500/20 text-stone-400"
-                )}
-              >
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full",
-                  area.status === 'active' ? "bg-[var(--tokyo-green)]" :
-                  "bg-stone-400"
-                )} />
-                <span>{toSentenceCase(area.status || 'active')}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Properties */}
-          {area.customProperties?.map(prop => {
-            const PropIcon = {
-              text: Text,
-              number: Hash,
-              select: Layers,
-              date: CalendarIcon
-            }[prop.type] || Text;
-
-            return (
-              <div key={prop.id} className="flex items-center h-8 rounded-xl group">
-                <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-                  <PropIcon className="w-4 h-4" />
-                  <span className="text-[13px] text-[var(--tokyo-text-faint)] font-medium">{prop.name}</span>
+            {/* Priority */}
+            <div className={propertyRowClass}>
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  <Zap className="w-4 h-4" />
+                  <span>Priority</span>
                 </div>
-                <div className="flex-1 flex items-center gap-2 hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7">
-                  <input 
-                    type={prop.type === 'number' ? 'number' : 'text'}
-                    value={prop.value}
-                    onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
-                    placeholder="Empty"
-                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none"
+              </div>
+              <div className="relative flex items-center">
+                <div 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCustomDropdown({
+                      id: area.id,
+                      type: 'priority',
+                      pos: { x: rect.left, y: rect.bottom + 8 },
+                      currentValue: area.priority || 'medium'
+                    });
+                  }}
+                  className={cn(
+                    "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
+                    getPriorityBadgeClasses(area.priority || 'medium')
+                  )}
+                >
+                  {toSentenceCase(area.priority || 'medium')}
+                </div>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className={propertyRowClass}>
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Status</span>
+                </div>
+              </div>
+              <div className="relative flex items-center gap-2">
+                <div 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCustomDropdown({
+                      id: area.id,
+                      type: 'status',
+                      pos: { x: rect.left, y: rect.bottom + 8 },
+                      currentValue: area.status || 'active'
+                    });
+                  }}
+                  className={cn(
+                    "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
+                    area.status === 'active' 
+                      ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" 
+                      : "bg-stone-500/20 text-stone-400"
+                  )}
+                >
+                  <div className={cn(
+                    "w-1.5 h-1.5 rounded-full mr-1.5",
+                    area.status === 'active' ? "bg-[var(--tokyo-green)]" : "bg-stone-400"
+                  )} />
+                  <span>{toSentenceCase(area.status || 'active')}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Properties */}
+            {area.customProperties?.map(prop => {
+              const PropIcon = {
+                text: Text,
+                number: Hash,
+                select: Layers,
+                date: CalendarIcon
+              }[prop.type] || Text;
+
+              return (
+                <div key={prop.id} className={propertyRowClass}>
+                  <div className="w-40 shrink-0 flex items-center">
+                    <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                      <PropIcon className="w-4 h-4" />
+                      <span>{prop.name}</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center gap-4">
+                    {prop.type === 'date' ? (
+                      <div 
+                        onClick={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setDatePickerConfig({
+                            id: `prop:${prop.id}`,
+                            pos: { x: rect.left, y: rect.bottom + 8 },
+                            currentDate: prop.value ? new Date(prop.value) : undefined
+                          });
+                        }}
+                        className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                      >
+                        {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all group/val">
+                        <input 
+                          type={prop.type === 'number' ? 'number' : 'text'}
+                          value={prop.value}
+                          onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
+                          placeholder="Empty"
+                          className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-sm font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
+                        />
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => handleDeleteProperty(prop.id)}
+                      className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Add new property */}
+            <div className="flex items-center h-8">
+              <button 
+                onClick={handleAddProperty}
+                className="flex items-center gap-1.5 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] text-[11px] font-semibold transition-colors cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add property</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+            <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
+              {['Projects', 'Goals', 'Comments', 'Activity'].map(tabId => (
+                <div
+                  key={tabId}
+                  onClick={() => setActiveTab(tabId)}
+                  className={cn(
+                    "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                    activeTab === tabId
+                      ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
+                      : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                  )}
+                >
+                  {tabId}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 w-full pl-2.5">
+          {activeTab === 'Projects' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {areaProjects.map((project) => (
+                <div key={project.id} className="p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all cursor-pointer">
+                  <div className="flex items-center gap-3 mb-2">
+                    <FolderKanban className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+                    <span className="text-[var(--tokyo-text-strong)] font-medium">{project.name}</span>
+                  </div>
+                  <p className="text-[var(--tokyo-text-faint)] text-sm line-clamp-1">{project.description}</p>
+                </div>
+              ))}
+              {areaProjects.length === 0 && (
+                <div className="col-span-full text-center py-12 text-white/20">
+                  No projects in this area yet.
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'Goals' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {areaGoals.map((goal) => (
+                <div key={goal.id} className="p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all cursor-pointer">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Target className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+                    <span className="text-[var(--tokyo-text-strong)] font-medium">{goal.title}</span>
+                  </div>
+                  <p className="text-[var(--tokyo-text-faint)] text-sm line-clamp-1">{goal.description}</p>
+                </div>
+              ))}
+              {areaGoals.length === 0 && (
+                <div className="col-span-full text-center py-12 text-white/20">
+                  No goals in this area yet.
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'Comments' && (
+            <>
+              {/* Comment Input */}
+              <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
+                <div className="flex gap-2.5 mb-2.5">
+                  <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
+                  <textarea 
+                    rows={1.5}
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add your comment..." 
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
                   />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                    <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><Hash className="w-3.5 h-3.5" /></button>
+                    <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
+                  </div>
                   <button 
-                    onClick={() => handleDeleteProperty(prop.id)}
-                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all cursor-pointer"
+                    onClick={handleAddComment}
+                    className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
                   >
-                    <X className="w-4 h-4" />
+                    Comment
                   </button>
                 </div>
               </div>
-            );
-          })}
 
-          <button 
-            onClick={handleAddProperty}
-            className="text-[var(--tokyo-yellow)] text-[11px] font-semibold flex items-center gap-1 hover:text-[var(--tokyo-yellow)] transition-colors mt-2"
-          >
-            <Plus className="w-3 h-3" />
-            Add property
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-5 border-b border-[var(--tokyo-border)]">
-          {['Projects', 'Goals', 'Comments', 'Activity'].map(tabId => (
-            <div
-              key={tabId}
-              onClick={() => setActiveTab(tabId)}
-              className={cn(
-                "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tabId
-                  ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                  : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
-              )}
-            >
-              {tabId}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1 max-w-6xl mx-auto w-full px-8 pt-4 pb-8">
-        {activeTab === 'Projects' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {areaProjects.map((project) => (
-              <div key={project.id} className="p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all cursor-pointer">
-                <div className="flex items-center gap-3 mb-2">
-                  <FolderKanban className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                  <span className="text-[var(--tokyo-text-strong)] font-medium">{project.name}</span>
-                </div>
-                <p className="text-[var(--tokyo-text-faint)] text-sm line-clamp-1">{project.description}</p>
-              </div>
-            ))}
-            {areaProjects.length === 0 && (
-              <div className="col-span-full text-center py-12 text-white/20">
-                No projects in this area yet.
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'Goals' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {areaGoals.map((goal) => (
-              <div key={goal.id} className="p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-xl group hover:bg-white/[0.04] transition-all cursor-pointer">
-                <div className="flex items-center gap-3 mb-2">
-                  <Target className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                  <span className="text-[var(--tokyo-text-strong)] font-medium">{goal.title}</span>
-                </div>
-                <p className="text-[var(--tokyo-text-faint)] text-sm line-clamp-1">{goal.description}</p>
-              </div>
-            ))}
-            {areaGoals.length === 0 && (
-              <div className="col-span-full text-center py-12 text-white/20">
-                No goals in this area yet.
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'Comments' && (
-          <>
-            {/* Comment Input */}
-            <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
-              <div className="flex gap-2.5 mb-2.5">
-                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
-                <textarea 
-                  rows={1.5}
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add your comment..." 
-                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
-                  <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Hash className="w-3.5 h-3.5" /></button>
-                  <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
-                </div>
-                <button 
-                  onClick={handleAddComment}
-                  className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
-                >
-                  Comment
-                </button>
-              </div>
-            </div>
-
-            {/* Comment List */}
-            <div className="space-y-7 pb-20">
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3 group">
-                  <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
-                        <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[11px] font-medium">•</span>
-                        <span className="text-[var(--tokyo-text-faint)] text-[11px] font-medium">{comment.time}</span>
-                      </div>
-                      <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
-                      {comment.text}
-                    </p>
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
-                      {comment.reactions?.map((r, ri) => (
-                        <button key={ri} className="flex items-center gap-1 px-1.5 h-5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[10px] font-medium">
-                          <span>{r.emoji}</span>
-                          <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
+              {/* Comment List */}
+              <div className="space-y-7 pb-20">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-3 group">
+                    <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
+                          <span className="text-white/20 text-xs">•</span>
+                          <span className="text-[var(--tokyo-text-faint)] text-[11px]">{comment.time}</span>
+                        </div>
+                        <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
                         </button>
-                      ))}
-                      <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                      </div>
+                      <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
+                        {comment.text}
+                      </p>
+                      <div className="flex items-center gap-2.5 pt-1">
+                        <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                        {comment.reactions?.map((r, ri) => (
+                          <button key={ri} className="flex items-center gap-1 px-1.5 h-5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[10px] font-medium">
+                            <span>{r.emoji}</span>
+                            <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
+                          </button>
+                        ))}
+                        <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                      </div>
                     </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {activeTab === 'Activity' && (
+            <div className="space-y-5">
+              {[
+                { user: 'Abdola Munir', action: 'created this area', value: '', time: '3h ago' },
+              ].map((activity, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <img src={activity.user === 'Abdola Munir' ? (user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff") : "https://i.pravatar.cc/150?u=abdolamunir"} className="w-7 h-7 rounded-full" alt="avatar" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.user}</span>
+                    <span className="text-[var(--tokyo-text-faint)]">{activity.action}</span>
+                    {activity.value && <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.value}</span>}
+                    <span className="text-white/20">•</span>
+                    <span className="text-[var(--tokyo-text-faint)]">{activity.time}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </>
-        )}
-
-        {activeTab === 'Activity' && (
-          <div className="space-y-5">
-            <div className="flex items-center gap-3 text-[13px] text-[var(--tokyo-text-faint)]">
-              <Activity className="w-3.5 h-3.5" />
-              <span>No recent activity</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Property Picker Popover */}
+      {/* Popovers live outside tab content */}
       <AnimatePresence>
-        {isPropertyPickerOpen && propertyPickerPos && (
+        {customDropdown && (
           <>
-            <div className="fixed inset-0 z-[110]" onClick={() => setIsPropertyPickerOpen(false)} />
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setCustomDropdown(null)}
+            />
             <motion.div 
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl p-2 w-64"
-              style={{ top: propertyPickerPos.y, left: propertyPickerPos.x }}
+              className="property-popover fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              style={{ 
+                top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
+                left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
+              }}
             >
-              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">Basic properties</div>
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Select {toSentenceCase(customDropdown.type)}
+              </div>
+              <div className="space-y-0.5">
+                {(customDropdown.type === 'status' ? statuses : priorities).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      if (customDropdown.type === 'status') {
+                        handleUpdate({ status: option });
+                      } else {
+                        handleUpdate({ priority: option as any });
+                      }
+                      setCustomDropdown(null);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                      customDropdown.currentValue === option
+                        ? "bg-[var(--tokyo-yellow-dim)] text-white"
+                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
+                    )}
+                  >
+                    <span>{toSentenceCase(option)}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {datePickerConfig && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setDatePickerConfig(null)}
+            />
+            <div 
+              className="fixed z-[120]"
+              style={{ 
+                top: Math.min(datePickerConfig.pos.y, window.innerHeight - 450), 
+                left: Math.min(datePickerConfig.pos.x, window.innerWidth - 300) 
+              }}
+            >
+              <DatePicker 
+                selectedDate={datePickerConfig.currentDate}
+                initialConfig={datePickerConfig.config}
+                onSelect={(date) => {
+                  if (datePickerConfig.id.startsWith('prop:')) {
+                    const propId = datePickerConfig.id.replace('prop:', '');
+                    handleUpdate({
+                      customProperties: area.customProperties?.map(p => (
+                        p.id === propId ? { ...p, value: date.toISOString() } : p
+                      ))
+                    });
+                  }
+                  setDatePickerConfig(null);
+                }}
+                onClose={() => setDatePickerConfig(null)}
+              />
+            </div>
+          </>
+        )}
+
+        {isPropertyPickerOpen && propertyPickerPos && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setIsPropertyPickerOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
+              style={{ 
+                top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
+                left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
+              }}
+            >
+              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Basic properties
+              </div>
               <div className="space-y-0.5">
                 {[
                   { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
@@ -944,9 +767,9 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
                   <button
                     key={type.id}
                     onClick={() => confirmAddProperty(type.id as any)}
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white">
+                    <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
                       <type.icon className="w-4 h-4" />
                     </div>
                     <div>
@@ -957,6 +780,35 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
                 ))}
               </div>
             </motion.div>
+          </>
+        )}
+
+        {iconPickerId && iconPickerPos && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => {
+                setIconPickerId(null);
+              }}
+            />
+            <div 
+              className="fixed z-[120]"
+              style={{ 
+                top: Math.min(iconPickerPos.y, window.innerHeight - 350), 
+                left: Math.min(iconPickerPos.x, window.innerWidth - 280) 
+              }}
+            >
+              <IconPicker 
+                currentIcon={area.icon || 'Layers'}
+                onSelect={(iconName) => {
+                  handleUpdate({ icon: iconName });
+                  setIconPickerId(null);
+                }}
+                onClose={() => {
+                  setIconPickerId(null);
+                }}
+              />
+            </div>
           </>
         )}
       </AnimatePresence>
