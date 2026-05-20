@@ -26,6 +26,7 @@ import {
 } from 'date-fns';
 import { TaskModal } from '../components/TaskModal';
 import { Task } from '../types';
+import { WorkspaceHeader } from '../components/ui/DatabaseSurface';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -36,6 +37,7 @@ export function Upcoming() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const calendarSurfaceStyle = { backgroundColor: 'var(--tokyo-bg)' } as const;
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -83,15 +85,15 @@ export function Upcoming() {
     const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
 
     return (
-      <div className="flex flex-col h-full bg-transparent">
-        <div className="grid grid-cols-7 border-b border-[var(--tokyo-border-strong)] bg-transparent">
+      <div className="flex flex-col h-full" style={calendarSurfaceStyle}>
+        <div className="grid grid-cols-7 border-b border-[var(--tokyo-border-strong)]" style={calendarSurfaceStyle}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <div key={d} className="py-3 text-center text-xs font-semibold text-[var(--tokyo-text-muted)] tracking-wider">
               {d}
             </div>
           ))}
         </div>
-        <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-px bg-[var(--tokyo-hover)]">
+        <div className="flex-1 grid grid-cols-7 grid-rows-5" style={calendarSurfaceStyle}>
           {daysInMonth.map((d) => {
             const dayTasks = tasks.filter(t => t.dueDate === format(d, 'yyyy-MM-dd'));
             const isCurrentMonth = isSameMonth(d, monthStart);
@@ -101,9 +103,10 @@ export function Upcoming() {
               <div 
                 key={d.toString()} 
                 className={cn(
-                  "min-h-[120px] bg-transparent p-2 transition-colors hover:bg-[var(--tokyo-panel-2)] flex flex-col",
-                  !isCurrentMonth && "bg-transparent"
+                  "min-h-[120px] border-r border-b border-[var(--tokyo-border)] p-2 transition-colors hover:bg-[var(--tokyo-hover)] flex flex-col",
+                  !isCurrentMonth && "text-[var(--tokyo-text-faint)]"
                 )}
+                style={calendarSurfaceStyle}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className={cn(
@@ -150,14 +153,14 @@ export function Upcoming() {
     const currentTimeTop = (currentHours + currentMinutes / 60) * 80;
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-transparent">
-        <div className="flex border-b border-[var(--tokyo-border)] bg-transparent">
-          <div className="w-16 shrink-0 border-r border-[var(--tokyo-border)]" />
-          <div className="flex-1 grid grid-cols-7">
+      <div className="flex flex-col h-full overflow-hidden" style={calendarSurfaceStyle}>
+        <div className="flex border-b border-[var(--tokyo-border)]" style={calendarSurfaceStyle}>
+          <div className="w-16 shrink-0 border-r border-[var(--tokyo-border)]" style={calendarSurfaceStyle} />
+          <div className="flex-1 grid grid-cols-7" style={calendarSurfaceStyle}>
             {days.map(d => {
               const isTodayDate = isToday(d);
               return (
-                <div key={d.toString()} className="py-4 text-center border-r border-[var(--tokyo-border)] last:border-r-0 flex items-center justify-center gap-2">
+                <div key={d.toString()} className="py-4 text-center border-r border-[var(--tokyo-border)] last:border-r-0 flex items-center justify-center gap-2" style={calendarSurfaceStyle}>
                   <span className="text-sm font-medium text-[var(--tokyo-text)]">
                     {format(d, 'EEE')}
                   </span>
@@ -172,9 +175,9 @@ export function Upcoming() {
             })}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="flex min-h-[1920px]"> {/* 24 hours * 80px */}
-            <div className="flex-1 grid grid-cols-7 relative">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative" style={calendarSurfaceStyle}>
+          <div className="flex min-h-[1920px]" style={calendarSurfaceStyle}> {/* 24 hours * 80px */}
+            <div className="flex-1 grid grid-cols-7 relative" style={calendarSurfaceStyle}>
               {/* Tasks */}
               {days.map((d) => {
                 const dayTasks = tasks.filter(t => t.dueDate === format(d, 'yyyy-MM-dd'));
@@ -182,7 +185,7 @@ export function Upcoming() {
                 const timedTasks = dayTasks.filter(t => t.startTime);
 
                 return (
-                  <div key={d.toString()} className="relative border-r border-transparent last:border-r-0">
+                  <div key={d.toString()} className="relative border-r border-transparent last:border-r-0" style={calendarSurfaceStyle}>
                     {/* All-day tasks container at the top */}
                     <div className="absolute top-0 left-0 right-0 p-1 space-y-1 z-10">
                       {allDayTasks.map(task => (
@@ -261,8 +264,8 @@ export function Upcoming() {
     const timedTasks = dayTasks.filter(t => t.startTime);
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-transparent">
-        <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-transparent flex items-center justify-between">
+      <div className="flex flex-col h-full overflow-hidden" style={calendarSurfaceStyle}>
+        <div className="p-4 border-b border-[var(--tokyo-border-strong)] flex items-center justify-between" style={calendarSurfaceStyle}>
           <div>
             <div className="text-2xl font-bold text-[var(--tokyo-text-strong)]">{format(currentDate, 'EEEE')}</div>
             <div className="text-[var(--tokyo-text-muted)]">{format(currentDate, 'MMMM d, yyyy')}</div>
@@ -275,7 +278,7 @@ export function Upcoming() {
         </div>
         
         {allDayTasks.length > 0 && (
-          <div className="p-4 border-b border-[var(--tokyo-border-strong)] bg-transparent space-y-2">
+          <div className="p-4 border-b border-[var(--tokyo-border-strong)] space-y-2" style={calendarSurfaceStyle}>
             <div className="text-xs font-medium text-[var(--tokyo-text-faint)] mb-2">All Day</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {allDayTasks.map(task => (
@@ -296,9 +299,9 @@ export function Upcoming() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="flex min-h-[1920px]"> {/* 24 hours * 80px */}
-            <div className="w-20 shrink-0 border-r border-[var(--tokyo-border-strong)] bg-transparent">
+        <div className="flex-1 overflow-y-auto custom-scrollbar relative" style={calendarSurfaceStyle}>
+          <div className="flex min-h-[1920px]" style={calendarSurfaceStyle}> {/* 24 hours * 80px */}
+            <div className="w-20 shrink-0 border-r border-[var(--tokyo-border-strong)]" style={calendarSurfaceStyle}>
               {hours.map(h => (
                 <div key={h} className="h-[80px] relative">
                   <span className="absolute -top-2.5 right-4 text-xs font-medium text-[var(--tokyo-text-faint)]">
@@ -307,7 +310,7 @@ export function Upcoming() {
                 </div>
               ))}
             </div>
-            <div className="flex-1 relative">
+            <div className="flex-1 relative" style={calendarSurfaceStyle}>
               {/* Grid lines */}
               <div className="absolute inset-0 pointer-events-none">
                 {hours.map(h => (
@@ -353,15 +356,13 @@ export function Upcoming() {
   };
 
   return (
-    <div className="h-full flex flex-col w-full bg-transparent text-white">
-      <header className="flex flex-col gap-4 mb-6 px-6 pt-6">
-        <h1 className="text-4xl font-bold text-white tracking-tight">Sprint 🏃🏻‍♂️</h1>
-        
-        <div className="flex items-center justify-between">
-          <div className="text-lg font-medium text-[var(--tokyo-text)]">
-            {getHeaderDateText()}
-          </div>
-
+    <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6 bg-transparent p-4 pt-7 text-white md:px-8 md:pb-8 md:pt-10">
+      <WorkspaceHeader
+        icon={<CalendarDays className="text-[var(--tokyo-pink)]" />}
+        title="Sprint"
+        description={getHeaderDateText()}
+        count={tasks.filter(task => task.dueDate).length}
+        actions={
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-[var(--tokyo-panel-2)] rounded-md border border-[var(--tokyo-border-strong)] p-0.5 mr-4">
               <button
@@ -384,28 +385,24 @@ export function Upcoming() {
               </button>
             </div>
 
-            <button onClick={prev} className="p-1.5 rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
+            <button onClick={prev} className="flex h-8 w-8 items-center justify-center rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button onClick={today} className="px-3 py-1.5 rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors text-sm font-medium">
+            <button onClick={today} className="flex h-8 items-center justify-center rounded bg-transparent border border-[var(--tokyo-border-strong)] px-3 text-[13px] font-medium text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               Today
             </button>
-            <button onClick={next} className="p-1.5 rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
+            <button onClick={next} className="flex h-8 w-8 items-center justify-center rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="flex-1 min-h-0 bg-transparent overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden" style={calendarSurfaceStyle}>
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
       </div>
-
-      <button className="fixed bottom-6 right-6 w-10 h-10 bg-[var(--tokyo-panel-2)] hover:bg-[var(--tokyo-panel-3)] border border-[var(--tokyo-border-strong)] rounded-full flex items-center justify-center text-[var(--tokyo-text-muted)] hover:text-white transition-colors shadow-lg z-50">
-        <span className="font-medium text-sm">?</span>
-      </button>
 
       <TaskModal 
         task={selectedTask} 

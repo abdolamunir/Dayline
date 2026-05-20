@@ -152,7 +152,7 @@ export interface CustomPage {
   templateVersion?: string;
   activeTab?: string;
   tabs: Array<{ id: string; label: string; icon: string }>;
-  columns: Array<{ id: string; label: string; icon: string; width: string }>;
+  columns: Array<{ id: string; label: string; icon: string; width: string; hidden?: boolean }>;
   sortConfigs?: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   items: CustomPageItem[];
   properties: Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>;

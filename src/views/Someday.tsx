@@ -2,6 +2,7 @@ import React from 'react';
 import { PackageOpenIcon as PackageOpen, CheckmarkCircle02Icon as CheckCircle2, CircleIcon as Circle } from 'hugeicons-react';
 import { useAppStore } from '../store';
 import { cn } from '../utils/cn';
+import { DatabasePanel, EmptyState, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 
 export function Someday() {
   const { tasks, updateTask } = useAppStore();
@@ -14,18 +15,15 @@ export function Someday() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-8 space-y-8">
-      <header className="flex items-center gap-3 border-b border-[var(--tokyo-border-strong)] pb-6">
-        <div className="p-2 bg-amber-500/20 rounded-lg text-amber-400">
-          <PackageOpen className="w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight">Someday</h1>
-          <p className="text-[var(--tokyo-text-muted)] mt-1">Things you want to do, eventually.</p>
-        </div>
-      </header>
+    <WorkspacePage>
+      <WorkspaceHeader
+        icon={<PackageOpen className="text-amber-400" />}
+        title="Someday"
+        description="Things you want to do, eventually."
+        count={somedayTasks.length}
+      />
 
-      <div className="bg-[var(--tokyo-sidebar)] rounded-2xl border border-[var(--tokyo-border)] overflow-hidden">
+      <DatabasePanel>
         <div className="divide-y divide-white/5">
           {somedayTasks.length > 0 ? somedayTasks.map(task => (
             <div key={task.id} className="p-4 flex items-center gap-4 hover:bg-[var(--tokyo-hover)] transition-colors group">
@@ -37,13 +35,10 @@ export function Someday() {
               </span>
             </div>
           )) : (
-            <div className="p-12 text-center text-[var(--tokyo-text-faint)]">
-              <PackageOpen className="w-12 h-12 mx-auto mb-4 opacity-20" />
-              <p>Nothing saved for someday yet.</p>
-            </div>
+            <EmptyState icon={<PackageOpen className="h-10 w-10" />} title="Nothing saved for someday yet" />
           )}
         </div>
-      </div>
-    </div>
+      </DatabasePanel>
+    </WorkspacePage>
   );
 }

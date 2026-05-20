@@ -415,3 +415,10 @@ button {
   background: rgba(240, 207, 0, 0.28);
   color: var(--tokyo-text-strong);
 }
+
+/* Hide native browser time/date picker indicator icons */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+

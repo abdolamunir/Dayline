@@ -27,7 +27,7 @@ export function WorkspaceHeader({
     <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-center gap-5">
         {icon && (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] transition-colors">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] transition-colors [&_svg]:h-7 [&_svg]:w-7">
             {icon}
           </div>
         )}

@@ -133,6 +133,14 @@ export function Areas() {
   };
 
   const selectedArea = areas.find(a => a.id === localSelectedAreaId);
+  const areaDetailProperties = [
+    { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
+    ...areas.flatMap(area => area.customProperties || []),
+  ].reduce<Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>>((properties, property) => {
+    if (properties.some(existingProperty => existingProperty.id === property.id)) return properties;
+    properties.push(property);
+    return properties;
+  }, []);
 
   if (selectedArea) {
     return (
@@ -164,9 +172,11 @@ export function Areas() {
       progress: 0,
       properties: {
         areas: `${area.projectIds.length} Projects`,
+        assigned: area.assignee || 'Unassigned',
+        ...Object.fromEntries((area.customProperties || []).map(property => [property.id, property.value])),
       },
     })),
-    properties: [],
+    properties: areaDetailProperties,
     content: '',
   };
 
@@ -191,8 +201,20 @@ export function Areas() {
         updateSidebarItem('areas', updatedPage.title, updatedPage.icon);
         replaceAreas(updatedPage.items.map(item => {
           const existingArea = areas.find(area => area.id === item.id);
+          const customProperties = updatedPage.properties
+            .filter(property => property.id !== 'assigned')
+            .map(property => {
+              const existingProperty = existingArea?.customProperties?.find(candidate => candidate.id === property.id);
+              return {
+                ...property,
+                value: item.properties[property.id] ?? existingProperty?.value ?? property.value,
+              };
+            });
+          const assignee = item.properties.assigned && item.properties.assigned !== 'Unassigned'
+            ? String(item.properties.assigned)
+            : existingArea?.assignee;
           return existingArea
-            ? { ...existingArea, name: item.title, icon: item.icon, status: item.status, priority: item.priority }
+            ? { ...existingArea, name: item.title, icon: item.icon, status: item.status, priority: item.priority, assignee, customProperties }
             : {
               id: item.id,
               name: item.title,
@@ -202,6 +224,8 @@ export function Areas() {
               projectIds: [],
               priority: item.priority,
               icon: item.icon || 'Layers',
+              assignee,
+              customProperties,
             };
         }));
       }}
@@ -211,7 +235,7 @@ export function Areas() {
   return (
     <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3">
           <div className="w-14 h-14 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-faint)]">
             <LayoutGrid className="w-7 h-7" />
           </div>
@@ -539,7 +563,7 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
   setCustomDropdown: (val: any) => void,
   setDatePickerConfig: (val: any) => void
 }) {
-  const { updateArea, deleteArea, projects, goals } = useAppStore();
+  const { updateArea, deleteArea, projects, goals, user } = useAppStore();
   const [activeTab, setActiveTab] = useState('Projects');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -593,10 +617,10 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
       setComments([
         {
           id: `c${Date.now()}`,
-          name: 'Stephen Robert',
+          name: 'Abdola Munir',
           time: 'Just now',
           text: commentText,
-          avatar: 'https://i.pravatar.cc/150?u=4'
+          avatar: user?.photoURL || 'https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff'
         },
         ...comments
       ]);
@@ -615,7 +639,7 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
           <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
             <button onClick={onBack} className="hover:text-white transition-colors">Areas</button>
             <span>/</span>
-            <span className="text-[var(--tokyo-text-muted)] capitalize whitespace-nowrap">{area.status || 'active'}</span>
+            <span className="text-[var(--tokyo-text-muted)] whitespace-nowrap">{area.name}</span>
           </div>
           <div className="flex items-center gap-4">
             <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
@@ -634,81 +658,87 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
           type="text"
           value={area.name}
           onChange={(e) => handleUpdate({ name: e.target.value })}
-          className="w-full bg-transparent text-4xl font-bold text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
+          className="w-full bg-transparent text-2xl md:text-[28px] font-semibold leading-tight text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
           placeholder="Untitled Area"
         />
         
         {/* Properties */}
         <div className="space-y-2 mb-12 max-w-2xl">
           {/* Assigned */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Users className="w-4 h-4" />
               <span>Assigned</span>
             </div>
-            <div className="flex -space-x-2">
-              {[
-                'https://i.pravatar.cc/150?u=5',
-                'https://i.pravatar.cc/150?u=4'
-              ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-              ))}
+            <div className="flex items-center hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 cursor-pointer">
+              <div className="flex -space-x-2">
+                {[
+                  'https://i.pravatar.cc/150?u=5',
+                  'https://i.pravatar.cc/150?u=4'
+                ].map((url, i) => (
+                  <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Priority */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Zap className="w-4 h-4" />
               <span>Priority</span>
             </div>
-            <div 
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setCustomDropdown({
-                  id: area.id,
-                  type: 'priority',
-                  pos: { x: rect.left, y: rect.bottom + 8 },
-                  currentValue: area.priority || 'medium'
-                });
-              }}
-              className={cn(
-                "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                getPriorityBadgeClasses(area.priority || 'medium')
-              )}
-            >
-              {toSentenceCase(area.priority || 'medium')}
+            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+              <div 
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setCustomDropdown({
+                    id: area.id,
+                    type: 'priority',
+                    pos: { x: rect.left, y: rect.bottom + 8 },
+                    currentValue: area.priority || 'medium'
+                  });
+                }}
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                  getPriorityBadgeClasses(area.priority || 'medium')
+                )}
+              >
+                {toSentenceCase(area.priority || 'medium')}
+              </div>
             </div>
           </div>
 
           {/* Status */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CheckCircle className="w-4 h-4" />
               <span>Status</span>
             </div>
-            <div 
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setCustomDropdown({
-                  id: area.id,
-                  type: 'status',
-                  pos: { x: rect.left, y: rect.bottom + 8 },
-                  currentValue: area.status || 'active'
-                });
-              }}
-              className={cn(
-                "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                area.status === 'active' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
-                "bg-stone-500/20 text-stone-400"
-              )}
-            >
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                area.status === 'active' ? "bg-[var(--tokyo-green)]" :
-                "bg-stone-400"
-              )} />
-              <span>{toSentenceCase(area.status || 'active')}</span>
+            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+              <div 
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setCustomDropdown({
+                    id: area.id,
+                    type: 'status',
+                    pos: { x: rect.left, y: rect.bottom + 8 },
+                    currentValue: area.status || 'active'
+                  });
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                  area.status === 'active' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+                  "bg-stone-500/20 text-stone-400"
+                )}
+              >
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  area.status === 'active' ? "bg-[var(--tokyo-green)]" :
+                  "bg-stone-400"
+                )} />
+                <span>{toSentenceCase(area.status || 'active')}</span>
+              </div>
             </div>
           </div>
 
@@ -722,31 +752,22 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
             }[prop.type] || Text;
 
             return (
-              <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+              <div key={prop.id} className="flex items-center h-8 rounded-xl group">
                 <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
                   <PropIcon className="w-4 h-4" />
-                  <input 
-                    type="text"
-                    value={prop.name}
-                    onChange={(e) => {
-                      handleUpdate({
-                        customProperties: area.customProperties?.map(p => p.id === prop.id ? { ...p, name: e.target.value } : p)
-                      });
-                    }}
-                    className="bg-transparent border-none p-0 focus:ring-0 w-full text-[13px] font-medium placeholder:text-white/10"
-                  />
+                  <span className="text-[13px] text-[var(--tokyo-text-faint)] font-medium">{prop.name}</span>
                 </div>
-                <div className="flex-1 flex items-center gap-4">
+                <div className="flex-1 flex items-center gap-2 hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7">
                   <input 
                     type={prop.type === 'number' ? 'number' : 'text'}
                     value={prop.value}
                     onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
                     placeholder="Empty"
-                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
+                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none"
                   />
                   <button 
                     onClick={() => handleDeleteProperty(prop.id)}
-                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all"
+                    className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-white transition-all cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -757,38 +778,34 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
 
           <button 
             onClick={handleAddProperty}
-            className="text-[var(--tokyo-yellow)] text-sm font-medium flex items-center gap-2 hover:text-[var(--tokyo-yellow)] transition-colors mt-2"
+            className="text-[var(--tokyo-yellow)] text-[11px] font-semibold flex items-center gap-1 hover:text-[var(--tokyo-yellow)] transition-colors mt-2"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3 h-3" />
             Add property
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-1">
-          {[
-            { id: 'Projects', icon: FolderKanban },
-            { id: 'Goals', icon: Target },
-            { id: 'Comments', icon: MessageSquare },
-            { id: 'Activity', icon: Activity }
-          ].map(tab => (
+        <div className="flex items-center gap-5 border-b border-[var(--tokyo-border)]">
+          {['Projects', 'Goals', 'Comments', 'Activity'].map(tabId => (
             <div
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              key={tabId}
+              onClick={() => setActiveTab(tabId)}
               className={cn(
-                "flex items-center gap-2 pl-[11px] pr-[13px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                activeTab === tabId
+                  ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
+                  : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
               )}
             >
-              <tab.icon className="w-4 h-4" />
-              {tab.id}
+              {tabId}
             </div>
           ))}
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 p-8 pt-6 space-y-8 max-w-6xl mx-auto w-full">
+      <div className="flex-1 max-w-6xl mx-auto w-full px-8 pt-4 pb-8">
         {activeTab === 'Projects' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {areaProjects.map((project) => (
@@ -828,46 +845,76 @@ function AreaDetailsPage({ area, onBack, setCustomDropdown, setDatePickerConfig 
         )}
 
         {activeTab === 'Comments' && (
-          <div className="space-y-6">
-            <div className="bg-white/[0.03] border border-[var(--tokyo-border)] rounded-2xl p-6">
-              <textarea 
-                rows={3}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Add your comment..." 
-                className="w-full bg-transparent border-none focus:ring-0 text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-base resize-none mb-4"
-              />
-              <div className="flex justify-end">
+          <>
+            {/* Comment Input */}
+            <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
+              <div className="flex gap-2.5 mb-2.5">
+                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
+                <textarea 
+                  rows={1.5}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add your comment..." 
+                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                  <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Hash className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
+                </div>
                 <button 
                   onClick={handleAddComment}
-                  className="bg-[var(--tokyo-yellow-dim)] text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-[var(--tokyo-yellow)] transition-colors"
+                  className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
                 >
                   Comment
                 </button>
               </div>
             </div>
 
-            <div className="space-y-8">
+            {/* Comment List */}
+            <div className="space-y-7 pb-20">
               {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-4">
-                  <img src={comment.avatar} className="w-10 h-10 rounded-full" alt="avatar" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[var(--tokyo-text-strong)] font-bold">{comment.name}</span>
-                      <span className="text-[var(--tokyo-text-faint)] text-xs">{comment.time}</span>
+                <div key={comment.id} className="flex gap-3 group">
+                  <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
+                        <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[11px] font-medium">•</span>
+                        <span className="text-[var(--tokyo-text-faint)] text-[11px] font-medium">{comment.time}</span>
+                      </div>
+                      <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
                     </div>
-                    <p className="text-[var(--tokyo-text)]">{comment.text}</p>
+                    <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
+                      {comment.text}
+                    </p>
+                    <div className="flex items-center gap-2.5 pt-1">
+                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                      {comment.reactions?.map((r, ri) => (
+                        <button key={ri} className="flex items-center gap-1 px-1.5 h-5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[10px] font-medium">
+                          <span>{r.emoji}</span>
+                          <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
+                        </button>
+                      ))}
+                      <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </>
         )}
 
         {activeTab === 'Activity' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 text-sm text-[var(--tokyo-text-faint)]">
-              <Activity className="w-4 h-4" />
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 text-[13px] text-[var(--tokyo-text-faint)]">
+              <Activity className="w-3.5 h-3.5" />
               <span>No recent activity</span>
             </div>
           </div>

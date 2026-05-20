@@ -244,8 +244,8 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         
         <div className="pt-2">
           <div className="dropdown relative inline-block">
-            <button className="flex items-center gap-2 text-sm text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] px-2 py-1 rounded transition-colors cursor-pointer">
-              <Plus className="w-4 h-4" /> Add a property
+            <button className="flex items-center gap-1 text-[12px] font-medium text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] px-2 py-1 rounded transition-colors cursor-pointer">
+              <Plus className="w-3 h-3" /> Add a property
             </button>
             <div className="dropdown-content absolute left-0 mt-1 w-48 bg-[var(--tokyo-panel-2)] rounded-md shadow-xl border border-[var(--tokyo-border-strong)] hidden opacity-0 z-10 py-1">
               <button onClick={() => addProperty('text')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><Type className="w-4 h-4" /> Text</button>
@@ -283,7 +283,25 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
   onBack: () => void;
   onUpdateItem: (item: CustomPageItem) => void;
 }) {
+  const { user } = useAppStore();
   const [activeTab, setActiveTab] = useState('Overview');
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState([
+    {
+      id: 1,
+      name: 'Stephen Robert',
+      avatar: 'https://i.pravatar.cc/150?u=4',
+      time: '50m ago',
+      text: 'Create a comprehensive set of UI components, ensuring consistency in style and functionality.'
+    },
+    {
+      id: 2,
+      name: 'Raheem Sterling',
+      avatar: 'https://i.pravatar.cc/150?u=2',
+      time: '25m ago',
+      text: 'I will do it ASAP.'
+    }
+  ]);
   const [customDropdown, setCustomDropdown] = useState<{
     type: 'status' | 'priority' | string;
     pos: { x: number, y: number };
@@ -312,6 +330,22 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     });
   };
 
+  const handleAddComment = () => {
+    if (!commentText.trim()) return;
+
+    setComments([
+      {
+        id: Date.now(),
+        name: 'Abdola Munir',
+        avatar: user?.photoURL || 'https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff',
+        time: 'Just now',
+        text: commentText.trim()
+      },
+      ...comments
+    ]);
+    setCommentText('');
+  };
+
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
       {/* Header */}
@@ -320,7 +354,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
             <button onClick={onBack} className="hover:text-white transition-colors">{page.title}</button>
             <span>/</span>
-            <span className="text-[var(--tokyo-text-muted)] capitalize whitespace-nowrap">{item.status}</span>
+            <span className="text-[var(--tokyo-text-muted)] whitespace-nowrap">{item.title}</span>
           </div>
           <div className="flex items-center gap-4">
             <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
@@ -339,64 +373,68 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           type="text"
           value={item.title}
           onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
-          className="w-full bg-transparent text-4xl font-bold text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
+          className="w-full bg-transparent text-2xl md:text-[28px] font-semibold leading-tight text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
           placeholder="Untitled Item"
         />
         
         {/* Properties */}
         <div className="space-y-2 mb-12 max-w-2xl">
           {/* Status */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CheckCircle className="w-4 h-4" />
               <span>Status</span>
             </div>
-            <div 
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setCustomDropdown({
-                  type: 'status',
-                  pos: { x: rect.left, y: rect.bottom + 8 },
-                  currentValue: item.status
-                });
-              }}
-              className={cn(
-                "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
-                item.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
-                item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
-                "bg-stone-500/20 text-stone-400"
-              )}
-            >
-              <span>{toSentenceCase(item.status)}</span>
+            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+              <div 
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setCustomDropdown({
+                    type: 'status',
+                    pos: { x: rect.left, y: rect.bottom + 8 },
+                    currentValue: item.status
+                  });
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-2 py-0.5 rounded-md text-[13px] font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                  item.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
+                  item.status === 'in-progress' || item.status === 'inbox' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
+                  "bg-stone-500/20 text-stone-400"
+                )}
+              >
+                <span>{toSentenceCase(item.status)}</span>
+              </div>
             </div>
           </div>
 
           {/* Priority */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Zap className="w-4 h-4" />
               <span>Priority</span>
             </div>
-            <div 
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setCustomDropdown({
-                  type: 'priority',
-                  pos: { x: rect.left, y: rect.bottom + 8 },
-                  currentValue: item.priority
-                });
-              }}
-              className={cn(
-                "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
-                getPriorityBadgeClasses(item.priority)
-              )}
-            >
-              {toSentenceCase(item.priority)}
+            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+              <div 
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setCustomDropdown({
+                    type: 'priority',
+                    pos: { x: rect.left, y: rect.bottom + 8 },
+                    currentValue: item.priority
+                  });
+                }}
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                  getPriorityBadgeClasses(item.priority)
+                )}
+              >
+                {toSentenceCase(item.priority)}
+              </div>
             </div>
           </div>
 
           {/* Date */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <CalendarIcon className="w-4 h-4" />
               <span>Date</span>
@@ -409,34 +447,36 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   currentDate: item.date ? new Date(item.date) : undefined
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+              className="hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 flex items-center text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer"
             >
               {item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'Set date...'}
             </div>
           </div>
 
           {/* Progress */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+          <div className="flex items-center h-8 rounded-xl">
             <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
               <Circle className="w-4 h-4" />
               <span>Progress</span>
             </div>
-            <div className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
-              <span className="text-[13px] font-medium">{item.progress}%</span>
+            <div className="flex items-center h-7 px-2.5 -ml-2.5 hover:bg-white/[0.03] transition-all rounded-lg">
+              <div className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
+                <span className="text-[13px] font-medium">{item.progress}%</span>
+              </div>
             </div>
           </div>
 
           {/* Custom Properties */}
           {page.properties.map(prop => (
-            <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-xl group">
+            <div key={prop.id} className="flex items-center h-8 rounded-xl group">
               <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
                 {prop.type === 'date' ? <CalendarIcon className="w-4 h-4" /> :
                  prop.type === 'number' ? <Hash className="w-4 h-4" /> :
                  prop.type === 'select' ? <List className="w-4 h-4" /> :
                  <Type className="w-4 h-4" />}
-                <span>{prop.name}</span>
+                <span className="text-[13px] text-[var(--tokyo-text-faint)] font-medium">{prop.name}</span>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 hover:bg-white/[0.03] transition-all px-2.5 -ml-2.5 rounded-lg h-7 flex items-center">
                 {prop.type === 'date' ? (
                   <div 
                     onClick={(e) => {
@@ -447,7 +487,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer w-full"
                   >
                     {item.properties[prop.id] ? format(new Date(item.properties[prop.id]), 'MMM d, yyyy') : 'Set date...'}
                   </div>
@@ -462,7 +502,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+                    className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer w-full"
                   >
                     {item.properties[prop.id] || 'Select...'}
                   </div>
@@ -472,7 +512,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                     value={item.properties[prop.id] || ''}
                     onChange={(e) => updateProperty(prop.id, e.target.value)}
                     placeholder="Empty"
-                    className="bg-transparent border-none outline-none text-[13px] font-medium w-full text-[var(--tokyo-text-strong)] placeholder:text-white/10 hover:bg-[var(--tokyo-hover)] px-2 py-0.5 rounded transition-colors"
+                    className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none"
                   />
                 )}
               </div>
@@ -481,39 +521,106 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 border-b border-[var(--tokyo-border)] pb-1">
-          {[
-            { id: 'Overview', icon: LayoutGrid },
-            { id: 'Comments', icon: MessageSquare },
-            { id: 'Activity', icon: Activity }
-          ].map(tab => (
+        <div className="flex items-center gap-5 border-b border-[var(--tokyo-border)]">
+          {['Overview', 'Comments', 'Activity'].map(tabId => (
             <div
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              key={tabId}
+              onClick={() => setActiveTab(tabId)}
               className={cn(
-                "flex items-center gap-2 pl-[11px] pr-[13px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                activeTab === tabId
+                  ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
+                  : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
               )}
             >
-              <tab.icon className="w-4 h-4" />
-              {tab.id}
+              {tabId}
             </div>
           ))}
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 p-8 pt-6 max-w-6xl mx-auto w-full">
+      <div className="flex-1 max-w-6xl mx-auto w-full px-8 pt-4 pb-8">
         {activeTab === 'Overview' && (
           <div className="space-y-8">
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Description</h3>
+              <h3 className="text-[12px] font-semibold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Description</h3>
               <textarea
                 value={item.properties.description || ''}
                 onChange={(e) => updateProperty('description', e.target.value)}
                 placeholder="Add a description..."
-                className="w-full min-h-[200px] bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/10 resize-none text-lg leading-relaxed"
+                className="w-full min-h-[200px] bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/10 resize-none text-[13px] leading-relaxed focus:outline-none focus:ring-0 focus:ring-transparent"
               />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'Comments' && (
+          <>
+            {/* Comment Input */}
+            <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
+              <div className="flex gap-2.5 mb-2.5">
+                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
+                <textarea 
+                  rows={1.5}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add your comment..." 
+                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                  <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Hashtag className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
+                </div>
+                <button 
+                  onClick={handleAddComment}
+                  className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
+                >
+                  Comment
+                </button>
+              </div>
+            </div>
+
+            {/* Comment List */}
+            <div className="space-y-7 pb-20">
+              {comments.map((comment) => (
+                <div key={comment.id} className="flex gap-3 group">
+                  <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
+                        <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[11px] font-medium">•</span>
+                        <span className="text-[var(--tokyo-text-faint)] text-[11px] font-medium">{comment.time}</span>
+                      </div>
+                      <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
+                      {comment.text}
+                    </p>
+                    <div className="flex items-center gap-2.5 pt-1">
+                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                      <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'Activity' && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 text-[13px] text-[var(--tokyo-text-faint)]">
+              <Activity className="w-3.5 h-3.5" />
+              <span>No recent activity</span>
             </div>
           </div>
         )}

@@ -65,7 +65,7 @@ const toSentenceCase = (str: string) => {
 };
 
 const GOAL_STATUS_OPTIONS = ['planning', 'active', 'completed', 'paused'];
-type GoalColumn = { id: string; label: string; icon: string; width: string };
+type GoalColumn = { id: string; label: string; icon: string; width: string; hidden?: boolean };
 type GoalIconPickerType = 'tab' | 'column' | 'main' | 'goal' | null;
 type GoalSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_GOAL_SORT: GoalSortConfig = { columnId: 'title', direction: 'asc' };
@@ -78,11 +78,13 @@ const DEFAULT_GOAL_TABS = [
 ];
 const DEFAULT_GOAL_COLUMNS: GoalColumn[] = [
   { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
   { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
   { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
   { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
   { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
   { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+  { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
 const normalizeGoalStatus = (status: string) => {
@@ -113,6 +115,7 @@ function GoalColumnHeader({
   setIconPickerPos,
   startColumnDrag,
   startColumnResize,
+  onColumnContextMenu,
 }: {
   col: GoalColumn;
   index: number;
@@ -128,6 +131,7 @@ function GoalColumnHeader({
   setIconPickerPos: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
   startColumnDrag: (event: React.PointerEvent, columnId: string) => void;
   startColumnResize: (event: React.PointerEvent, columnId: string, currentWidth?: string) => void;
+  onColumnContextMenu: (event: React.MouseEvent, columnId: string) => void;
 }) {
   const startHeaderDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('[data-column-control="true"]')) return;
@@ -139,6 +143,7 @@ function GoalColumnHeader({
       layout="position"
       transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
       style={motionStyle}
+      onContextMenu={(event) => onColumnContextMenu(event, col.id)}
       className={cn(
         "relative px-4 py-1 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
         index === 0 && "pl-[5px]"
@@ -323,6 +328,22 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [tabs, setTabs] = useState(savedGoalSettings.tabs || DEFAULT_GOAL_TABS);
 
   const [columns, setColumns] = useState<GoalColumn[]>(savedGoalSettings.columns || DEFAULT_GOAL_COLUMNS);
+  const goalDetailColumns: GoalColumn[] = [
+    { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
+    { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
+    ...goals.flatMap(goal => goal.customProperties || [])
+      .reduce<GoalColumn[]>((uniqueColumns, prop) => {
+        if (uniqueColumns.some(column => column.id === prop.id)) return uniqueColumns;
+        const icon = prop.type === 'date' ? 'CalendarIcon' : prop.type === 'number' ? 'Hash' : prop.type === 'select' ? 'Layers' : 'Text';
+        uniqueColumns.push({ id: prop.id, label: prop.name, icon, width: '180px' });
+        return uniqueColumns;
+      }, []),
+  ];
+  const allGoalColumns = [
+    ...columns,
+    ...goalDetailColumns.filter(detailColumn => !columns.some(column => column.id === detailColumn.id)),
+  ];
+  const displayGoalColumns = allGoalColumns.filter(column => !column.hidden);
 
   const [activeTab, setActiveTab] = useState<string>(savedGoalSettings.activeTab || 'active');
   const [isAddingTab, setIsAddingTab] = useState(false);
@@ -333,6 +354,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [editingColumnName, setEditingColumnName] = useState('');
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
+  const [columnContextMenu, setColumnContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState(savedGoalSettings.title || 'Goals');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -381,8 +403,8 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   }, [viewSettings.goals]);
 
   useEffect(() => {
-    latestGoalColumnsRef.current = columns;
-  }, [columns]);
+    latestGoalColumnsRef.current = displayGoalColumns;
+  }, [displayGoalColumns]);
 
   useEffect(() => {
     if (isColumnResizingRef.current) return;
@@ -433,8 +455,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             setLocalSelectedGoalId(null);
           }
         }} 
-        setCustomDropdown={setCustomDropdown}
-        setDatePickerConfig={setDatePickerConfig}
       />
     );
   }
@@ -477,6 +497,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     setTabContextMenu({ x: e.clientX, y: e.clientY, id });
   };
 
+  const handleColumnContextMenu = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setColumnContextMenu({ x: e.clientX, y: e.clientY, id });
+  };
+
   const handleGoalContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     setGoalContextMenu({ x: e.clientX, y: e.clientY, id });
@@ -517,7 +543,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     if (columnId === 'areas') return (areas.find(area => area.id === goal.areaId)?.name || '').toLowerCase();
     if (columnId === 'date') return goal.targetDate ? new Date(goal.targetDate).getTime() : Number.POSITIVE_INFINITY;
     if (columnId === 'progress') return goal.progress;
-    return '';
+    if (columnId === 'assigned') return goal.assignee || '';
+    if (columnId === 'creator') return 'Abdola Munir';
+    const customProp = goal.customProperties?.find(prop => prop.id === columnId);
+    if (customProp?.type === 'date') return customProp.value ? new Date(customProp.value).getTime() : Number.POSITIVE_INFINITY;
+    if (customProp?.type === 'number') return Number(customProp.value || 0);
+    return String(customProp?.value ?? '').toLowerCase();
   };
   const compareGoalsBySort = (firstGoal: Goal, secondGoal: Goal, sortConfig: GoalSortConfig) => {
     const firstValue = getGoalSortValue(firstGoal, sortConfig.columnId);
@@ -549,6 +580,26 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     return Number.isFinite(parsed) ? parsed : 160;
   };
 
+  const persistGoalVisibleColumns = (nextVisibleColumns: GoalColumn[]) => [
+    ...nextVisibleColumns,
+    ...allGoalColumns.filter(column => column.hidden && !nextVisibleColumns.some(nextColumn => nextColumn.id === column.id)),
+  ];
+
+  const hideGoalColumn = (columnId: string) => {
+    if (columnId === 'title') return;
+    const nextColumns = allGoalColumns.map(column => column.id === columnId ? { ...column, hidden: true } : column);
+    setColumns(nextColumns);
+    updateViewSettings('goals', { columns: nextColumns });
+    setColumnContextMenu(null);
+  };
+
+  const showGoalColumn = (columnId: string) => {
+    const nextColumns = allGoalColumns.map(column => column.id === columnId ? { ...column, hidden: false } : column);
+    setColumns(nextColumns);
+    updateViewSettings('goals', { columns: nextColumns });
+    setColumnContextMenu(null);
+  };
+
   const startColumnResize = (event: React.PointerEvent, columnId: string, currentWidth?: string) => {
     event.preventDefault();
     event.stopPropagation();
@@ -565,7 +616,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
         column.id === columnId ? { ...column, width: `${nextWidth}px` } : column
       ));
       latestGoalColumnsRef.current = nextColumns;
-      setColumns(nextColumns);
+      setColumns(persistGoalVisibleColumns(nextColumns));
     };
 
     const cleanup = () => {
@@ -574,7 +625,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       document.body.style.userSelect = '';
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', cleanup);
-      updateViewSettings('goals', { columns: latestGoalColumnsRef.current });
+      updateViewSettings('goals', { columns: persistGoalVisibleColumns(latestGoalColumnsRef.current) });
     };
 
     document.body.style.cursor = 'col-resize';
@@ -695,7 +746,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       setColumnDropIndicatorX(latestIndicatorX);
       setDraggingColumnOffset(Math.round(startLeft + latestOffset - nextLeft));
       latestGoalColumnsRef.current = nextColumns;
-      setColumns(nextColumns);
+      setColumns(persistGoalVisibleColumns(nextColumns));
 
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -725,6 +776,10 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     if (columnId === 'areas') return goal.areaId;
     if (columnId === 'date') return goal.targetDate;
     if (columnId === 'progress') return goal.progress;
+    if (columnId === 'assigned') return goal.assignee;
+    if (columnId === 'creator') return 'Abdola Munir';
+    const customProp = goal.customProperties?.find(prop => prop.id === columnId);
+    if (customProp) return customProp.value;
     return undefined;
   };
 
@@ -735,6 +790,16 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     if (columnId === 'areas') return { ...goal, areaId: value || undefined };
     if (columnId === 'date') return { ...goal, targetDate: value };
     if (columnId === 'progress') return { ...goal, progress: Number(value ?? 0) };
+    if (columnId === 'assigned') return { ...goal, assignee: String(value ?? '') };
+    if (columnId === 'creator') return goal;
+    if (goal.customProperties?.some(prop => prop.id === columnId)) {
+      return {
+        ...goal,
+        customProperties: goal.customProperties.map(prop => (
+          prop.id === columnId ? { ...prop, value } : prop
+        )),
+      };
+    }
     return goal;
   };
 
@@ -838,7 +903,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   const goalFillRangeIds = getGoalFillRangeIds();
   const goalFillRangeIdSet = new Set(goalFillRangeIds);
-  const goalTableWidth = columns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+  const goalTableWidth = displayGoalColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
   const getColumnMotionStyle = (column: GoalColumn) => ({
     width: column.width,
     x: draggingColumnId === column.id ? Math.round(draggingColumnOffset) : 0,
@@ -882,7 +947,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     >
       {/* Header */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3">
           <div 
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -957,34 +1022,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-          <div className="relative">
-            <button
-              onClick={() => setIsShareMenuOpen((open) => !open)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[rgba(218,204,216,0.08)] bg-transparent px-2.5 text-[12px] font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-            >
-              <Share className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-              Share
-              <ChevronDown className={cn("h-4 w-4 text-[var(--tokyo-text-faint)] transition-transform", isShareMenuOpen && "rotate-180")} />
-            </button>
-            {isShareMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                  <button
-                    onClick={() => void handleCopyGoalsLink()}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
-                  >
-                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                    Copy page link
-                  </button>
-                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
-                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                    Invite people
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
           <button
             onClick={() => void handleCopyGoalsLink()}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
@@ -1002,12 +1039,36 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           >
             <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
           </button>
-          <button
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-            title="More"
-          >
-            <MoreHorizontal className="h-[18px] w-[18px]" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsShareMenuOpen((open) => !open)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+              title="More"
+            >
+              <MoreHorizontal className="h-[18px] w-[18px]" />
+            </button>
+            {isShareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                  <button
+                    onClick={() => {
+                      void handleCopyGoalsLink();
+                      setIsShareMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                  >
+                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Copy page link
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Invite people
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -1211,13 +1272,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           <div ref={goalTableRef} className="relative min-h-full overflow-visible" style={{ width: `${goalTableWidth}px` }}>
           <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${goalTableWidth}px` }}>
             <colgroup>
-              {columns.map(column => (
+              {displayGoalColumns.map(column => (
                 <col key={column.id} style={{ width: column.width }} />
               ))}
             </colgroup>
             <thead>
               <tr className="text-[var(--tokyo-text-faint)] text-[12px] font-medium">
-                {columns.map((col, index) => (
+                {displayGoalColumns.map((col, index) => (
                   <GoalColumnHeader
                     key={col.id}
                     col={col}
@@ -1234,6 +1295,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     setIconPickerPos={setIconPickerPos}
                     startColumnDrag={startColumnDrag}
                     startColumnResize={startColumnResize}
+                    onColumnContextMenu={handleColumnContextMenu}
                   />
                 ))}
               </tr>
@@ -1298,7 +1360,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     setLocalSelectedGoalId(goal.id);
                   }
                 };
-                const renderGoalCell = (column: typeof columns[number]) => {
+                const renderGoalCell = (column: typeof displayGoalColumns[number]) => {
                   if (column.id === 'title') {
                     return (
                       <motion.td
@@ -1552,12 +1614,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             e.stopPropagation();
                             clearGoalCellSelection();
                           }}
-                          className="flex w-full max-w-[136px] cursor-pointer items-center gap-2"
+                          className="flex w-full cursor-pointer items-center gap-2"
                         >
-                          <span className="w-9 shrink-0 text-right text-xs font-medium text-[var(--tokyo-green)]">
+                          <span className="inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-md bg-[rgba(154,214,139,0.08)] px-1.5 text-xs font-medium text-[var(--tokyo-green)]">
                             {goal.progress}%
                           </span>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(154,214,139,0.14)]">
+                          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[rgba(154,214,139,0.14)]">
                             <div
                               className="h-full rounded-full bg-[var(--tokyo-green)] transition-[width] duration-200 ease-out"
                               style={{ width: `${Math.max(0, Math.min(100, goal.progress))}%` }}
@@ -1569,7 +1631,37 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     );
                   }
 
-                  return null;
+                  const customProp = goal.customProperties?.find(prop => prop.id === column.id);
+                  const customValue = customProp?.value;
+                  const formattedValue = customProp?.type === 'date' && customValue
+                    ? format(new Date(customValue), 'MMM d, yyyy')
+                    : customValue;
+                  const displayValue = column.id === 'assigned'
+                    ? (goal.assignee || 'Unassigned')
+                    : column.id === 'creator'
+                      ? 'Abdola Munir'
+                      : (formattedValue || 'Empty');
+
+                  return (
+                    <motion.td
+                      key={column.id}
+                      layout="position"
+                      transition={goalCellTransition}
+                      data-goal-cell-id={goal.id}
+                      data-goal-cell-column-id={column.id}
+                      style={getColumnMotionStyle(column)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectGoalCell(column.id);
+                      }}
+                      className={goalCellClasses(column.id, "px-4 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
+                    >
+                      <span className="text-[var(--tokyo-text-faint)] text-sm">
+                        {String(displayValue)}
+                      </span>
+                      {goalFillHandle(column.id)}
+                    </motion.td>
+                  );
                 };
                 return (
                   <GoalReorderRow
@@ -1615,13 +1707,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     }}
                     onContextMenu={(e) => handleGoalContextMenu(e, goal.id)}
                   >
-                    {columns.map(column => renderGoalCell(column))}
+                    {displayGoalColumns.map(column => renderGoalCell(column))}
                   </GoalReorderRow>
                 );
               })}
               {/* New page row */}
               <tr className="group">
-                {columns.map(column => (
+                {displayGoalColumns.map(column => (
                   column.id === 'title' ? (
                     <motion.td
                       key={column.id}
@@ -1666,6 +1758,53 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
       {/* Sort Popover */}
       <AnimatePresence>
+        {columnContextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[130]"
+              onClick={() => setColumnContextMenu(null)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setColumnContextMenu(null);
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -4 }}
+              className="fixed z-[140] w-52 rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-1.5 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(columnContextMenu.y, window.innerHeight - 90),
+                left: Math.min(columnContextMenu.x, window.innerWidth - 190),
+              }}
+            >
+              <button
+                type="button"
+                disabled={columnContextMenu.id === 'title'}
+                onClick={() => hideGoalColumn(columnContextMenu.id)}
+                className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Hide column
+              </button>
+              {allGoalColumns.some(column => column.hidden) && (
+                <div className="mt-1 border-t border-[var(--tokyo-border)] pt-1">
+                  <div className="px-2.5 py-1 text-[11px] font-medium text-[var(--tokyo-text-faint)]">Hidden columns</div>
+                  {allGoalColumns.filter(column => column.hidden).map(column => (
+                    <button
+                      key={column.id}
+                      type="button"
+                      onClick={() => showGoalColumn(column.id)}
+                      className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+                    >
+                      Show {column.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+
         {sortPopoverPos && (
           <>
             <div
@@ -1714,7 +1853,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 <div className="space-y-1">
                   {sortConfigs.length > 0 ? (
                     sortConfigs.map((sortConfig, index) => {
-                      const sortColumn = columns.find(column => column.id === sortConfig.columnId) || columns[0];
+                      const sortColumn = displayGoalColumns.find(column => column.id === sortConfig.columnId) || displayGoalColumns[0];
 
                       return (
                         <div key={`${sortConfig.columnId}-${index}`} className="flex items-center gap-2 rounded-md bg-black/10 px-2 py-1.5 text-[var(--tokyo-text-muted)]">
@@ -1736,7 +1875,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                             </button>
                             {sortPickerOpen === `current-column-${index}` && (
                               <div data-sort-picker="true" className="absolute left-0 right-0 top-full z-[150] mt-1 max-h-48 overflow-auto rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-1 shadow-2xl">
-                                {columns.map(column => (
+                                {displayGoalColumns.map(column => (
                                   <button
                                     key={column.id}
                                     type="button"
@@ -1815,7 +1954,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   onClick={() => {
                     setSortConfigs(currentSorts => [
                       ...currentSorts,
-                      { columnId: columns[0]?.id || 'title', direction: 'asc' },
+                      { columnId: displayGoalColumns[0]?.id || 'title', direction: 'asc' },
                     ]);
                     setSortPickerOpen(null);
                   }}
@@ -1870,14 +2009,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         setCustomDropdown(null);
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                        "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
                         normalizeGoalStatus(customDropdown.currentValue) === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
                       <span>{toSentenceCase(option)}</span>
-                      {normalizeGoalStatus(customDropdown.currentValue) === option && (
-                        <span className="text-[11px] text-current">✓</span>
-                      )}
                     </button>
                   ))
                 ) : customDropdown.type === 'priority' ? (
@@ -1890,7 +2026,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         setCustomDropdown(null);
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                        "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
                         customDropdown.currentValue === option ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
@@ -1906,7 +2042,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                         setCustomDropdown(null);
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                        "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
                         !customDropdown.currentValue ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                       )}
                     >
@@ -1921,7 +2057,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                           setCustomDropdown(null);
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                          "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
                           customDropdown.currentValue === area.id ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
                         )}
                       >
@@ -1961,7 +2097,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     ? (sidebarItems.find(i => i.id === iconPickerId)?.icon || 'Target')
                     : iconPickerType === 'goal'
                       ? (goals.find(g => g.id === iconPickerId)?.icon || 'Target')
-                      : (columns.find(c => c.id === iconPickerId)?.icon || 'Target')
+                      : (displayGoalColumns.find(c => c.id === iconPickerId)?.icon || 'Target')
               }
               onSelect={(iconName) => {
                 if (iconPickerType === 'tab') {
@@ -1977,7 +2113,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     updateGoal({ ...goal, icon: iconName });
                   }
                 } else {
-                  setColumns(columns.map(c => c.id === iconPickerId ? { ...c, icon: iconName } : c));
+                  const existingColumn = displayGoalColumns.find(c => c.id === iconPickerId);
+                  setColumns(columns.some(c => c.id === iconPickerId)
+                    ? columns.map(c => c.id === iconPickerId ? { ...c, icon: iconName } : c)
+                    : existingColumn
+                      ? [...columns, { ...existingColumn, icon: iconName }]
+                      : columns
+                  );
                 }
                 setIconPickerId(null);
                 setIconPickerType(null);
@@ -2175,21 +2317,35 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   );
 }
 
-function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig }: { 
+function GoalDetailsPage({ goal, onBack }: { 
   goal: Goal, 
-  onBack: () => void,
-  setCustomDropdown: (val: any) => void,
-  setDatePickerConfig: (val: any) => void
+  onBack: () => void
 }) {
-  const { updateGoal, deleteGoal, tasks, addTask, updateTask } = useAppStore();
+  const { updateGoal, deleteGoal, tasks, addTask, updateTask, user } = useAppStore();
   const [activeTab, setActiveTab] = useState('Todo list');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [customDropdown, setCustomDropdown] = useState<{
+    id: string;
+    type: 'status' | 'priority';
+    pos: { x: number, y: number };
+    currentValue: string;
+  } | null>(null);
+  const [datePickerConfig, setDatePickerConfig] = useState<{ 
+    id: string;
+    pos: { x: number, y: number };
+    currentDate?: Date;
+    config?: DateConfig;
+  } | null>(null);
+  const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [comments, setComments] = useState([
-    { id: '1', name: 'Raheem Sterling', time: '25m ago', text: '@stephenrobert I will do it ASAP.', avatar: 'https://i.pravatar.cc/150?u=5' },
-    { id: '2', name: 'Stephen Robert', time: '50m ago', text: '@raheemsterling @alensheerer Create a comprehensive set of UI components, ensuring consistency in style and functionality.', avatar: 'https://i.pravatar.cc/150?u=4', reactions: [{ emoji: '👍', count: 1 }] },
-    { id: '3', name: 'Stephen Robert', time: '1h 20m ago', text: 'Specify typography rules and font choices to maintain a unified and professional appearance.', avatar: 'https://i.pravatar.cc/150?u=4', reactions: [{ emoji: '👍', count: 1 }] }
+    { id: '1', name: 'Raheem Sterling', time: '25m ago', text: '@abdolamunir I will do it ASAP.', avatar: 'https://i.pravatar.cc/150?u=5' },
+    { id: '2', name: 'Abdola Munir', time: '50m ago', text: '@raheemsterling @alensheerer Create a comprehensive set of UI components, ensuring consistency in style and functionality.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: '👍', count: 1 }] },
+    { id: '3', name: 'Abdola Munir', time: '1h 20m ago', text: 'Specify typography rules and font choices to maintain a unified and professional appearance.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: '👍', count: 1 }] }
   ]);
   
   const priorities = ['low', 'medium', 'high'];
@@ -2240,10 +2396,10 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
       setComments([
         {
           id: `c${Date.now()}`,
-          name: 'Stephen Robert',
+          name: 'Abdola Munir',
           time: 'Just now',
           text: commentText,
-          avatar: 'https://i.pravatar.cc/150?u=4'
+          avatar: user?.photoURL || 'https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff'
         },
         ...comments
       ]);
@@ -2252,6 +2408,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
   };
 
   const goalTasks = tasks.filter(t => t.goalId === goal.id);
+  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
 
   const handleAddTask = () => {
     const id = `t${Date.now()}`;
@@ -2265,44 +2422,96 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
     });
   };
 
+  const handleCopyGoalLink = async () => {
+    const href = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}#goal-details:${goal.id}`
+      : '';
+    if (href && navigator.clipboard) {
+      await navigator.clipboard.writeText(href);
+    }
+    setIsShareMenuOpen(false);
+  };
+
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      {/* Header */}
-      <div className="p-8 pb-4 flex-shrink-0 max-w-6xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-[var(--tokyo-text-faint)] text-sm">
-            <button onClick={onBack} className="hover:text-white transition-colors">Goals</button>
-            <span>/</span>
-            <span className="text-[var(--tokyo-text-muted)] capitalize whitespace-nowrap">{goal.status}</span>
+      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+        {/* Header */}
+        <div className="flex-shrink-0 w-full">
+        <div className="mb-5 flex items-center gap-3">
+            <div 
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setIconPickerId(goal.id);
+                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
+            >
+              {React.createElement(iconMap[goal.icon || 'Target'] || Target, { className: "w-6 h-6" })}
+            </div>
+          <div className="min-w-0 flex-1">
+            <input 
+              type="text"
+              value={goal.title}
+              onChange={(e) => handleUpdate({ title: e.target.value })}
+              className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+              placeholder="Untitled Goal"
+            />
           </div>
-          <div className="flex items-center gap-4">
-            <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors">
-              <MoreHorizontal className="w-5 h-5" />
+          <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+            <button
+              onClick={() => setIsFavorite((favorite) => !favorite)}
+              className={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+              )}
+              title="Favorite"
+            >
+              <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+            </button>
+            <button
+              onClick={() => setIsShareMenuOpen((open) => !open)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+              title="More"
+            >
+              <MoreHorizontal className="h-[18px] w-[18px]" />
             </button>
             <button 
               onClick={onBack}
-              className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+              title="Close"
             >
-              <X className="w-5 h-5" />
+              <X className="h-[18px] w-[18px]" />
             </button>
+            {isShareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                  <button
+                    onClick={() => void handleCopyGoalLink()}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                  >
+                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Copy page link
+                  </button>
+                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Invite people
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-
-        <input 
-          type="text"
-          value={goal.title}
-          onChange={(e) => handleUpdate({ title: e.target.value })}
-          className="w-full bg-transparent text-4xl font-bold text-[var(--tokyo-text-strong)] mb-8 tracking-tight outline-none placeholder:text-white/10"
-          placeholder="Untitled Goal"
-        />
         
         {/* Properties - Vertical List */}
-        <div className="space-y-2 mb-12 max-w-2xl">
+        <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
           {/* Assigned */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Users className="w-4 h-4" />
-              <span>Assigned</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Users className="w-4 h-4" />
+                <span>Assigned</span>
+              </div>
             </div>
             <div className="flex -space-x-2">
               {[
@@ -2316,10 +2525,12 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Due date */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CalendarIcon className="w-4 h-4" />
-              <span>Due date</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <CalendarIcon className="w-4 h-4" />
+                <span>Due date</span>
+              </div>
             </div>
             <div 
               onClick={(e) => {
@@ -2336,17 +2547,19 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   }
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors"
+              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
             >
               {goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'Set date...'}
             </div>
           </div>
 
           {/* Priority */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <Zap className="w-4 h-4" />
-              <span>Priority</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Zap className="w-4 h-4" />
+                <span>Priority</span>
+              </div>
             </div>
             <div className="relative flex items-center">
               <div 
@@ -2360,7 +2573,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   });
                 }}
                 className={cn(
-                  "px-2 py-0.5 rounded-md text-[13px] font-medium cursor-pointer hover:opacity-80 transition-opacity",
+                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
                   getPriorityBadgeClasses(goal.priority)
                 )}
               >
@@ -2370,10 +2583,12 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Status */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <CheckCircle className="w-4 h-4" />
-              <span>Status</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <CheckCircle className="w-4 h-4" />
+                <span>Status</span>
+              </div>
             </div>
             <div className="relative flex items-center gap-2">
               <div 
@@ -2387,7 +2602,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   });
                 }}
                 className={cn(
-                  "flex items-center px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity",
+                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
                   getGoalStatusClasses(goal.status)
                 )}
               >
@@ -2397,14 +2612,16 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </div>
 
           {/* Creator */}
-          <div className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
-            <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-              <User className="w-4 h-4" />
-              <span>Creator</span>
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <User className="w-4 h-4" />
+                <span>Creator</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <img src="https://i.pravatar.cc/150?u=4" className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-              <span className="text-[var(--tokyo-text)] text-[13px] font-medium">Stephen Robert</span>
+              <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
+              <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
             </div>
           </div>
 
@@ -2418,19 +2635,12 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
             }[prop.type] || Text;
 
             return (
-              <div key={prop.id} className="flex items-center h-8 hover:bg-white/[0.03] transition-colors rounded-lg group">
-                <div className="flex items-center gap-3 w-40 shrink-0 text-[var(--tokyo-text-faint)] text-[13px] font-medium">
-                  <PropIcon className="w-4 h-4" />
-                  <input 
-                    type="text"
-                    value={prop.name}
-                    onChange={(e) => {
-                      handleUpdate({
-                        customProperties: goal.customProperties?.map(p => p.id === prop.id ? { ...p, name: e.target.value } : p)
-                      });
-                    }}
-                    className="bg-transparent border-none p-0 focus:ring-0 w-full text-[13px] font-medium placeholder:text-white/10"
-                  />
+              <div key={prop.id} className={propertyRowClass}>
+                <div className="w-40 shrink-0 flex items-center">
+                  <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                    <PropIcon className="w-4 h-4" />
+                    <span>{prop.name}</span>
+                  </div>
                 </div>
                 <div className="flex-1 flex items-center gap-4">
                   {prop.type === 'date' ? (
@@ -2443,18 +2653,20 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-[var(--tokyo-text-strong)] text-[13px] font-medium cursor-pointer hover:text-white transition-colors flex-1"
+                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>
                   ) : (
-                    <input 
-                      type={prop.type === 'number' ? 'number' : 'text'}
-                      value={prop.value}
-                      onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
-                      placeholder="Empty"
-                      className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-[13px] font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
-                    />
+                    <div className="flex-1 flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all group/val">
+                      <input 
+                        type={prop.type === 'number' ? 'number' : 'text'}
+                        value={prop.value}
+                        onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
+                        placeholder="Empty"
+                        className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-sm font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
+                      />
+                    </div>
                   )}
                   <button 
                     onClick={() => handleDeleteProperty(prop.id)}
@@ -2471,54 +2683,55 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           <div className="flex items-center h-8">
             <button 
               onClick={handleAddProperty}
-              className="text-[var(--tokyo-yellow)] text-sm font-medium flex items-center gap-2 hover:text-[var(--tokyo-yellow)] transition-colors"
+              className="flex items-center gap-1.5 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] text-[11px] font-semibold transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Add property
+              <Plus className="w-3 h-3" />
+              <span>Add property</span>
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)] pb-1">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-            {[
-              { id: 'Todo list', icon: List },
-              { id: 'Comments', icon: MessageSquare },
-              { id: 'Activity', icon: Activity }
-            ].map(tab => (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
+            {['Todo list', 'Comments', 'Activity'].map(tabId => (
               <div
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                key={tabId}
+                onClick={() => setActiveTab(tabId)}
                 className={cn(
-                  "flex items-center gap-2 pl-[11px] pr-[13px] py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                  activeTab === tab.id ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
+                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  activeTab === tabId
+                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
+                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
                 )}
               >
-                <div className="p-0.5">
-                  <tab.icon className="w-4 h-4" />
-                </div>
-                {tab.id}
+                {tabId}
               </div>
             ))}
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Content Area */}
-      <div className="flex-1 p-8 pt-6 space-y-8 max-w-6xl mx-auto w-full">
+        {/* Content Area */}
+        <div className="flex-1 w-full pl-2.5">
         {activeTab === 'Todo list' && (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {goalTasks.map((task) => (
-              <div key={task.id} className="flex items-center gap-4 p-4 bg-white/[0.02] border border-[var(--tokyo-border)] rounded-lg group hover:bg-white/[0.04] transition-all">
+              <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
                 <button 
                   onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
                   className={cn(
-                    "w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all",
-                    task.status === 'done' ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]" : "border-[var(--tokyo-border-strong)] group-hover:border-white/20"
+                    "w-[18px] h-[18px] shrink-0 rounded-[4px] border-[2px] flex items-center justify-center transition-all cursor-pointer",
+                    task.status === 'done' 
+                      ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]" 
+                      : "border-[var(--tokyo-yellow)] bg-transparent hover:bg-[var(--tokyo-yellow)]/10"
                   )}
                 >
-                  {task.status === 'done' && <CheckCircle className="w-4 h-4 text-white" />}
+                  {task.status === 'done' && (
+                    <svg className="w-3 h-3 text-[var(--tokyo-bg)] stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
                 </button>
                 <input 
                   type="text"
@@ -2526,7 +2739,7 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
                   onChange={(e) => updateTask({ ...task, title: e.target.value })}
                   placeholder="Task description..."
                   className={cn(
-                    "bg-transparent border-none outline-none flex-1 text-base transition-all placeholder:text-white/10",
+                    "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10",
                     task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
                   )}
                 />
@@ -2534,9 +2747,9 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
             ))}
             <button 
               onClick={handleAddTask}
-              className="flex items-center gap-3 p-4 text-[var(--tokyo-yellow)] hover:text-[var(--tokyo-yellow)] transition-colors"
+              className="flex items-center gap-2 px-1 py-2 text-sm text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-yellow)] transition-colors"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-3.5 h-3.5" />
               <span className="font-medium">Add new task</span>
             </button>
           </div>
@@ -2545,28 +2758,28 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
         {activeTab === 'Comments' && (
           <>
             {/* Comment Input */}
-            <div className="bg-white/[0.03] border border-[var(--tokyo-border)] rounded-lg p-6">
-              <div className="flex gap-4 mb-6">
-                <img src="https://i.pravatar.cc/150?u=4" className="w-10 h-10 rounded-full" alt="me" />
+            <div className="bg-white/[0.025] border border-[var(--tokyo-border)] rounded-lg p-3 mb-8">
+              <div className="flex gap-2.5 mb-2.5">
+                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full" alt="me" />
                 <textarea 
-                  rows={3}
+                  rows={1.5}
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Add your comment..." 
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-base resize-none"
+                  className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-sm resize-none py-0.5 shadow-none"
                 />
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-6 text-[var(--tokyo-text-faint)]">
-                  <button className="hover:text-white transition-colors"><Smile className="w-5 h-5" /></button>
-                  <button className="hover:text-white transition-colors"><AtSign className="w-5 h-5" /></button>
-                  <button className="hover:text-white transition-colors"><Link className="w-5 h-5" /></button>
-                  <button className="hover:text-white transition-colors"><Hash className="w-5 h-5" /></button>
-                  <button className="hover:text-white transition-colors"><Attachment className="w-5 h-5" /></button>
+                <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                  <button className="hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><AtSign className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Link className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Hash className="w-3.5 h-3.5" /></button>
+                  <button className="hover:text-white transition-colors"><Attachment className="w-3.5 h-3.5" /></button>
                 </div>
                 <button 
                   onClick={handleAddComment}
-                  className="bg-[var(--tokyo-yellow-dim)] text-white px-8 py-2.5 rounded-lg text-sm font-bold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
+                  className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20"
                 >
                   Comment
                 </button>
@@ -2574,33 +2787,33 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
             </div>
 
             {/* Comment List */}
-            <div className="space-y-10 pb-20">
+            <div className="space-y-7 pb-20">
               {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-5 group">
-                  <img src={comment.avatar} className="w-11 h-11 rounded-full" alt="avatar" />
+                <div key={comment.id} className="flex gap-3 group">
+                  <img src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} className="w-8 h-8 rounded-full" alt="avatar" />
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-[var(--tokyo-text-strong)] font-bold text-base">{comment.name}</span>
+                        <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
                         <span className="text-white/20 text-xs">•</span>
-                        <span className="text-[var(--tokyo-text-faint)] text-sm">{comment.time}</span>
+                        <span className="text-[var(--tokyo-text-faint)] text-[11px]">{comment.time}</span>
                       </div>
                       <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors">
-                        <MoreHorizontal className="w-5 h-5" />
+                        <MoreHorizontal className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="text-[var(--tokyo-text)] text-lg leading-relaxed">
+                    <p className="text-[var(--tokyo-text)] text-sm leading-relaxed">
                       {comment.text}
                     </p>
-                    <div className="flex items-center gap-6 pt-2">
-                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-5 h-5" /></button>
+                    <div className="flex items-center gap-2.5 pt-1">
+                      <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors"><Smile className="w-3.5 h-3.5" /></button>
                       {comment.reactions?.map((r, ri) => (
-                        <button key={ri} className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-sm">
+                        <button key={ri} className="flex items-center gap-1 px-1.5 h-5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[10px] font-medium">
                           <span>{r.emoji}</span>
                           <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
                         </button>
                       ))}
-                      <button className="text-[var(--tokyo-text-muted)] text-sm font-bold hover:text-white transition-colors">Reply</button>
+                      <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors">Reply</button>
                     </div>
                   </div>
                 </div>
@@ -2609,63 +2822,15 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
           </>
         )}
 
-        {/* Property Picker Popover */}
-        <AnimatePresence>
-          {isPropertyPickerOpen && propertyPickerPos && (
-            <>
-              <div 
-                className="fixed inset-0 z-[110]" 
-                onClick={() => setIsPropertyPickerOpen(false)}
-              />
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
-                style={{ 
-                  top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
-                  left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
-                }}
-              >
-                <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
-                  Basic properties
-                </div>
-                <div className="space-y-0.5">
-                  {[
-                    { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
-                    { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
-                    { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
-                    { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
-                  ].map((type) => (
-                    <button
-                      key={type.id}
-                      onClick={() => confirmAddProperty(type.id as any)}
-                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
-                        <type.icon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
-                        <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
         {activeTab === 'Activity' && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {[
-              { user: 'Stephen Robert', action: 'changed status to', value: 'In progress', time: '2h ago' },
-              { user: 'Stephen Robert', action: 'set priority to', value: 'High', time: '2h ago' },
-              { user: 'Stephen Robert', action: 'created this goal', value: '', time: '3h ago' },
+              { user: 'Abdola Munir', action: 'changed status to', value: 'In progress', time: '2h ago' },
+              { user: 'Abdola Munir', action: 'set priority to', value: 'High', time: '2h ago' },
+              { user: 'Abdola Munir', action: 'created this goal', value: '', time: '3h ago' },
             ].map((activity, i) => (
-              <div key={i} className="flex items-center gap-4 text-sm">
-                <img src="https://i.pravatar.cc/150?u=4" className="w-8 h-8 rounded-full" alt="avatar" />
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <img src={activity.user === 'Abdola Munir' ? (user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff") : "https://i.pravatar.cc/150?u=abdolamunir"} className="w-7 h-7 rounded-full" alt="avatar" />
                 <div className="flex items-center gap-2">
                   <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.user}</span>
                   <span className="text-[var(--tokyo-text-faint)]">{activity.action}</span>
@@ -2677,7 +2842,174 @@ function GoalDetailsPage({ goal, onBack, setCustomDropdown, setDatePickerConfig 
             ))}
           </div>
         )}
+        </div>
       </div>
+
+      {/* Popovers live outside tab content so switching tabs never changes page layout. */}
+      <AnimatePresence>
+        {customDropdown && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setCustomDropdown(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="property-popover fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
+              style={{ 
+                top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
+                left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
+              }}
+            >
+              <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Select {toSentenceCase(customDropdown.type)}
+              </div>
+              <div className="space-y-0.5">
+                {(customDropdown.type === 'status' ? statuses : priorities).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      if (customDropdown.type === 'status') {
+                        handleUpdate({ status: option });
+                      } else {
+                        handleUpdate({ priority: option as any });
+                      }
+                      setCustomDropdown(null);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md transition-colors text-left group",
+                      (customDropdown.type === 'status'
+                        ? normalizeGoalStatus(customDropdown.currentValue) === option
+                        : customDropdown.currentValue === option)
+                        ? "bg-[var(--tokyo-yellow-dim)] text-white"
+                        : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-white"
+                    )}
+                  >
+                    <span>{toSentenceCase(option)}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {datePickerConfig && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setDatePickerConfig(null)}
+            />
+            <div 
+              className="fixed z-[120]"
+              style={{ 
+                top: Math.min(datePickerConfig.pos.y, window.innerHeight - 450), 
+                left: Math.min(datePickerConfig.pos.x, window.innerWidth - 300) 
+              }}
+            >
+              <DatePicker 
+                selectedDate={datePickerConfig.currentDate}
+                initialConfig={datePickerConfig.config}
+                onSelect={(date, config) => {
+                  if (datePickerConfig.id.startsWith('prop:')) {
+                    const propId = datePickerConfig.id.replace('prop:', '');
+                    handleUpdate({
+                      customProperties: goal.customProperties?.map(p => (
+                        p.id === propId ? { ...p, value: date.toISOString() } : p
+                      ))
+                    });
+                  } else {
+                    handleUpdate({
+                      targetDate: date.toISOString(),
+                      targetTime: config?.time,
+                      reminder: config?.reminder,
+                      alert: config?.alert,
+                      repeat: config?.repeat
+                    });
+                  }
+                  setDatePickerConfig(null);
+                }}
+                onClose={() => setDatePickerConfig(null)}
+              />
+            </div>
+          </>
+        )}
+
+        {isPropertyPickerOpen && propertyPickerPos && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => setIsPropertyPickerOpen(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
+              style={{ 
+                top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
+                left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
+              }}
+            >
+              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Basic properties
+              </div>
+              <div className="space-y-0.5">
+                {[
+                  { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
+                  { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
+                  { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
+                  { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
+                ].map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => confirmAddProperty(type.id as any)}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
+                      <type.icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
+                      <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {iconPickerId && iconPickerPos && (
+          <>
+            <div 
+              className="fixed inset-0 z-[110]" 
+              onClick={() => {
+                setIconPickerId(null);
+              }}
+            />
+            <div 
+              className="fixed z-[120]"
+              style={{ 
+                top: Math.min(iconPickerPos.y, window.innerHeight - 350), 
+                left: Math.min(iconPickerPos.x, window.innerWidth - 280) 
+              }}
+            >
+              <IconPicker 
+                currentIcon={goal.icon || 'Target'}
+                onSelect={(iconName) => {
+                  handleUpdate({ icon: iconName });
+                  setIconPickerId(null);
+                }}
+                onClose={() => {
+                  setIconPickerId(null);
+                }}
+              />
+            </div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

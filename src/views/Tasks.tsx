@@ -14,6 +14,7 @@ import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
 import { Task } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PrimaryButton, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 
 interface TasksProps {
   title?: string;
@@ -53,18 +54,22 @@ export function Tasks({
     }
   };
 
+  const HeaderIcon = title === 'Logbook' ? CheckCircle2 : Circle;
+
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-[var(--tokyo-text-strong)] tracking-tight">{title}</h1>
-          <p className="text-[var(--tokyo-text-muted)] mt-1 text-sm md:text-base">{description}</p>
-        </div>
-        <button className="bg-[var(--tokyo-yellow-dim)] text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 hover:bg-white/20 transition-colors w-full sm:w-auto cursor-pointer">
+    <WorkspacePage>
+      <WorkspaceHeader
+        icon={<HeaderIcon className={title === 'Logbook' ? 'text-[var(--tokyo-green)]' : 'text-[var(--tokyo-text-faint)]'} />}
+        title={title}
+        description={description}
+        count={filteredTasks.length}
+        actions={
+          <PrimaryButton className="w-full sm:w-auto cursor-pointer">
           <Plus className="w-4 h-4" />
           New Task
-        </button>
-      </header>
+          </PrimaryButton>
+        }
+      />
 
       {!hideFilters && (
         <div className="space-y-4">
@@ -195,6 +200,6 @@ export function Tasks({
           )}
         </div>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

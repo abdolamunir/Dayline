@@ -65,6 +65,8 @@ const iconMap: Record<string, React.ElementType> = {
   File: FileIcon,
   Pencil: Pencil,
   Target: Target,
+  Hash: Hash,
+  Text: Text,
 };
 
 const toSentenceCase = (str: string) => {
@@ -103,6 +105,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
   const [tabContextMenu, setTabContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [itemContextMenu, setItemContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
+  const [columnContextMenu, setColumnContextMenu] = useState<{ x: number, y: number, id: string } | null>(null);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority';
@@ -142,7 +145,24 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const filteredItems = activeTab === 'all'
     ? page.items
     : page.items.filter(item => item.status === activeTab);
-  const displayColumns = resizingColumns || page.columns;
+  const baseColumns = resizingColumns || page.columns;
+  const pagePropertyColumns: CustomPage['columns'] = page.properties.map(property => ({
+    id: property.id,
+    label: property.name,
+    icon: property.type === 'date'
+      ? 'CalendarIcon'
+      : property.type === 'number'
+        ? 'Hash'
+        : property.type === 'select'
+          ? 'Layers'
+          : 'Text',
+    width: '180px',
+  }));
+  const allColumns: CustomPage['columns'] = [
+    ...baseColumns,
+    ...pagePropertyColumns.filter(propertyColumn => !baseColumns.some(column => column.id === propertyColumn.id)),
+  ];
+  const displayColumns = allColumns.filter(column => !column.hidden);
 
   useEffect(() => {
     latestColumnsRef.current = displayColumns;
@@ -189,6 +209,28 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
   const isColumnFillable = (columnId: string) => columnId !== 'title' && columnId !== 'progress';
 
+  const persistVisibleColumns = (nextVisibleColumns: CustomPage['columns']) => [
+    ...nextVisibleColumns,
+    ...allColumns.filter(column => column.hidden && !nextVisibleColumns.some(nextColumn => nextColumn.id === column.id)),
+  ];
+
+  const hideColumn = (columnId: string) => {
+    if (columnId === 'title') return;
+    onUpdatePage({
+      ...page,
+      columns: allColumns.map(column => column.id === columnId ? { ...column, hidden: true } : column),
+    });
+    setColumnContextMenu(null);
+  };
+
+  const showColumn = (columnId: string) => {
+    onUpdatePage({
+      ...page,
+      columns: allColumns.map(column => column.id === columnId ? { ...column, hidden: false } : column),
+    });
+    setColumnContextMenu(null);
+  };
+
   const getColumnWidthNumber = (width?: string) => {
     const parsed = Number.parseFloat(width || '');
     return Number.isFinite(parsed) ? parsed : 160;
@@ -210,14 +252,14 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
         column.id === columnId ? { ...column, width: `${nextWidth}px` } : column
       ));
       latestResizeColumnsRef.current = nextColumns;
-      setResizingColumns(nextColumns);
+      setResizingColumns(persistVisibleColumns(nextColumns));
     };
 
     const cleanup = () => {
       const finalColumns = latestResizeColumnsRef.current || initialColumns;
       setResizingColumns(null);
       latestResizeColumnsRef.current = null;
-      onUpdatePage({ ...page, columns: finalColumns });
+      onUpdatePage({ ...page, columns: persistVisibleColumns(finalColumns) });
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       window.removeEventListener('pointermove', handlePointerMove);
@@ -328,7 +370,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       setColumnDropIndicatorX(Math.round(finalTarget.indicatorX));
       setDraggingColumnOffset(Math.round(startLeft + latestOffset - nextLeft));
       latestColumnsRef.current = nextColumns;
-      onUpdatePage({ ...page, columns: nextColumns });
+      onUpdatePage({ ...page, columns: persistVisibleColumns(nextColumns) });
 
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -616,6 +658,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setSelectedCell(null);
     setActiveFillDrag(null);
     setItemContextMenu({ x: event.clientX, y: event.clientY, id });
+  };
+
+  const handleColumnContextMenu = (event: React.MouseEvent, id: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setColumnContextMenu({ x: event.clientX, y: event.clientY, id });
   };
 
   const duplicateItem = (itemId: string) => {
@@ -961,6 +1009,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     layout="position"
                     transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
                     style={getColumnMotionStyle(col)}
+                    onContextMenu={(event) => handleColumnContextMenu(event, col.id)}
                     className={cn(
                       "relative px-4 py-1 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
                       index === 0 && "pl-[5px]"
@@ -997,9 +1046,14 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           onClick={(e) => e.stopPropagation()}
                           onBlur={() => {
                             if (editingColumnName.trim()) {
+                              const existingColumn = displayColumns.find(c => c.id === col.id);
                               onUpdatePage({
                                 ...page,
-                                columns: page.columns.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c)
+                                columns: page.columns.some(c => c.id === col.id)
+                                  ? page.columns.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c)
+                                  : existingColumn
+                                    ? [...page.columns, { ...existingColumn, label: editingColumnName }]
+                                    : page.columns
                               });
                             }
                             setEditingColumnId(null);
@@ -1135,6 +1189,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                       setSelectedCell(null);
                       setActiveFillDrag(null);
                     };
+                    const propertyDefinition = page.properties.find(property => property.id === col.id);
+                    const rawPropertyValue = item.properties[col.id];
+                    const formattedPropertyValue = propertyDefinition?.type === 'date' && rawPropertyValue
+                      ? format(new Date(rawPropertyValue), 'MMM d, yyyy')
+                      : rawPropertyValue;
 
                     return (
                     <motion.td
@@ -1296,12 +1355,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             e.stopPropagation();
                             clearCellSelection();
                           }}
-                          className="flex w-full max-w-[136px] cursor-pointer items-center gap-2"
+                          className="flex w-full cursor-pointer items-center gap-2"
                         >
-                          <span className="w-9 shrink-0 text-right text-xs font-medium text-[var(--tokyo-green)]">
+                          <span className="inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-md bg-[rgba(154,214,139,0.08)] px-1.5 text-xs font-medium text-[var(--tokyo-green)]">
                             {item.progress}%
                           </span>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(154,214,139,0.14)]">
+                          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[rgba(154,214,139,0.14)]">
                             <div
                               className="h-full rounded-full bg-[var(--tokyo-green)] transition-[width] duration-200 ease-out"
                               style={{ width: `${Math.max(0, Math.min(100, item.progress))}%` }}
@@ -1316,7 +1375,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           }}
                           className="text-[var(--tokyo-text-faint)] text-sm"
                         >
-                          {item.properties[col.id] || ''}
+                          {formattedPropertyValue || ''}
                         </span>
                       )}
                       {isCellSelected && isColumnFillable(col.id) && (
@@ -1390,6 +1449,53 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
       {/* Popovers */}
       <AnimatePresence>
+        {columnContextMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-[130]"
+              onClick={() => setColumnContextMenu(null)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setColumnContextMenu(null);
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -4 }}
+              className="fixed z-[140] w-52 rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-1.5 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(columnContextMenu.y, window.innerHeight - 90),
+                left: Math.min(columnContextMenu.x, window.innerWidth - 190),
+              }}
+            >
+              <button
+                type="button"
+                disabled={columnContextMenu.id === 'title'}
+                onClick={() => hideColumn(columnContextMenu.id)}
+                className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Hide column
+              </button>
+              {allColumns.some(column => column.hidden) && (
+                <div className="mt-1 border-t border-[var(--tokyo-border)] pt-1">
+                  <div className="px-2.5 py-1 text-[11px] font-medium text-[var(--tokyo-text-faint)]">Hidden columns</div>
+                  {allColumns.filter(column => column.hidden).map(column => (
+                    <button
+                      key={column.id}
+                      type="button"
+                      onClick={() => showColumn(column.id)}
+                      className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+                    >
+                      Show {column.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+
         {sortPopoverPos && (
           <>
             <div
@@ -1764,7 +1870,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                       ? page.icon
                       : iconPickerType === 'item'
                         ? (page.items.find(i => i.id === iconPickerId)?.icon || 'File')
-                        : (page.columns.find(c => c.id === iconPickerId)?.icon || 'Target')
+                        : (displayColumns.find(c => c.id === iconPickerId)?.icon || 'Target')
                 }
                 onSelect={(iconName) => {
                   if (iconPickerType === 'tab') {
@@ -1774,7 +1880,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                   } else if (iconPickerType === 'item') {
                     onUpdatePage({ ...page, items: page.items.map(i => i.id === iconPickerId ? { ...i, icon: iconName } : i) });
                   } else {
-                    onUpdatePage({ ...page, columns: page.columns.map(c => c.id === iconPickerId ? { ...c, icon: iconName } : c) });
+                    const existingColumn = displayColumns.find(c => c.id === iconPickerId);
+                    onUpdatePage({
+                      ...page,
+                      columns: page.columns.some(c => c.id === iconPickerId)
+                        ? page.columns.map(c => c.id === iconPickerId ? { ...c, icon: iconName } : c)
+                        : existingColumn
+                          ? [...page.columns, { ...existingColumn, icon: iconName }]
+                          : page.columns
+                    });
                   }
                   setIconPickerId(null);
                   setIconPickerType(null);

@@ -105,6 +105,25 @@ const createEmptyWorkspace = (): PersistedWorkspace => ({
   viewSettings: {},
 });
 
+const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWorkspace => {
+  const nextWorkspace = { ...createEmptyWorkspace(), ...workspace };
+  const customPageById = new Map(nextWorkspace.customPages.map(page => [page.id, page]));
+  const existingSidebarIds = new Set(nextWorkspace.sidebarItems.map(item => item.id));
+  const syncedSidebarItems = nextWorkspace.sidebarItems.map(item => {
+    if (item.type !== 'custom') return item;
+    const page = customPageById.get(item.id);
+    return page ? { ...item, label: page.title, icon: page.icon } : item;
+  });
+  const missingCustomItems = nextWorkspace.customPages
+    .filter(page => !existingSidebarIds.has(page.id))
+    .map(page => ({ id: page.id, label: page.title, icon: page.icon, type: 'custom' as const }));
+
+  return {
+    ...nextWorkspace,
+    sidebarItems: [...syncedSidebarItems, ...missingCustomItems],
+  };
+};
+
 function readLegacyWorkspace(): Partial<PersistedWorkspace> | null {
   if (typeof window === 'undefined') return null;
 
@@ -179,7 +198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const applyWorkspace = (nextWorkspace: Partial<PersistedWorkspace>) => {
     isHydratingWorkspaceRef.current = true;
-    const normalizedWorkspace = { ...createEmptyWorkspace(), ...nextWorkspace };
+    const normalizedWorkspace = normalizeWorkspace(nextWorkspace);
     setTasks(normalizedWorkspace.tasks);
     setProjects(normalizedWorkspace.projects);
     setGoals(normalizedWorkspace.goals);
@@ -259,10 +278,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
 
-    const nextWorkspace: PersistedWorkspace = {
+    const nextWorkspace = normalizeWorkspace({
       tasks, projects, goals, areas, habits, events, journal, moods, ideas,
       notes, customPages, sidebarItems, trash, viewSettings
-    };
+    });
 
     writeCachedWorkspace(user.uid, nextWorkspace);
 
