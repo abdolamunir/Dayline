@@ -368,31 +368,29 @@ export function Upcoming() {
     <WorkspacePage className="pl-[19px] text-white md:pl-[35px]">
       <WorkspaceHeader
         icon={<CalendarDays className="text-[var(--tokyo-pink)]" />}
-        title="Sprint"
+        title="Upcoming"
         description="To-Dos That Are Coming Up Next"
         count={tasks.filter(task => task.dueDate).length}
         actions={
           <div className="flex items-center gap-2">
-            <div className="flex h-8 items-center rounded border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-0.5">
-              <button
-                onClick={() => setViewMode('week')}
-                className={cn(
-                  "flex h-7 items-center rounded px-3 text-sm font-medium transition-colors",
-                  viewMode === 'week' ? "bg-[var(--tokyo-panel-3)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                )}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewMode('month')}
-                className={cn(
-                  "flex h-7 items-center rounded px-3 text-sm font-medium transition-colors",
-                  viewMode === 'month' ? "bg-[var(--tokyo-panel-3)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                )}
-              >
-                Month
-              </button>
-            </div>
+            <button
+              onClick={() => setViewMode('week')}
+              className={cn(
+                "flex h-8 items-center justify-center rounded border border-[var(--tokyo-border-strong)] px-3 text-[13px] font-medium transition-colors",
+                viewMode === 'week' ? "bg-[var(--tokyo-hover)] text-white" : "bg-transparent text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
+              )}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={cn(
+                "flex h-8 items-center justify-center rounded border border-[var(--tokyo-border-strong)] px-3 text-[13px] font-medium transition-colors",
+                viewMode === 'month' ? "bg-[var(--tokyo-hover)] text-white" : "bg-transparent text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
+              )}
+            >
+              Month
+            </button>
 
             <button onClick={prev} className="flex h-8 w-8 items-center justify-center rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               <ChevronLeft className="w-4 h-4" />
