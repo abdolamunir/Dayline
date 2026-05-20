@@ -324,17 +324,14 @@ function ProjectDetailsPage({ project, onBack }: {
                 placeholder="Untitled Project"
               />
             </div>
-            <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-              <button
-                onClick={() => setIsFavorite((favorite) => !favorite)}
-                className={cn(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                  isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                )}
-                title="Favorite"
-              >
-                <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
-              </button>
+            <button
+              onClick={() => void handleCopyProjectLink()}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+              title="Copy link"
+            >
+              <Link className="h-[18px] w-[18px]" />
+            </button>
+            <div className="relative">
               <button
                 onClick={() => setIsShareMenuOpen((open) => !open)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
@@ -342,27 +339,17 @@ function ProjectDetailsPage({ project, onBack }: {
               >
                 <MoreHorizontal className="h-[18px] w-[18px]" />
               </button>
-              <button 
-                onClick={onBack}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                title="Close"
-              >
-                <X className="h-[18px] w-[18px]" />
-              </button>
               {isShareMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
                   <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                    <button
-                      onClick={() => void handleCopyProjectLink()}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
-                    >
-                      <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                      Copy page link
+                    <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                      <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                      Invite people
                     </button>
                     <button
                       onClick={handleDelete}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-red-400 border-t border-white/[0.04] mt-1 pt-2 transition-colors hover:bg-red-500/10 hover:text-red-300"
                     >
                       <Trash2 className="h-4 w-4 text-red-400" />
                       Delete project
@@ -371,6 +358,13 @@ function ProjectDetailsPage({ project, onBack }: {
                 </>
               )}
             </div>
+            <button 
+              onClick={onBack}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+              title="Close"
+            >
+              <X className="h-[18px] w-[18px]" />
+            </button>
           </div>
         </div>
 
@@ -467,20 +461,29 @@ function ProjectDetailsPage({ project, onBack }: {
                   });
                 }}
                 className={cn(
-                  "flex items-center gap-2 px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
+                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
                   project.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
                   project.status === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
-                  "bg-stone-500/20 text-stone-400"
+                  project.status === 'planning' ? "bg-stone-500/20 text-stone-400" :
+                  "bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]"
                 )}
               >
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full",
-                  project.status === 'completed' ? "bg-[var(--tokyo-green)]" :
-                  project.status === 'active' ? "bg-[var(--tokyo-purple)]" :
-                  "bg-stone-400"
-                )} />
                 <span>{toSentenceCase(project.status)}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Creator */}
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <User className="w-4 h-4" />
+                <span>Creator</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
+              <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
             </div>
           </div>
 
