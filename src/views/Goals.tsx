@@ -154,23 +154,21 @@ function GoalColumnHeader({
         onPointerDown={startHeaderDrag}
         className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2 cursor-grab active:cursor-grabbing"
       >
-        {col.id !== 'progress' && (
-          <button
-            type="button"
-            data-column-control="true"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              setIconPickerId(col.id);
-              setIconPickerType('column');
-              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-            }}
-            className="w-6 h-6 rounded-md transition-colors text-[var(--tokyo-text-muted)]/80 hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
-          >
-            {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4 align-middle" })}
-          </button>
-        )}
+        <button
+          type="button"
+          data-column-control="true"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setIconPickerId(col.id);
+            setIconPickerType('column');
+            setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+          }}
+          className="w-6 h-6 rounded-md transition-colors text-[var(--tokyo-text-muted)]/80 hover:text-[var(--tokyo-text-muted)] flex items-center justify-center cursor-pointer shrink-0"
+        >
+          {React.createElement(iconMap[col.icon] || Target, { className: "w-4 h-4 align-middle" })}
+        </button>
         {editingColumnId === col.id ? (
           <input
             data-column-control="true"
