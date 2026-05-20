@@ -45,6 +45,7 @@ import { BlockEditor } from '../components/BlockEditor';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
+import { PropertyContextMenu } from '../components/PropertyContextMenu';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
 
@@ -2310,7 +2311,7 @@ function GoalDetailsPage({ goal, onBack }: {
   goal: Goal, 
   onBack: () => void
 }) {
-  const { updateGoal, deleteGoal, tasks, addTask, updateTask, user } = useAppStore();
+  const { updateGoal, deleteGoal, tasks, addTask, updateTask, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('Todo list');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -2331,6 +2332,10 @@ function GoalDetailsPage({ goal, onBack }: {
   } | null>(null);
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [propertyIconPicker, setPropertyIconPicker] = useState<{ id: string, isSystem: boolean, pos: { x: number, y: number } } | null>(null);
+  const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number, y: number, id: string, isSystem: boolean } | null>(null);
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
+  const [editingPropertyName, setEditingPropertyName] = useState<string>('');
   const [comments, setComments] = useState([
     { id: '1', name: 'Raheem Sterling', time: '25m ago', text: '@abdolamunir I will do it ASAP.', avatar: 'https://i.pravatar.cc/150?u=5' },
     { id: '2', name: 'Abdola Munir', time: '50m ago', text: '@raheemsterling @alensheerer Create a comprehensive set of UI components, ensuring consistency in style and functionality.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: '👍', count: 1 }] },
@@ -2368,6 +2373,76 @@ function GoalDetailsPage({ goal, onBack }: {
     setIsPropertyPickerOpen(false);
   };
 
+  const columns = viewSettings?.goals?.columns || [];
+  const getCol = (id: string, defaultLabel: string, defaultIcon: string) => {
+    const col = columns.find((c: any) => c.id === id);
+    return { label: col?.label || defaultLabel, icon: col?.icon || defaultIcon, hidden: col?.hidden };
+  };
+
+  const handleRenameProperty = (id: string, isSystem: boolean, newName: string) => {
+    if (!newName.trim()) return;
+    if (isSystem) {
+      const savedSettings = viewSettings.goals || {};
+      const cols = savedSettings.columns || [];
+      const updatedCols = cols.find((c: any) => c.id === id)
+        ? cols.map((c: any) => c.id === id ? { ...c, label: newName.trim() } : c)
+        : [...cols, { id, label: newName.trim(), icon: getCol(id, id, 'Text').icon, width: '150px' }];
+      updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
+    } else {
+      handleUpdate({
+        customProperties: goal.customProperties?.map(p => 
+          p.id === id ? { ...p, name: newName.trim() } : p
+        )
+      });
+    }
+  };
+
+  const handleUpdatePropertyIcon = (id: string, isSystem: boolean, newIcon: string) => {
+    if (isSystem) {
+      const savedSettings = viewSettings.goals || {};
+      const cols = savedSettings.columns || [];
+      const updatedCols = cols.find((c: any) => c.id === id)
+        ? cols.map((c: any) => c.id === id ? { ...c, icon: newIcon } : c)
+        : [...cols, { id, label: getCol(id, id, 'Text').label, icon: newIcon, width: '150px' }];
+      updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
+    } else {
+      handleUpdate({
+        customProperties: goal.customProperties?.map(p => 
+          p.id === id ? { ...p, icon: newIcon } : p
+        )
+      });
+    }
+  };
+
+  const handleDeletePropertyAction = (id: string, isSystem: boolean) => {
+    if (isSystem) {
+      const savedSettings = viewSettings.goals || {};
+      const cols = savedSettings.columns || [];
+      const updatedCols = cols.find((c: any) => c.id === id)
+        ? cols.map((c: any) => c.id === id ? { ...c, hidden: true } : c)
+        : [...cols, { id, label: getCol(id, id, 'Text').label, icon: getCol(id, id, 'Text').icon, width: '150px', hidden: true }];
+      updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
+    } else {
+      handleUpdate({
+        customProperties: goal.customProperties?.filter(p => p.id !== id)
+      });
+    }
+  };
+
+  const statusCol = getCol('status', 'Status', 'CheckCircle');
+  const creatorCol = getCol('creator', 'Creator', 'User');
+  const priorityCol = getCol('priority', 'Priority', 'Zap');
+  const dateCol = getCol('date', 'Due date', 'CalendarIcon');
+  const progressCol = getCol('progress', 'Progress', 'Circle');
+  const assignedCol = getCol('assigned', 'Assigned', 'Users');
+
+  const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop rounded-lg -mx-2 px-2 py-1 hover:bg-white/[0.02] transition-colors relative";
+
+  const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
+    const IconComponent = ALL_ICONS[iconName] || fallback;
+    return <IconComponent className={className} />;
+  };
+
   const handleUpdateProperty = (propId: string, value: any) => {
     handleUpdate({
       customProperties: goal.customProperties?.map(p => p.id === propId ? { ...p, value } : p)
@@ -2397,7 +2472,6 @@ function GoalDetailsPage({ goal, onBack }: {
   };
 
   const goalTasks = tasks.filter(t => t.goalId === goal.id);
-  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
 
   const handleAddTask = () => {
     const id = `t${Date.now()}`;
@@ -2497,147 +2571,267 @@ function GoalDetailsPage({ goal, onBack }: {
         {/* Properties - Vertical List */}
         <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
           {/* Assigned */}
-          <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Users className="w-4 h-4" />
-                <span>Assigned</span>
+          {!assignedCol.hidden && (
+            <div 
+              className={propertyRowClass}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: true });
+              }}
+            >
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {renderIcon(assignedCol.icon, Users, "w-4 h-4")}
+                  {editingPropertyId === 'assigned' ? (
+                    <input 
+                      type="text" 
+                      value={editingPropertyName} 
+                      onChange={(e) => setEditingPropertyName(e.target.value)}
+                      onBlur={() => { handleRenameProperty('assigned', true, editingPropertyName); setEditingPropertyId(null); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty('assigned', true, editingPropertyName); setEditingPropertyId(null); } }}
+                      className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{assignedCol.label}</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex -space-x-2">
+                {[
+                  'https://i.pravatar.cc/150?u=5',
+                  'https://i.pravatar.cc/150?u=4',
+                  'https://i.pravatar.cc/150?u=6'
+                ].map((url, i) => (
+                  <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
+                ))}
               </div>
             </div>
-            <div className="flex -space-x-2">
-              {[
-                'https://i.pravatar.cc/150?u=5',
-                'https://i.pravatar.cc/150?u=4',
-                'https://i.pravatar.cc/150?u=6'
-              ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* Due date */}
-          <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <CalendarIcon className="w-4 h-4" />
-                <span>Due date</span>
+          {!dateCol.hidden && (
+            <div 
+              className={propertyRowClass}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'date', isSystem: true });
+              }}
+            >
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {renderIcon(dateCol.icon, CalendarIcon, "w-4 h-4")}
+                  {editingPropertyId === 'date' ? (
+                    <input 
+                      type="text" 
+                      value={editingPropertyName} 
+                      onChange={(e) => setEditingPropertyName(e.target.value)}
+                      onBlur={() => { handleRenameProperty('date', true, editingPropertyName); setEditingPropertyId(null); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty('date', true, editingPropertyName); setEditingPropertyId(null); } }}
+                      className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{dateCol.label}</span>
+                  )}
+                </div>
+              </div>
+              <div 
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setDatePickerConfig({
+                    id: goal.id,
+                    pos: { x: rect.left, y: rect.bottom + 8 },
+                    currentDate: goal.targetDate ? new Date(goal.targetDate) : undefined,
+                    config: {
+                      time: goal.targetTime || '12:00',
+                      reminder: goal.reminder || 'none',
+                      alert: goal.alert || 'none',
+                      repeat: goal.repeat || 'none'
+                    }
+                  });
+                }}
+                className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
+              >
+                {goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'Set date...'}
               </div>
             </div>
-            <div 
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setDatePickerConfig({
-                  id: goal.id,
-                  pos: { x: rect.left, y: rect.bottom + 8 },
-                  currentDate: goal.targetDate ? new Date(goal.targetDate) : undefined,
-                  config: {
-                    time: goal.targetTime || '12:00',
-                    reminder: goal.reminder || 'none',
-                    alert: goal.alert || 'none',
-                    repeat: goal.repeat || 'none'
-                  }
-                });
-              }}
-              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
-            >
-              {goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'Set date...'}
-            </div>
-          </div>
+          )}
 
           {/* Priority */}
-          <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Zap className="w-4 h-4" />
-                <span>Priority</span>
+          {!priorityCol.hidden && (
+            <div 
+              className={propertyRowClass}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: true });
+              }}
+            >
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {renderIcon(priorityCol.icon, Zap, "w-4 h-4")}
+                  {editingPropertyId === 'priority' ? (
+                    <input 
+                      type="text" 
+                      value={editingPropertyName} 
+                      onChange={(e) => setEditingPropertyName(e.target.value)}
+                      onBlur={() => { handleRenameProperty('priority', true, editingPropertyName); setEditingPropertyId(null); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty('priority', true, editingPropertyName); setEditingPropertyId(null); } }}
+                      className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{priorityCol.label}</span>
+                  )}
+                </div>
+              </div>
+              <div className="relative flex items-center">
+                <div 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCustomDropdown({
+                      id: goal.id,
+                      type: 'priority',
+                      pos: { x: rect.left, y: rect.bottom + 8 },
+                      currentValue: goal.priority
+                    });
+                  }}
+                  className={cn(
+                    "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
+                    getPriorityBadgeClasses(goal.priority)
+                  )}
+                >
+                  {toSentenceCase(goal.priority)}
+                </div>
               </div>
             </div>
-            <div className="relative flex items-center">
-              <div 
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setCustomDropdown({
-                    id: goal.id,
-                    type: 'priority',
-                    pos: { x: rect.left, y: rect.bottom + 8 },
-                    currentValue: goal.priority
-                  });
-                }}
-                className={cn(
-                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
-                  getPriorityBadgeClasses(goal.priority)
-                )}
-              >
-                {toSentenceCase(goal.priority)}
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Status */}
-          <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <CheckCircle className="w-4 h-4" />
-                <span>Status</span>
+          {!statusCol.hidden && (
+            <div 
+              className={propertyRowClass}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: true });
+              }}
+            >
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {renderIcon(statusCol.icon, CheckCircle, "w-4 h-4")}
+                  {editingPropertyId === 'status' ? (
+                    <input 
+                      type="text" 
+                      value={editingPropertyName} 
+                      onChange={(e) => setEditingPropertyName(e.target.value)}
+                      onBlur={() => { handleRenameProperty('status', true, editingPropertyName); setEditingPropertyId(null); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty('status', true, editingPropertyName); setEditingPropertyId(null); } }}
+                      className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{statusCol.label}</span>
+                  )}
+                </div>
+              </div>
+              <div className="relative flex items-center gap-2">
+                <div 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setCustomDropdown({
+                      id: goal.id,
+                      type: 'status',
+                      pos: { x: rect.left, y: rect.bottom + 8 },
+                      currentValue: goal.status
+                    });
+                  }}
+                  className={cn(
+                    "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
+                    getGoalStatusClasses(goal.status)
+                  )}
+                >
+                  <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
+                </div>
               </div>
             </div>
-            <div className="relative flex items-center gap-2">
-              <div 
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setCustomDropdown({
-                    id: goal.id,
-                    type: 'status',
-                    pos: { x: rect.left, y: rect.bottom + 8 },
-                    currentValue: goal.status
-                  });
-                }}
-                className={cn(
-                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
-                  getGoalStatusClasses(goal.status)
-                )}
-              >
-                <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Progress */}
-          <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <Circle className="w-4 h-4" />
-                <span>Progress</span>
+          {!progressCol.hidden && (
+            <div 
+              className={propertyRowClass}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'progress', isSystem: true });
+              }}
+            >
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {renderIcon(progressCol.icon, Circle, "w-4 h-4")}
+                  {editingPropertyId === 'progress' ? (
+                    <input 
+                      type="text" 
+                      value={editingPropertyName} 
+                      onChange={(e) => setEditingPropertyName(e.target.value)}
+                      onBlur={() => { handleRenameProperty('progress', true, editingPropertyName); setEditingPropertyId(null); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty('progress', true, editingPropertyName); setEditingPropertyId(null); } }}
+                      className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{progressCol.label}</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
+                    {goal.progress || 0}%
+                  </div>
+                  <div className="h-1.5 w-36 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[var(--tokyo-green)] rounded-full transition-all duration-300"
+                      style={{ width: `${Math.max(0, Math.min(100, goal.progress || 0))}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
-              <div className="flex items-center gap-3">
-                <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
-                  {goal.progress || 0}%
-                </div>
-                <div className="h-1.5 w-36 bg-white/[0.06] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[var(--tokyo-green)] rounded-full transition-all duration-300"
-                    style={{ width: `${Math.max(0, Math.min(100, goal.progress || 0))}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Creator */}
-          <div className={propertyRowClass}>
-            <div className="w-40 shrink-0 flex items-center">
-              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                <User className="w-4 h-4" />
-                <span>Creator</span>
+          {!creatorCol.hidden && (
+            <div 
+              className={propertyRowClass}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: true });
+              }}
+            >
+              <div className="w-40 shrink-0 flex items-center">
+                <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                  {renderIcon(creatorCol.icon, User, "w-4 h-4")}
+                  {editingPropertyId === 'creator' ? (
+                    <input 
+                      type="text" 
+                      value={editingPropertyName} 
+                      onChange={(e) => setEditingPropertyName(e.target.value)}
+                      onBlur={() => { handleRenameProperty('creator', true, editingPropertyName); setEditingPropertyId(null); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty('creator', true, editingPropertyName); setEditingPropertyId(null); } }}
+                      className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{creatorCol.label}</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
+                <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-              <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
-            </div>
-          </div>
+          )}
 
           {/* Custom Properties */}
           {goal.customProperties?.map(prop => {
@@ -2649,11 +2843,30 @@ function GoalDetailsPage({ goal, onBack }: {
             }[prop.type] || Text;
 
             return (
-              <div key={prop.id} className={propertyRowClass}>
+              <div 
+                key={prop.id} 
+                className={propertyRowClass}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: false });
+                }}
+              >
                 <div className="w-40 shrink-0 flex items-center">
                   <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
-                    <PropIcon className="w-4 h-4" />
-                    <span>{prop.name}</span>
+                    {prop.icon ? renderIcon(prop.icon, PropIcon, "w-4 h-4") : <PropIcon className="w-4 h-4" />}
+                    {editingPropertyId === prop.id ? (
+                      <input 
+                        type="text" 
+                        value={editingPropertyName} 
+                        onChange={(e) => setEditingPropertyName(e.target.value)}
+                        onBlur={() => { handleRenameProperty(prop.id, false, editingPropertyName); setEditingPropertyId(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { handleRenameProperty(prop.id, false, editingPropertyName); setEditingPropertyId(null); } }}
+                        className="bg-transparent border-none p-0 text-sm font-medium focus:ring-0 outline-none w-full text-[var(--tokyo-text-strong)]"
+                        autoFocus
+                      />
+                    ) : (
+                      <span>{prop.name}</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex-1 flex items-center gap-4">
@@ -3018,6 +3231,59 @@ function GoalDetailsPage({ goal, onBack }: {
                 onClose={() => {
                   setIconPickerId(null);
                 }}
+              />
+            </div>
+          </>
+        )}
+        {propertyContextMenu && (
+          <PropertyContextMenu
+            pos={{ x: propertyContextMenu.x, y: propertyContextMenu.y }}
+            onClose={() => setPropertyContextMenu(null)}
+            onRename={() => {
+              setEditingPropertyId(propertyContextMenu.id);
+              setEditingPropertyName(
+                propertyContextMenu.isSystem 
+                  ? getCol(propertyContextMenu.id, propertyContextMenu.id, 'Text').label 
+                  : (goal.customProperties?.find(p => p.id === propertyContextMenu.id)?.name || '')
+              );
+            }}
+            onChangeIcon={() => {
+              setPropertyIconPicker({
+                id: propertyContextMenu.id,
+                isSystem: propertyContextMenu.isSystem,
+                pos: { x: propertyContextMenu.x, y: propertyContextMenu.y }
+              });
+            }}
+            onHide={propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, true) : undefined}
+            onDelete={!propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, false) : undefined}
+          />
+        )}
+
+        {propertyIconPicker && (
+          <>
+            <div 
+              className="fixed inset-0 z-[160]" 
+              onClick={() => setPropertyIconPicker(null)}
+              onContextMenu={(e) => { e.preventDefault(); setPropertyIconPicker(null); }}
+            />
+            <div 
+              className="fixed z-[170]"
+              style={{ 
+                top: Math.min(propertyIconPicker.pos.y, window.innerHeight - 350), 
+                left: Math.min(propertyIconPicker.pos.x, window.innerWidth - 280) 
+              }}
+            >
+              <IconPicker 
+                currentIcon={
+                  propertyIconPicker.isSystem
+                    ? getCol(propertyIconPicker.id, propertyIconPicker.id, 'Text').icon
+                    : (goal.customProperties?.find(p => p.id === propertyIconPicker.id)?.icon || 'Text')
+                }
+                onSelect={(iconName) => {
+                  handleUpdatePropertyIcon(propertyIconPicker.id, propertyIconPicker.isSystem, iconName);
+                  setPropertyIconPicker(null);
+                }}
+                onClose={() => setPropertyIconPicker(null)}
               />
             </div>
           </>
