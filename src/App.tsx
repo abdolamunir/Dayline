@@ -45,6 +45,7 @@ const readLastView = (): ViewType => {
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>(() => readLastView());
+  const [viewKey, setViewKey] = useState(0);
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandPaletteInitialValue, setCommandPaletteInitialValue] = useState('');
@@ -58,6 +59,7 @@ function AppContent() {
 
   const changeView = useCallback((view: ViewType) => {
     setCurrentView(view);
+    setViewKey(prev => prev + 1);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
     }
@@ -82,38 +84,38 @@ function AppContent() {
     if (currentView.startsWith('page-')) {
       const page = customPages.find(p => p.id === currentView);
       if (page) {
-        return <CustomPageView page={page} onViewChange={changeView} />;
+        return <CustomPageView key={`page-${page.id}-${viewKey}`} page={page} onViewChange={changeView} />;
       }
     }
 
     if (currentView.startsWith('goal-details:')) {
       const id = currentView.split(':')[1];
-      return <Goals key={`goal-details-${id}`} onViewChange={changeView} selectedGoalId={id} />;
+      return <Goals key={`goal-details-${id}-${viewKey}`} onViewChange={changeView} selectedGoalId={id} />;
     }
 
     if (currentView.startsWith('note-details:')) {
       const id = currentView.split(':')[1];
-      return <Notes key={`note-details-${id}`} onViewChange={changeView} selectedNoteId={id} />;
+      return <Notes key={`note-details-${id}-${viewKey}`} onViewChange={changeView} selectedNoteId={id} />;
     }
 
     switch (currentView) {
-      case 'dashboard': return <Dashboard />;
-      case 'tasks': return <Tasks />;
-      case 'projects': return <Projects />;
-      case 'areas': return <Areas />;
-      case 'habits': return <Habits />;
-      case 'notes': return <Notes />;
-      case 'goals': return <Goals key="goals-list" onViewChange={changeView} />;
-      case 'ideas': return <Ideas />;
-      case 'journal': return <Journal />;
-      case 'moods': return <Moods />;
-      case 'trash': return <Trash />;
-      case 'inbox': return <Inbox />;
-      case 'today': return <Today />;
-      case 'upcoming': return <Upcoming />;
-      case 'someday': return <Someday />;
+      case 'dashboard': return <Dashboard key={`dashboard-${viewKey}`} />;
+      case 'tasks': return <Tasks key={`tasks-${viewKey}`} />;
+      case 'projects': return <Projects key={`projects-${viewKey}`} />;
+      case 'areas': return <Areas key={`areas-${viewKey}`} />;
+      case 'habits': return <Habits key={`habits-${viewKey}`} />;
+      case 'notes': return <Notes key={`notes-${viewKey}`} />;
+      case 'goals': return <Goals key={`goals-list-${viewKey}`} onViewChange={changeView} />;
+      case 'ideas': return <Ideas key={`ideas-${viewKey}`} />;
+      case 'journal': return <Journal key={`journal-${viewKey}`} />;
+      case 'moods': return <Moods key={`moods-${viewKey}`} />;
+      case 'trash': return <Trash key={`trash-${viewKey}`} />;
+      case 'inbox': return <Inbox key={`inbox-${viewKey}`} />;
+      case 'today': return <Today key={`today-${viewKey}`} />;
+      case 'upcoming': return <Upcoming key={`upcoming-${viewKey}`} />;
+      case 'someday': return <Someday key={`someday-${viewKey}`} />;
       case 'logbook':
-        return <Tasks title="Logbook" description="Completed tasks." hideFilters customFilter={(t) => t.status === 'done'} />;
+        return <Tasks key={`logbook-${viewKey}`} title="Logbook" description="Completed tasks." hideFilters customFilter={(t) => t.status === 'done'} />;
       default: 
         return (
           <div className="flex items-center justify-center h-full text-[var(--tokyo-text-faint)]">

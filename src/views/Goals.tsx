@@ -1043,24 +1043,14 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             <button
               onClick={() => setIsShareMenuOpen((open) => !open)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-              title="More"
+              title="Invite people"
             >
-              <MoreHorizontal className="h-[18px] w-[18px]" />
+              <Users className="h-[18px] w-[18px]" />
             </button>
             {isShareMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
                 <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                  <button
-                    onClick={() => {
-                      void handleCopyGoalsLink();
-                      setIsShareMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
-                  >
-                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                    Copy page link
-                  </button>
                   <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
                     <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
                     Invite people
@@ -2479,9 +2469,9 @@ function GoalDetailsPage({ goal, onBack }: {
               <button
                 onClick={() => setIsShareMenuOpen((open) => !open)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                title="More"
+                title="Invite people"
               >
-                <MoreHorizontal className="h-[18px] w-[18px]" />
+                <Users className="h-[18px] w-[18px]" />
               </button>
               {isShareMenuOpen && (
                 <>
@@ -2490,13 +2480,6 @@ function GoalDetailsPage({ goal, onBack }: {
                     <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
                       <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
                       Invite people
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-red-400 border-t border-white/[0.04] mt-1 pt-2 transition-colors hover:bg-red-500/10 hover:text-red-300"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-400" />
-                      Delete goal
                     </button>
                   </div>
                 </>
@@ -2616,6 +2599,29 @@ function GoalDetailsPage({ goal, onBack }: {
                 )}
               >
                 <span>{toSentenceCase(normalizeGoalStatus(goal.status))}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div className={propertyRowClass}>
+            <div className="w-40 shrink-0 flex items-center">
+              <div className="flex items-center gap-3 w-[145px] text-[var(--tokyo-text-faint)] text-sm font-medium">
+                <Circle className="w-4 h-4" />
+                <span>Progress</span>
+              </div>
+            </div>
+            <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
+                  {goal.progress || 0}%
+                </div>
+                <div className="h-1.5 w-36 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-[var(--tokyo-green)] rounded-full transition-all duration-300"
+                    style={{ width: `${Math.max(0, Math.min(100, goal.progress || 0))}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>

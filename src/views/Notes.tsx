@@ -28,7 +28,6 @@ import {
   AttachmentIcon as Attachment,
   UserGroupIcon as Users,
   ZapIcon as Zap,
-  Delete01Icon as Trash2,
   UserIcon as User
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -326,9 +325,9 @@ function NoteDetailsPage({ note, onBack }: {
                 <button
                   onClick={() => setIsShareMenuOpen((open) => !open)}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="More"
+                  title="Invite people"
                 >
-                  <MoreHorizontal className="h-[18px] w-[18px]" />
+                  <Users className="h-[18px] w-[18px]" />
                 </button>
                 {isShareMenuOpen && (
                   <>
@@ -337,13 +336,6 @@ function NoteDetailsPage({ note, onBack }: {
                       <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
                         <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
                         Invite people
-                      </button>
-                      <button
-                        onClick={handleDelete}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-red-400 border-t border-white/[0.04] mt-1 pt-2 transition-colors hover:bg-red-500/10 hover:text-red-300"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-400" />
-                        Delete note
                       </button>
                     </div>
                   </>
@@ -484,9 +476,17 @@ function NoteDetailsPage({ note, onBack }: {
                 <span>Progress</span>
               </div>
             </div>
-            <div className="flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
-              <div className="flex items-center gap-2 px-2 py-0.5 rounded-full bg-[var(--tokyo-yellow-soft)] text-[var(--tokyo-yellow)]">
-                <span className="text-[13px] font-medium">{note.progress || 0}%</span>
+            <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
+                  {note.progress || 0}%
+                </div>
+                <div className="h-1.5 w-36 bg-white/[0.06] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-[var(--tokyo-green)] rounded-full transition-all duration-300"
+                    style={{ width: `${Math.max(0, Math.min(100, note.progress || 0))}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>

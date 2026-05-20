@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Target01Icon as Target, 
   Add01Icon as Plus, 
-  MoreHorizontalIcon as MoreHorizontal, 
   Calendar01Icon as CalendarIcon, 
   DashboardSquare01Icon as LayoutGrid,
   ArrowLeft01Icon as ChevronLeft,
@@ -724,7 +723,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   return (
     <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3">
           <div
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
@@ -800,34 +799,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-          <div className="relative">
-            <button
-              onClick={() => setIsShareMenuOpen((open) => !open)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[rgba(218,204,216,0.08)] bg-transparent px-2.5 text-[12px] font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-            >
-              <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-              Share
-              <ChevronDown className={cn("h-4 w-4 text-[var(--tokyo-text-faint)] transition-transform", isShareMenuOpen && "rotate-180")} />
-            </button>
-            {isShareMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                  <button
-                    onClick={() => void handleCopyPageLink()}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
-                  >
-                    <Link className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                    Copy page link
-                  </button>
-                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
-                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                    Invite people
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
           <button
             onClick={() => void handleCopyPageLink()}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
@@ -837,14 +808,34 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           </button>
           <button
             onClick={() => setIsFavorite((favorite) => !favorite)}
-            className={cn("inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]", isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]")}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+              isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+            )}
             title="Favorite"
           >
             <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
           </button>
-          <button className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]" title="More">
-            <MoreHorizontal className="h-[18px] w-[18px]" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsShareMenuOpen((open) => !open)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+              title="Invite people"
+            >
+              <Users className="h-[18px] w-[18px]" />
+            </button>
+            {isShareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                  <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                    <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                    Invite people
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
