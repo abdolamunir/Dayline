@@ -82,7 +82,6 @@ const DEFAULT_GOAL_COLUMNS: GoalColumn[] = [
   { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
   { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
   { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
-  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
   { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
   { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
   { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
@@ -324,9 +323,31 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   const isGoalColumnFillable = (columnId: string) => columnId !== 'title' && columnId !== 'progress';
   
-  const [tabs, setTabs] = useState(savedGoalSettings.tabs || DEFAULT_GOAL_TABS);
+  const [tabs, setTabs] = useState(() => {
+    const initialTabs = savedGoalSettings.tabs || DEFAULT_GOAL_TABS;
+    const seen = new Set();
+    return initialTabs.filter((t: any) => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+  });
 
-  const [columns, setColumns] = useState<GoalColumn[]>(savedGoalSettings.columns || DEFAULT_GOAL_COLUMNS);
+  const [columns, setColumns] = useState<GoalColumn[]>(() => {
+    let initial = savedGoalSettings.columns || DEFAULT_GOAL_COLUMNS;
+    
+    const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
+    const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned'];
+    initial = initial.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
+
+    if (!initial.some((c: any) => c.id === 'creator')) {
+      initial.push({ id: 'creator', label: 'Creator', icon: 'User', width: '180px' });
+    }
+    if (!initial.some((c: any) => c.id === 'assigned')) {
+      initial.splice(1, 0, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' });
+    }
+    return initial;
+  });
   const goalDetailColumns: GoalColumn[] = [
     { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
     { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
@@ -388,16 +409,32 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   useEffect(() => {
     const settings = viewSettings.goals;
     if (!settings) return;
-    if (settings.tabs) setTabs(settings.tabs);
-    if (settings.columns && !isColumnResizingRef.current) setColumns(settings.columns);
-    if (settings.activeTab) setActiveTab(settings.activeTab);
-    if (settings.title) setTitleValue(settings.title);
-    if (settings.description) setDescriptionValue(settings.description);
+    if (settings.tabs) {
+      const seen = new Set();
+      const deduped = settings.tabs.filter((t: any) => {
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
+      });
+      setTabs(currentTabs => JSON.stringify(currentTabs) === JSON.stringify(deduped) ? currentTabs : deduped);
+    }
+    if (settings.columns && !isColumnResizingRef.current) {
+      setColumns(currentCols => JSON.stringify(currentCols) === JSON.stringify(settings.columns) ? currentCols : settings.columns);
+    }
+    if (settings.activeTab) {
+      setActiveTab(currentActive => currentActive === settings.activeTab ? currentActive : settings.activeTab);
+    }
+    if (settings.title) {
+      setTitleValue(currentTitle => currentTitle === settings.title ? currentTitle : settings.title);
+    }
+    if (settings.description) {
+      setDescriptionValue(currentDesc => currentDesc === settings.description ? currentDesc : settings.description);
+    }
     if (Array.isArray(settings.sortConfigs)) {
-      setSortConfigs(settings.sortConfigs);
+      setSortConfigs(currentSorts => JSON.stringify(currentSorts) === JSON.stringify(settings.sortConfigs) ? currentSorts : settings.sortConfigs);
     } else if ('sortConfig' in settings) {
       const legacySortConfigs = settings.sortConfig ? [settings.sortConfig] : [];
-      setSortConfigs(legacySortConfigs);
+      setSortConfigs(currentSorts => JSON.stringify(currentSorts) === JSON.stringify(legacySortConfigs) ? currentSorts : legacySortConfigs);
     }
   }, [viewSettings.goals]);
 
@@ -406,7 +443,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   }, [displayGoalColumns]);
 
   useEffect(() => {
-    if (isColumnResizingRef.current) return;
+    if (isColumnResizingRef.current || draggingId !== null) return;
     updateViewSettings('goals', {
       tabs,
       columns,
@@ -415,7 +452,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       description: descriptionValue,
       sortConfigs,
     });
-  }, [tabs, columns, activeTab, titleValue, descriptionValue, sortConfigs]);
+  }, [tabs, columns, activeTab, titleValue, descriptionValue, sortConfigs, draggingId]);
 
   useEffect(() => {
     const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;

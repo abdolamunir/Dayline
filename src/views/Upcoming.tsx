@@ -373,24 +373,26 @@ export function Upcoming() {
         count={tasks.filter(task => task.dueDate).length}
         actions={
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewMode('week')}
-              className={cn(
-                "flex h-8 items-center justify-center rounded border border-[var(--tokyo-border-strong)] px-3 text-[13px] font-medium transition-colors",
-                viewMode === 'week' ? "bg-[var(--tokyo-hover)] text-white" : "bg-transparent text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
-              )}
-            >
-              Week
-            </button>
-            <button
-              onClick={() => setViewMode('month')}
-              className={cn(
-                "flex h-8 items-center justify-center rounded border border-[var(--tokyo-border-strong)] px-3 text-[13px] font-medium transition-colors",
-                viewMode === 'month' ? "bg-[var(--tokyo-hover)] text-white" : "bg-transparent text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
-              )}
-            >
-              Month
-            </button>
+            <div className="flex h-8 items-center rounded border border-[var(--tokyo-border-strong)] p-0.5">
+              <button
+                onClick={() => setViewMode('week')}
+                className={cn(
+                  "flex h-full items-center rounded px-3 text-[13px] font-medium transition-colors",
+                  viewMode === 'week' ? "bg-[var(--tokyo-hover)] text-white" : "text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
+                )}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setViewMode('month')}
+                className={cn(
+                  "flex h-full items-center rounded px-3 text-[13px] font-medium transition-colors",
+                  viewMode === 'month' ? "bg-[var(--tokyo-hover)] text-white" : "text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
+                )}
+              >
+                Month
+              </button>
+            </div>
 
             <button onClick={prev} className="flex h-8 w-8 items-center justify-center rounded bg-transparent border border-[var(--tokyo-border-strong)] text-[var(--tokyo-text-muted)] hover:text-white hover:bg-[var(--tokyo-hover)] transition-colors">
               <ChevronLeft className="w-4 h-4" />

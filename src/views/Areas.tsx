@@ -73,9 +73,8 @@ const DEFAULT_AREA_COLUMNS = [
   { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
   { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
   { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
-  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
-  { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
-  { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+  { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
+  { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
 export function Areas() {
@@ -85,7 +84,21 @@ export function Areas() {
 
   const shouldUseSavedTemplate = savedAreaSettings.templateVersion === GOALS_TEMPLATE_VERSION;
   const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedAreaSettings.tabs ? savedAreaSettings.tabs : DEFAULT_AREA_TABS);
-  const [columns, setColumns] = useState(shouldUseSavedTemplate && savedAreaSettings.columns ? savedAreaSettings.columns : DEFAULT_AREA_COLUMNS);
+  const [columns, setColumns] = useState(() => {
+    let initial = shouldUseSavedTemplate && savedAreaSettings.columns ? savedAreaSettings.columns : DEFAULT_AREA_COLUMNS;
+    
+    const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
+    const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'creator', 'assigned'];
+    initial = initial.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
+
+    if (!initial.some((c: any) => c.id === 'creator')) {
+      initial.push({ id: 'creator', label: 'Creator', icon: 'User', width: '180px' });
+    }
+    if (!initial.some((c: any) => c.id === 'assigned')) {
+      initial.splice(1, 0, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' });
+    }
+    return initial;
+  });
 
   const selectedArea = areas.find(a => a.id === localSelectedAreaId);
   const areaDetailProperties = [

@@ -62,11 +62,12 @@ const DEFAULT_NOTE_TABS = [
 
 const DEFAULT_NOTE_COLUMNS = [
   { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
   { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
   { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
-  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
-  { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
+  { id: 'date', label: 'Created Date', icon: 'CalendarIcon', width: '180px' },
   { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+  { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
@@ -88,7 +89,21 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
 
   const [activeTab, setActiveTab] = useState<string>(shouldUseSavedTemplate ? (savedNoteSettings.activeTab || 'planning') : 'planning');
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
-  const [columns, setColumns] = useState(shouldUseSavedTemplate && savedNoteSettings.columns ? savedNoteSettings.columns : DEFAULT_NOTE_COLUMNS);
+  const [columns, setColumns] = useState(() => {
+    let initial = shouldUseSavedTemplate && savedNoteSettings.columns ? savedNoteSettings.columns : DEFAULT_NOTE_COLUMNS;
+    
+    const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
+    const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned'];
+    initial = initial.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
+
+    if (!initial.some((c: any) => c.id === 'creator')) {
+      initial.push({ id: 'creator', label: 'Creator', icon: 'User', width: '180px' });
+    }
+    if (!initial.some((c: any) => c.id === 'assigned')) {
+      initial.splice(1, 0, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' });
+    }
+    return initial;
+  });
 
   const filteredNotes = notes.filter(note => note.status === activeTab);
 
@@ -137,6 +152,10 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
         : [];
     return areaIds[0] || '';
   };
+  const noteDetailProperties = [
+    { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
+    { id: 'creator', name: 'Creator', type: 'text' as const, value: '' },
+  ];
   const noteDatabasePage = {
     id: 'notes',
     title: sidebarItem?.label || savedNoteSettings.title || 'Notes',
@@ -157,9 +176,11 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       progress: note.progress,
       properties: {
         areas: getNoteAreaId(note),
+        assigned: note.assignee || 'Unassigned',
+        creator: 'Abdola Munir',
       },
     })),
-    properties: [],
+    properties: noteDetailProperties,
     content: '',
   };
 
@@ -191,8 +212,11 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
           const existingNote = notes.find(note => note.id === item.id);
           const areaValue = String(item.properties.areas || '');
           const areaId = areas.find(area => area.id === areaValue || area.name === areaValue)?.id;
+          const assignee = item.properties.assigned && item.properties.assigned !== 'Unassigned'
+            ? String(item.properties.assigned)
+            : existingNote?.assignee || '';
           return existingNote
-            ? { ...existingNote, title: item.title, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId }
+            ? { ...existingNote, title: item.title, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId, assignee }
             : {
               id: item.id,
               title: item.title,
@@ -202,7 +226,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
               status: item.status,
               priority: item.priority,
               progress: item.progress,
-              assignee: '',
+              assignee,
               areaId,
             };
         });

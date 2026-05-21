@@ -99,7 +99,20 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingColumnName, setEditingColumnName] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
-  const [editingTabName, setEditingTabName] = useState('');
+  const [editingTabName, setEditingTabName] = useState<string>('');
+  const [localTabs, setLocalTabs] = useState(page.tabs);
+  const latestTabsRef = useRef(page.tabs);
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setLocalTabs(page.tabs);
+    }
+  }, [page.tabs]);
+
+  useEffect(() => {
+    latestTabsRef.current = localTabs;
+  }, [localTabs]);
+  
   const [isAddingTab, setIsAddingTab] = useState(false);
   const [newTabName, setNewTabName] = useState('');
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
@@ -119,7 +132,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   } | null>(null);
   const [datePickerConfig, setDatePickerConfig] = useState<{
     id: string;
-    pos: { x: number, y: number };
+    pos: { x: number; y: number };
     currentDate?: Date;
     config?: DateConfig;
   } | null>(null);
@@ -858,11 +871,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           as="div"
           ref={tabContainerRef}
           axis="x"
-          values={page.tabs}
-          onReorder={(newTabs) => onUpdatePage({ ...page, tabs: newTabs })}
+          values={localTabs}
+          onReorder={setLocalTabs}
           className="hidden sm:flex min-w-0 flex-1 items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0"
         >
-          {page.tabs.map(tab => {
+          {localTabs.map(tab => {
             const Icon = iconMap[tab.icon] || Target;
             return (
               <Reorder.Item
@@ -881,6 +894,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 }}
                 onDragEnd={() => {
                   setDraggingId(null);
+                  onUpdatePage({ ...page, tabs: latestTabsRef.current });
                   window.setTimeout(() => {
                     isDraggingRef.current = false;
                   }, 100);

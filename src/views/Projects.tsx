@@ -71,11 +71,11 @@ const DEFAULT_PROJECT_TABS = [
 
 const DEFAULT_PROJECT_COLUMNS = [
   { id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' },
+  { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' },
   { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' },
   { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' },
-  { id: 'areas', label: 'Areas', icon: 'Layers', width: '180px' },
   { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' },
-  { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' },
+  { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
 export function Projects() {
@@ -85,11 +85,26 @@ export function Projects() {
 
   const shouldUseSavedTemplate = savedProjectSettings.templateVersion === GOALS_TEMPLATE_VERSION;
   const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedProjectSettings.tabs ? savedProjectSettings.tabs : DEFAULT_PROJECT_TABS);
-  const [columns, setColumns] = useState(shouldUseSavedTemplate && savedProjectSettings.columns ? savedProjectSettings.columns : DEFAULT_PROJECT_COLUMNS);
+  const [columns, setColumns] = useState(() => {
+    let initial = shouldUseSavedTemplate && savedProjectSettings.columns ? savedProjectSettings.columns : DEFAULT_PROJECT_COLUMNS;
+    
+    const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
+    const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned'];
+    initial = initial.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
+
+    if (!initial.some((c: any) => c.id === 'creator')) {
+      initial.push({ id: 'creator', label: 'Creator', icon: 'User', width: '180px' });
+    }
+    if (!initial.some((c: any) => c.id === 'assigned')) {
+      initial.splice(1, 0, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' });
+    }
+    return initial;
+  });
 
   const selectedProject = projects.find(p => p.id === localSelectedProjectId);
   const projectDetailProperties = [
     { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
+    { id: 'creator', name: 'Creator', type: 'text' as const, value: '' },
     ...projects.flatMap(project => project.customProperties || []),
   ].reduce<Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>>((properties, property) => {
     if (properties.some(existingProperty => existingProperty.id === property.id)) return properties;
@@ -137,6 +152,7 @@ export function Projects() {
       properties: {
         areas: getProjectAreaId(project),
         assigned: project.assignee || 'Unassigned',
+        creator: 'Abdola Munir',
         ...Object.fromEntries((project.customProperties || []).map(property => [property.id, property.value])),
       },
     })),
@@ -166,7 +182,7 @@ export function Projects() {
         replaceProjects(updatedPage.items.map(item => {
           const existingProject = projects.find(project => project.id === item.id);
           const customProperties = updatedPage.properties
-            .filter(property => property.id !== 'assigned')
+            .filter(property => property.id !== 'assigned' && property.id !== 'creator')
             .map(property => {
               const existingProperty = existingProject?.customProperties?.find(candidate => candidate.id === property.id);
               return {

@@ -72,9 +72,18 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
   }
 
   if ((page.kind !== 'document') && page.tabs && page.tabs.length > 0 && page.columns && page.columns.length > 0) {
+    const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
+    const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'date', 'progress', 'creator'];
+    
+    const fixedColumns = page.columns.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
+    if (!fixedColumns.some((c: any) => c.id === 'creator')) {
+      fixedColumns.push({ id: 'creator', label: 'Creator', icon: 'User', width: '180px' });
+    }
+    const fixedPage = { ...page, columns: fixedColumns };
+
     return (
       <TableView 
-        page={page} 
+        page={fixedPage} 
         onUpdatePage={(updatedPage) => updateCustomPage(updatedPage)}
         onItemClick={(itemId) => setSelectedItemId(itemId)}
       />
