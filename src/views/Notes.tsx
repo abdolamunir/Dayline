@@ -240,7 +240,7 @@ function NoteDetailsPage({ note, onBack }: {
   onBack: () => void;
 }) {
   const { updateNote, deleteNote, user, viewSettings, updateViewSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('Document');
+  const [activeTab, setActiveTab] = useState('Notes');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([
     {
@@ -318,6 +318,25 @@ function NoteDetailsPage({ note, onBack }: {
     setCommentText('');
   };
 
+  const getPersonAvatarUrl = (name: string) => {
+    if (name === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonValue = (name?: string) => {
+    const displayName = name?.trim() || 'Unassigned';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatarUrl(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
+  };
+
   const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
   const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
   const noteColumns = viewSettings?.notes?.columns || [];
@@ -351,6 +370,16 @@ function NoteDetailsPage({ note, onBack }: {
       <div
         className={propertyLabelClass}
         onClick={(e) => {
+          e.stopPropagation();
+          if ((e.target as HTMLElement).closest('svg')) {
+            setPropertyIconPicker({ id, pos: { x: e.clientX, y: e.clientY } });
+            return;
+          }
+          setEditingPropertyId(id);
+          setEditingPropertyName(label);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
           e.stopPropagation();
           setPropertyContextMenu({ x: e.clientX, y: e.clientY, id });
         }}
@@ -467,15 +496,7 @@ function NoteDetailsPage({ note, onBack }: {
           {!assignedCol.hidden && (
           <div className={propertyRowClass}>
             {renderPropertyLabel('assigned', assignedCol.label, assignedCol.icon, Users)}
-            <div className="flex -space-x-2">
-              {[
-                'https://i.pravatar.cc/150?u=5',
-                'https://i.pravatar.cc/150?u=4',
-                'https://i.pravatar.cc/150?u=6'
-              ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-              ))}
-            </div>
+            {renderPersonValue(note.assignee)}
           </div>
           )}
 
@@ -555,10 +576,7 @@ function NoteDetailsPage({ note, onBack }: {
           {!creatorCol.hidden && (
           <div className={propertyRowClass}>
             {renderPropertyLabel('creator', creatorCol.label, creatorCol.icon, User)}
-            <div className="flex items-center gap-2">
-              <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-              <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
-            </div>
+            {renderPersonValue('Abdola Munir')}
           </div>
           )}
 
@@ -586,15 +604,15 @@ function NoteDetailsPage({ note, onBack }: {
         {/* Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
           <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Document', 'Comments', 'Activity'].map(tabId => (
+            {['Notes', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
                 className={cn(
-                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  "flex items-center py-2 text-sm font-medium transition-[color,box-shadow] whitespace-nowrap cursor-pointer",
                   activeTab === tabId
-                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                    ? "text-[var(--tokyo-text-strong)] shadow-[inset_0_-3px_0_var(--tokyo-yellow)]"
+                    : "text-[var(--tokyo-text-muted)] shadow-[inset_0_-3px_0_transparent] hover:text-[var(--tokyo-text-strong)]"
                 )}
               >
                 {tabId}
@@ -605,7 +623,7 @@ function NoteDetailsPage({ note, onBack }: {
 
         {/* Content Area */}
         <div className="flex-1 w-full pl-2.5 pt-4">
-          {activeTab === 'Document' && (
+          {activeTab === 'Notes' && (
             <div className="min-h-[55vh] py-2 text-[var(--tokyo-text-strong)]">
               <BlockEditor
                 initialContent={note.content}

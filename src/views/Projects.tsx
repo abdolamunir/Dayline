@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { GripVertical, Minus } from 'lucide-react';
 import { useAppStore } from '../store';
-import { Project, Task } from '../types';
+import { Project, Task, PropertyType } from '../types';
 import { 
   Folder01Icon as FolderKanban, 
   Add01Icon as Plus, 
@@ -47,13 +47,29 @@ import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
+import { getDefaultPropertyValue, getPropertyTypeIcon, getPropertyTypeLabel, PROPERTY_TYPE_OPTIONS } from '../utils/propertyTypes';
 import { PropertyContextMenu } from '../components/PropertyContextMenu';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
 import { TableView } from '../components/TableView';
 
-const iconMap: Record<string, any> = ALL_ICONS;
+const iconMap: Record<string, any> = {
+  ...ALL_ICONS,
+  Text,
+  Hash,
+  Layers,
+  CalendarIcon,
+  List,
+  CheckCircle,
+  Users,
+  User,
+  Attachment,
+  Link,
+  AtSign,
+  Search,
+  Plus,
+};
 
 const toSentenceCase = (str: string) => {
   if (!str) return '';
@@ -106,7 +122,7 @@ export function Projects() {
     { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
     { id: 'creator', name: 'Creator', type: 'text' as const, value: '' },
     ...projects.flatMap(project => project.customProperties || []),
-  ].reduce<Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>>((properties, property) => {
+  ].reduce<Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>>((properties, property) => {
     if (properties.some(existingProperty => existingProperty.id === property.id)) return properties;
     properties.push(property);
     return properties;
@@ -220,7 +236,7 @@ function ProjectDetailsPage({ project, onBack }: {
   onBack: () => void
 }) {
   const { updateProject, deleteProject, tasks, addTask, updateTask, user, viewSettings, updateViewSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('Todo list');
+  const [activeTab, setActiveTab] = useState('To-Dos');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
@@ -268,12 +284,13 @@ function ProjectDetailsPage({ project, onBack }: {
     setIsPropertyPickerOpen(true);
   };
 
-  const confirmAddProperty = (type: 'text' | 'number' | 'select' | 'date') => {
+  const confirmAddProperty = (type: PropertyType) => {
     const newProp = {
       id: `p${Date.now()}`,
-      name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+      name: `New ${getPropertyTypeLabel(type)}`,
       type,
-      value: ''
+      value: getDefaultPropertyValue(type),
+      icon: getPropertyTypeIcon(type),
     };
     handleUpdate({
       customProperties: [...(project.customProperties || []), newProp]
@@ -297,6 +314,13 @@ function ProjectDetailsPage({ project, onBack }: {
         : [...cols, { id, label: newName.trim(), icon: getCol(id, id, 'Text').icon, width: '150px' }];
       updateViewSettings('projects', { ...savedSettings, columns: updatedCols });
     } else {
+      const savedSettings = viewSettings.projects || {};
+      const cols = savedSettings.columns || [];
+      const existingProperty = project.customProperties?.find(p => p.id === id);
+      const updatedCols = cols.find((c: any) => c.id === id)
+        ? cols.map((c: any) => c.id === id ? { ...c, label: newName.trim() } : c)
+        : [...cols, { id, label: newName.trim(), icon: existingProperty?.icon || 'Text', width: '180px' }];
+      updateViewSettings('projects', { ...savedSettings, columns: updatedCols });
       handleUpdate({
         customProperties: project.customProperties?.map(p => 
           p.id === id ? { ...p, name: newName.trim() } : p
@@ -314,6 +338,13 @@ function ProjectDetailsPage({ project, onBack }: {
         : [...cols, { id, label: getCol(id, id, 'Text').label, icon: newIcon, width: '150px' }];
       updateViewSettings('projects', { ...savedSettings, columns: updatedCols });
     } else {
+      const savedSettings = viewSettings.projects || {};
+      const cols = savedSettings.columns || [];
+      const existingProperty = project.customProperties?.find(p => p.id === id);
+      const updatedCols = cols.find((c: any) => c.id === id)
+        ? cols.map((c: any) => c.id === id ? { ...c, icon: newIcon } : c)
+        : [...cols, { id, label: existingProperty?.name || id, icon: newIcon, width: '180px' }];
+      updateViewSettings('projects', { ...savedSettings, columns: updatedCols });
       handleUpdate({
         customProperties: project.customProperties?.map(p => 
           p.id === id ? { ...p, icon: newIcon } : p
@@ -352,6 +383,27 @@ function ProjectDetailsPage({ project, onBack }: {
     return <IconComponent className={className} />;
   };
 
+  const handlePropertyLabelClick = (
+    e: React.MouseEvent,
+    id: string,
+    isSystem: boolean,
+    label: string
+  ) => {
+    e.stopPropagation();
+    if ((e.target as HTMLElement).closest('svg')) {
+      setPropertyIconPicker({ id, isSystem, pos: { x: e.clientX, y: e.clientY } });
+      return;
+    }
+    setEditingPropertyId(id);
+    setEditingPropertyName(label);
+  };
+
+  const handlePropertyLabelContextMenu = (e: React.MouseEvent, id: string, isSystem: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
+  };
+
   const handleUpdateProperty = (propId: string, value: any) => {
     handleUpdate({
       customProperties: project.customProperties?.map(p => p.id === propId ? { ...p, value } : p)
@@ -378,6 +430,25 @@ function ProjectDetailsPage({ project, onBack }: {
       ]);
       setCommentText('');
     }
+  };
+
+  const getPersonAvatarUrl = (name: string) => {
+    if (name === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonValue = (name?: string) => {
+    const displayName = name?.trim() || 'Unassigned';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatarUrl(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
   };
 
   const projectTasks = tasks.filter(t => t.projectId === project.id);
@@ -491,7 +562,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: t
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'assigned', true, assignedCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'assigned', true)}>
                   {renderIcon(assignedCol.icon, Users, "w-4 h-4")}
                   {editingPropertyId === 'assigned' ? (
                     <input 
@@ -508,15 +579,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: t
                   )}
                 </div>
               </div>
-            <div className="flex -space-x-2">
-              {[
-                'https://i.pravatar.cc/150?u=5',
-                'https://i.pravatar.cc/150?u=4',
-                'https://i.pravatar.cc/150?u=6'
-              ].map((url, i) => (
-                <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-              ))}
-            </div>
+            {renderPersonValue(project.assignee)}
           </div>
           )}
 
@@ -531,7 +594,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'deadline', isSystem: t
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'deadline', true, dateCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'deadline', true)}>
                   {renderIcon(dateCol.icon, CalendarIcon, "w-4 h-4")}
                   {editingPropertyId === 'deadline' ? (
                     <input 
@@ -575,7 +638,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: t
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'priority', true, priorityCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'priority', true)}>
                   {renderIcon(priorityCol.icon, Zap, "w-4 h-4")}
                   {editingPropertyId === 'priority' ? (
                     <input 
@@ -625,7 +688,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: tru
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'status', true, statusCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'status', true)}>
                   {renderIcon(statusCol.icon, CheckCircle, "w-4 h-4")}
                   {editingPropertyId === 'status' ? (
                     <input 
@@ -678,7 +741,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: tr
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'creator', true, creatorCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'creator', true)}>
                   {renderIcon(creatorCol.icon, User, "w-4 h-4")}
                   {editingPropertyId === 'creator' ? (
                     <input 
@@ -695,10 +758,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: tr
                   )}
                 </div>
               </div>
-            <div className="flex items-center gap-2">
-              <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-              <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
-            </div>
+            {renderPersonValue('Abdola Munir')}
           </div>
           )}
 
@@ -722,7 +782,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                 }}
               >
                 <div className="w-40 shrink-0 flex items-center">
-                  <div className={propertyLabelClass}>
+                  <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, prop.id, false, prop.name)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, prop.id, false)}>
                     {prop.icon ? renderIcon(prop.icon, PropIcon, "w-4 h-4") : <PropIcon className="w-4 h-4" />}
                     {editingPropertyId === prop.id ? (
                       <input 
@@ -791,15 +851,15 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
         {/* Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
           <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Todo list', 'Comments', 'Activity'].map(tabId => (
+            {['Notes', 'To-Dos', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
                 className={cn(
-                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  "flex items-center py-2 text-sm font-medium transition-[color,box-shadow] whitespace-nowrap cursor-pointer",
                   activeTab === tabId
-                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                    ? "text-[var(--tokyo-text-strong)] shadow-[inset_0_-3px_0_var(--tokyo-yellow)]"
+                    : "text-[var(--tokyo-text-muted)] shadow-[inset_0_-3px_0_transparent] hover:text-[var(--tokyo-text-strong)]"
                 )}
               >
                 {tabId}
@@ -810,7 +870,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
 
         {/* Content Area */}
         <div className="flex-1 w-full pl-2.5">
-          {activeTab === 'Todo list' && (
+          {activeTab === 'To-Dos' && (
             <div className="space-y-2">
               {projectTasks.map((task) => (
                 <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
@@ -848,6 +908,15 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                 <Plus className="w-3.5 h-3.5" />
                 <span className="font-medium">Add new task</span>
               </button>
+            </div>
+          )}
+
+          {activeTab === 'Notes' && (
+            <div className="min-h-[42vh] py-2 text-[var(--tokyo-text-strong)]">
+              <BlockEditor
+                initialContent={project.description || ''}
+                onChange={(nextContent) => handleUpdate({ description: nextContent })}
+              />
             </div>
           )}
 
@@ -1033,36 +1102,34 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
+              className="dayline-dialog fixed z-[120] max-h-[440px] w-72 overflow-auto no-scrollbar rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-2 shadow-2xl"
               style={{ 
                 top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
                 left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
               }}
             >
-              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+              <div className="dayline-dialog-heading px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Basic properties
               </div>
               <div className="space-y-0.5">
-                {[
-                  { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
-                  { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
-                  { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
-                  { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
-                ].map((type) => (
+                {PROPERTY_TYPE_OPTIONS.map((type) => {
+                  const TypeIcon = iconMap[type.icon] || Text;
+                  return (
                   <button
                     key={type.id}
-                    onClick={() => confirmAddProperty(type.id as any)}
+                    onClick={() => confirmAddProperty(type.id)}
                     className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                   >
                     <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
-                      <type.icon className="w-4 h-4" />
+                      <TypeIcon className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
                       <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           </>

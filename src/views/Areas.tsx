@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { GripVertical, Minus } from 'lucide-react';
 import { useAppStore } from '../store';
-import { Area, Task } from '../types';
+import { Area, Task, PropertyType } from '../types';
 import { 
   Layers01Icon as Layers, 
   Add01Icon as Plus, 
@@ -47,13 +47,29 @@ import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
+import { getDefaultPropertyValue, getPropertyTypeIcon, getPropertyTypeLabel, PROPERTY_TYPE_OPTIONS } from '../utils/propertyTypes';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker, DateConfig } from '../components/DatePicker';
 import { format } from 'date-fns';
 import { TableView } from '../components/TableView';
 import { PropertyContextMenu } from '../components/PropertyContextMenu';
 
-const iconMap: Record<string, any> = ALL_ICONS;
+const iconMap: Record<string, any> = {
+  ...ALL_ICONS,
+  Text,
+  Hash,
+  Layers,
+  CalendarIcon,
+  List,
+  CheckCircle,
+  Users,
+  User,
+  Attachment,
+  Link,
+  AtSign,
+  Search,
+  Plus,
+};
 
 const toSentenceCase = (str: string) => {
   if (!str) return '';
@@ -104,7 +120,7 @@ export function Areas() {
   const areaDetailProperties = [
     { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
     ...areas.flatMap(area => area.customProperties || []),
-  ].reduce<Array<{ id: string; name: string; type: 'text' | 'number' | 'select' | 'date'; value: any }>>((properties, property) => {
+  ].reduce<Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>>((properties, property) => {
     if (properties.some(existingProperty => existingProperty.id === property.id)) return properties;
     properties.push(property);
     return properties;
@@ -252,12 +268,13 @@ function AreaDetailsPage({ area, onBack }: {
     setIsPropertyPickerOpen(true);
   };
 
-  const confirmAddProperty = (type: 'text' | 'number' | 'select' | 'date') => {
+  const confirmAddProperty = (type: PropertyType) => {
     const newProp = {
       id: `p${Date.now()}`,
-      name: `New ${toSentenceCase(type)}`,
+      name: `New ${getPropertyTypeLabel(type)}`,
       type,
-      value: ''
+      value: getDefaultPropertyValue(type),
+      icon: getPropertyTypeIcon(type),
     };
     handleUpdate({
       customProperties: [...(area.customProperties || []), newProp]
@@ -300,6 +317,7 @@ function AreaDetailsPage({ area, onBack }: {
       updateColumnMeta(id, { label: newName.trim() });
       return;
     }
+    updateColumnMeta(id, { label: newName.trim() });
     handleUpdate({
       customProperties: area.customProperties?.map((prop) => prop.id === id ? { ...prop, name: newName.trim() } : prop)
     });
@@ -310,6 +328,7 @@ function AreaDetailsPage({ area, onBack }: {
       updateColumnMeta(id, { icon });
       return;
     }
+    updateColumnMeta(id, { icon });
     handleUpdate({
       customProperties: area.customProperties?.map((prop) => prop.id === id ? { ...prop, icon } : prop)
     });
@@ -340,6 +359,25 @@ function AreaDetailsPage({ area, onBack }: {
     }
   };
 
+  const getPersonAvatarUrl = (name: string) => {
+    if (name === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonValue = (name?: string) => {
+    const displayName = name?.trim() || 'Unassigned';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatarUrl(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
+  };
+
   const areaProjects = projects.filter(p => area.projectIds?.includes(p.id));
   const areaGoals = goals.filter(g => area.goalIds?.includes(g.id));
   const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
@@ -359,6 +397,16 @@ function AreaDetailsPage({ area, onBack }: {
       <div
         className={propertyLabelClass}
         onClick={(e) => {
+          e.stopPropagation();
+          if ((e.target as HTMLElement).closest('svg')) {
+            setPropertyIconPicker({ id, isSystem, pos: { x: e.clientX, y: e.clientY } });
+            return;
+          }
+          setEditingPropertyId(id);
+          setEditingPropertyName(label);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
           e.stopPropagation();
           setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
         }}
@@ -482,14 +530,7 @@ function AreaDetailsPage({ area, onBack }: {
             {!assignedCol.hidden && (
             <div className={propertyRowClass}>
               {renderPropertyLabel('assigned', true, assignedCol.label, assignedCol.icon, Users)}
-              <div className="flex -space-x-2">
-                {[
-                  'https://i.pravatar.cc/150?u=5',
-                  'https://i.pravatar.cc/150?u=4'
-                ].map((url, i) => (
-                  <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-                ))}
-              </div>
+              {renderPersonValue(area.assignee)}
             </div>
             )}
 
@@ -551,10 +592,7 @@ function AreaDetailsPage({ area, onBack }: {
             {!creatorCol.hidden && (
             <div className={propertyRowClass}>
               {renderPropertyLabel('creator', true, creatorCol.label, creatorCol.icon, User)}
-              <div className="flex items-center gap-2">
-                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-                <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
-              </div>
+              {renderPersonValue('Abdola Munir')}
             </div>
             )}
 
@@ -622,15 +660,15 @@ function AreaDetailsPage({ area, onBack }: {
           {/* Tabs */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
             <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-              {['Projects', 'Goals', 'Comments', 'Activity'].map(tabId => (
+              {['Notes', 'Projects', 'Goals', 'Comments', 'Activity'].map(tabId => (
                 <div
                   key={tabId}
                   onClick={() => setActiveTab(tabId)}
                   className={cn(
-                    "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
-                    activeTab === tabId
-                      ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                      : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                    "flex items-center py-2 text-sm font-medium transition-[color,box-shadow] whitespace-nowrap cursor-pointer",
+                  activeTab === tabId
+                    ? "text-[var(--tokyo-text-strong)] shadow-[inset_0_-3px_0_var(--tokyo-yellow)]"
+                    : "text-[var(--tokyo-text-muted)] shadow-[inset_0_-3px_0_transparent] hover:text-[var(--tokyo-text-strong)]"
                   )}
                 >
                   {tabId}
@@ -677,6 +715,15 @@ function AreaDetailsPage({ area, onBack }: {
                   No goals in this area yet.
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'Notes' && (
+            <div className="min-h-[42vh] py-2 text-[var(--tokyo-text-strong)]">
+              <BlockEditor
+                initialContent={area.description || ''}
+                onChange={(nextContent) => handleUpdate({ description: nextContent })}
+              />
             </div>
           )}
 
@@ -858,36 +905,34 @@ function AreaDetailsPage({ area, onBack }: {
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
+              className="dayline-dialog fixed z-[120] max-h-[440px] w-72 overflow-auto no-scrollbar rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-2 shadow-2xl"
               style={{ 
                 top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
                 left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
               }}
             >
-              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+              <div className="dayline-dialog-heading px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Basic properties
               </div>
               <div className="space-y-0.5">
-                {[
-                  { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
-                  { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
-                  { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
-                  { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
-                ].map((type) => (
+                {PROPERTY_TYPE_OPTIONS.map((type) => {
+                  const TypeIcon = iconMap[type.icon] || Text;
+                  return (
                   <button
                     key={type.id}
-                    onClick={() => confirmAddProperty(type.id as any)}
+                    onClick={() => confirmAddProperty(type.id)}
                     className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                   >
                     <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
-                      <type.icon className="w-4 h-4" />
+                      <TypeIcon className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
                       <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           </>

@@ -49,6 +49,7 @@ import { DatePicker, DateConfig } from './DatePicker';
 import { format } from 'date-fns';
 import { CustomPage, CustomPageItem } from '../types';
 import { useAppStore } from '../store';
+import { getPropertyTypeIcon } from '../utils/propertyTypes';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -66,6 +67,14 @@ const iconMap: Record<string, React.ElementType> = {
   Target: Target,
   Hash: Hash,
   Text: Text,
+  List: List,
+  Users: Users,
+  User: User,
+  Attachment: Attachment,
+  Link: Link,
+  AtSign: AtSign,
+  Search: Search,
+  Plus: Plus,
 };
 
 const toSentenceCase = (str: string) => {
@@ -84,7 +93,7 @@ type TableSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_TABLE_SORT: TableSortConfig = { columnId: 'title', direction: 'asc' };
 
 export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
-  const { areas } = useAppStore();
+  const { areas, user } = useAppStore();
   const [activeTab, setActiveTab] = useState<string>(page.activeTab || page.tabs[1]?.id || page.tabs[0]?.id);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ itemId: string; columnId: string } | null>(null);
@@ -167,13 +176,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const pagePropertyColumns: CustomPage['columns'] = page.properties.map(property => ({
     id: property.id,
     label: property.name,
-    icon: property.type === 'date'
-      ? 'CalendarIcon'
-      : property.type === 'number'
-        ? 'Hash'
-        : property.type === 'select'
-          ? 'Layers'
-          : 'Text',
+    icon: property.icon || getPropertyTypeIcon(property.type),
     width: '180px',
   }));
   const allColumns: CustomPage['columns'] = [
@@ -247,6 +250,32 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       columns: allColumns.map(column => column.id === columnId ? { ...column, hidden: false } : column),
     });
     setColumnContextMenu(null);
+  };
+
+  const updateColumn = (columnId: string, updates: Partial<CustomPage['columns'][number]>) => {
+    const existingColumn = allColumns.find(column => column.id === columnId);
+    const nextProperties = updates.label || updates.icon
+      ? page.properties.map(property => (
+          property.id === columnId
+            ? { ...property, name: updates.label || property.name, icon: updates.icon || property.icon }
+            : property
+        ))
+      : page.properties;
+    onUpdatePage({
+      ...page,
+      columns: page.columns.some(column => column.id === columnId)
+        ? page.columns.map(column => column.id === columnId ? { ...column, ...updates } : column)
+        : existingColumn
+          ? [...page.columns, { ...existingColumn, ...updates }]
+          : page.columns,
+      properties: nextProperties,
+    });
+  };
+
+  const commitColumnName = (columnId: string) => {
+    const nextName = editingColumnName.trim();
+    if (nextName) updateColumn(columnId, { label: nextName });
+    setEditingColumnId(null);
   };
 
   const getColumnWidthNumber = (width?: string) => {
@@ -436,6 +465,26 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     if (!value) return '';
     const stringValue = String(value);
     return areas.find(area => area.id === stringValue)?.name || stringValue || '';
+  };
+
+  const getPersonAvatar = (name?: string) => {
+    const displayName = name || 'Abdola Munir';
+    if (displayName === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(displayName.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonCell = (name?: string) => {
+    const displayName = name || 'Abdola Munir';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatar(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
   };
 
   const withCellValue = (item: CustomPageItem, columnId: string, value: any): CustomPageItem => {
@@ -946,7 +995,8 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                       if (e.key === 'Enter') handleRenameTab(tab.id);
                       if (e.key === 'Escape') setEditingTabId(null);
                     }}
-                    className="bg-transparent border-none outline-none w-20 text-white"
+                    style={{ width: `${Math.max(1, tab.label.length)}ch` }}
+                    className="min-w-0 bg-transparent border-none outline-none text-white"
                   />
                 ) : (
                   <span
@@ -1027,15 +1077,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     layout="position"
                     transition={{ layout: { duration: 0.16, ease: [0.23, 1, 0.32, 1] as const } }}
                     style={getColumnMotionStyle(col)}
+                    onPointerDown={(event) => startColumnDrag(event, col.id)}
                     onContextMenu={(event) => handleColumnContextMenu(event, col.id)}
                     className={cn(
-                      "relative px-4 py-1 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible",
+                      "relative cursor-grab px-4 py-1 border-b border-[var(--tokyo-border)] group/header whitespace-nowrap overflow-visible active:cursor-grabbing",
                       index === 0 && "pl-[5px]"
                     )}
                   >
                     <div
-                      onPointerDown={(event) => startColumnDrag(event, col.id)}
-                      className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2 cursor-grab active:cursor-grabbing"
+                      className="flex items-center gap-0.5 w-full min-w-0 overflow-hidden pr-2"
                     >
                       <button
                         type="button"
@@ -1061,20 +1111,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => e.stopPropagation()}
                           onBlur={() => {
-                            if (editingColumnName.trim()) {
-                              const existingColumn = displayColumns.find(c => c.id === col.id);
-                              onUpdatePage({
-                                ...page,
-                                columns: page.columns.some(c => c.id === col.id)
-                                  ? page.columns.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c)
-                                  : existingColumn
-                                    ? [...page.columns, { ...existingColumn, label: editingColumnName }]
-                                    : page.columns
-                              });
-                            }
-                            setEditingColumnId(null);
+                            commitColumnName(col.id);
                           }}
-                          onKeyDown={(e) => e.key === 'Enter' && setEditingColumnId(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitColumnName(col.id);
+                            if (e.key === 'Escape') setEditingColumnId(null);
+                          }}
                           className="bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)] px-2 h-7 rounded-md outline-none text-sm font-medium border border-[var(--tokyo-border)] min-w-0 w-full"
                         />
                       ) : (
@@ -1210,6 +1252,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                     const formattedPropertyValue = propertyDefinition?.type === 'date' && rawPropertyValue
                       ? format(new Date(rawPropertyValue), 'MMM d, yyyy')
                       : rawPropertyValue;
+                    const isPersonProperty = propertyDefinition?.type === 'person'
+                      || propertyDefinition?.type === 'created-by'
+                      || propertyDefinition?.type === 'last-edited-by';
 
                     return (
                     <motion.td
@@ -1389,6 +1434,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                             />
                           </div>
                         </div>
+                      ) : col.id === 'assigned' || col.id === 'creator' || isPersonProperty ? (
+                        renderPersonCell(
+                          col.id === 'creator' || propertyDefinition?.type === 'created-by' || propertyDefinition?.type === 'last-edited-by'
+                            ? 'Abdola Munir'
+                            : String(formattedPropertyValue || 'Unassigned')
+                        )
                       ) : (
                         <span
                           onClick={(e) => {
@@ -1943,15 +1994,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                   } else if (iconPickerType === 'item') {
                     onUpdatePage({ ...page, items: page.items.map(i => i.id === iconPickerId ? { ...i, icon: iconName } : i) });
                   } else {
-                    const existingColumn = displayColumns.find(c => c.id === iconPickerId);
-                    onUpdatePage({
-                      ...page,
-                      columns: page.columns.some(c => c.id === iconPickerId)
-                        ? page.columns.map(c => c.id === iconPickerId ? { ...c, icon: iconName } : c)
-                        : existingColumn
-                          ? [...page.columns, { ...existingColumn, icon: iconName }]
-                          : page.columns
-                    });
+                    updateColumn(iconPickerId, { icon: iconName });
                   }
                   setIconPickerId(null);
                   setIconPickerType(null);

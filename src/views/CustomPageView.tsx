@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CustomPage, CustomPageItem } from '../types';
+import { CustomPage, CustomPageItem, PropertyType } from '../types';
 import { useAppStore } from '../store';
 import { 
   File01Icon as FileIcon, 
@@ -36,6 +36,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
 import { PropertyContextMenu } from '../components/PropertyContextMenu';
+import { getDefaultPropertyValue, getPropertyTypeIcon, getPropertyTypeLabel, PROPERTY_TYPE_OPTIONS } from '../utils/propertyTypes';
+
+const propertyIconMap: Record<string, React.ElementType> = {
+  ...ALL_ICONS,
+  Text: Type,
+  Hash,
+  List,
+  Layers: List,
+  CalendarIcon,
+  CheckCircle,
+  Users,
+  User,
+  Attachment,
+  Link,
+  AtSign,
+  Plus,
+};
 
 interface CustomPageViewProps {
   page: CustomPage;
@@ -108,12 +125,13 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
     setIsIconPickerOpen(true);
   };
 
-  const addProperty = (type: 'text' | 'number' | 'select' | 'date') => {
+  const addProperty = (type: PropertyType) => {
     const newProp = {
       id: `prop-${Date.now()}`,
-      name: `New ${type}`,
+      name: `New ${getPropertyTypeLabel(type)}`,
       type,
-      value: ''
+      value: getDefaultPropertyValue(type),
+      icon: getPropertyTypeIcon(type),
     };
     updateCustomPage({ ...page, properties: [...page.properties, newProp] });
   };
@@ -259,10 +277,14 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
               <Plus className="w-3 h-3" /> Add a property
             </button>
             <div className="dropdown-content absolute left-0 mt-1 w-48 bg-[var(--tokyo-panel-2)] rounded-md shadow-xl border border-[var(--tokyo-border-strong)] hidden opacity-0 z-10 py-1">
-              <button onClick={() => addProperty('text')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><Type className="w-4 h-4" /> Text</button>
-              <button onClick={() => addProperty('number')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><Hash className="w-4 h-4" /> Number</button>
-              <button onClick={() => addProperty('select')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><List className="w-4 h-4" /> Select</button>
-              <button onClick={() => addProperty('date')} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer"><CalendarIcon className="w-4 h-4" /> Date</button>
+              {PROPERTY_TYPE_OPTIONS.map((type) => {
+                const TypeIcon = propertyIconMap[type.icon] || Type;
+                return (
+                  <button key={type.id} onClick={() => addProperty(type.id)} className="w-full text-left px-4 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2 cursor-pointer">
+                    <TypeIcon className="w-4 h-4" /> {type.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -376,6 +398,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       updateColumnMeta(id, { label: newName.trim() });
       return;
     }
+    updateColumnMeta(id, { label: newName.trim() });
     updateCustomPage({
       ...page,
       properties: page.properties.map((prop) => prop.id === id ? { ...prop, name: newName.trim() } : prop)
@@ -387,6 +410,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       updateColumnMeta(id, { icon });
       return;
     }
+    updateColumnMeta(id, { icon });
     updateCustomPage({
       ...page,
       properties: page.properties.map((prop) => prop.id === id ? { ...prop, icon } : prop)
@@ -412,12 +436,13 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     handleDeleteProperty(id);
   };
 
-  const addProperty = (type: 'text' | 'number' | 'select' | 'date') => {
+  const addProperty = (type: PropertyType) => {
     const newProp = {
       id: `prop-${Date.now()}`,
-      name: `New ${type}`,
+      name: `New ${getPropertyTypeLabel(type)}`,
       type,
-      value: ''
+      value: getDefaultPropertyValue(type),
+      icon: getPropertyTypeIcon(type),
     };
     updateCustomPage({ ...page, properties: [...page.properties, newProp] });
     setIsPropertyPickerOpen(false);
@@ -455,6 +480,25 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
     setCommentText('');
   };
 
+  const getPersonAvatarUrl = (name: string) => {
+    if (name === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonValue = (name?: string) => {
+    const displayName = name?.trim() || 'Unassigned';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatarUrl(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
+  };
+
   const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group/prop";
   const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
 
@@ -469,6 +513,16 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       <div
         className={propertyLabelClass}
         onClick={(e) => {
+          e.stopPropagation();
+          if ((e.target as HTMLElement).closest('svg')) {
+            setPropertyIconPicker({ id, isSystem, pos: { x: e.clientX, y: e.clientY } });
+            return;
+          }
+          setEditingPropertyId(id);
+          setEditingPropertyName(label);
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
           e.stopPropagation();
           setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
         }}
@@ -677,10 +731,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           {!creatorCol.hidden && (
           <div className={propertyRowClass}>
             {renderPropertyLabel('creator', true, creatorCol.label, creatorCol.icon, User)}
-            <div className="flex items-center gap-2">
-              <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-              <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
-            </div>
+            {renderPersonValue('Abdola Munir')}
           </div>
           )}
 
@@ -764,15 +815,15 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         {/* Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
           <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Overview', 'Comments', 'Activity'].map(tabId => (
+            {['Notes', 'Overview', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
                 className={cn(
-                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  "flex items-center py-2 text-sm font-medium transition-[color,box-shadow] whitespace-nowrap cursor-pointer",
                   activeTab === tabId
-                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                    ? "text-[var(--tokyo-text-strong)] shadow-[inset_0_-3px_0_var(--tokyo-yellow)]"
+                    : "text-[var(--tokyo-text-muted)] shadow-[inset_0_-3px_0_transparent] hover:text-[var(--tokyo-text-strong)]"
                 )}
               >
                 {tabId}
@@ -794,6 +845,15 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   className="w-full min-h-[200px] bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/10 resize-none text-[13px] leading-relaxed focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent py-0 shadow-none"
                 />
               </div>
+            </div>
+          )}
+
+          {activeTab === 'Notes' && (
+            <div className="min-h-[42vh] py-2 text-[var(--tokyo-text-strong)]">
+              <BlockEditor
+                initialContent={item.properties.notes || ''}
+                onChange={(nextContent) => updateProperty('notes', nextContent)}
+              />
             </div>
           )}
 
@@ -953,15 +1013,19 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl py-1.5 w-48 overflow-hidden"
+              className="dayline-dialog fixed z-[120] max-h-[440px] w-64 overflow-auto no-scrollbar rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl"
               style={{ top: propertyPickerPos.y, left: propertyPickerPos.x }}
             >
-              <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Property Types</div>
+              <div className="dayline-dialog-heading px-3 py-1.5 text-[10px] font-bold text-[var(--tokyo-text-faint)] uppercase tracking-wider">Property Types</div>
               <div className="space-y-0.5">
-                <button onClick={() => addProperty('text')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><Type className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Text</button>
-                <button onClick={() => addProperty('number')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><Hash className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Number</button>
-                <button onClick={() => addProperty('select')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><List className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Select</button>
-                <button onClick={() => addProperty('date')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer"><CalendarIcon className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> Date</button>
+                {PROPERTY_TYPE_OPTIONS.map((type) => {
+                  const TypeIcon = propertyIconMap[type.icon] || Type;
+                  return (
+                    <button key={type.id} onClick={() => addProperty(type.id)} className="w-full text-left px-3 py-2 text-xs font-semibold text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] flex items-center gap-2.5 cursor-pointer">
+                      <TypeIcon className="w-4 h-4 text-[var(--tokyo-text-faint)]" /> {type.label}
+                    </button>
+                  );
+                })}
               </div>
             </motion.div>
           </>

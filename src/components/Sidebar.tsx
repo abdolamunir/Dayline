@@ -564,12 +564,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       {isProfileOpen && (
                           <div 
                             className={cn(
-                              "absolute top-full left-0 mt-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                              "dayline-dialog absolute top-full left-0 mt-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
                             )}
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
-                              <p className="text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
+                              <p className="dayline-dialog-heading text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
                             </div>
                             <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
                               <User className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
@@ -659,11 +659,11 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
                       {isProfileOpen && (
                           <div 
-                            className="absolute top-0 left-full ml-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200"
+                            className="dayline-dialog absolute top-0 left-full ml-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
-                              <p className="text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
+                              <p className="dayline-dialog-heading text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
                             </div>
                             <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
                               <User className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
@@ -921,7 +921,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
           className="fixed inset-0" 
           onClick={() => setIsShortcutsOpen(false)}
         />
-        <div className="relative w-full max-w-lg bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="dayline-dialog relative w-full max-w-lg bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
           <div className="p-6 border-b border-[var(--tokyo-border)] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[var(--tokyo-hover)] flex items-center justify-center">

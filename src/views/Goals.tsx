@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '../store';
-import { Goal } from '../types';
+import { Goal, PropertyType } from '../types';
 import {
   Target01Icon as Target, 
   Add01Icon as Plus, 
@@ -44,6 +44,7 @@ import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
+import { getDefaultPropertyValue, getPropertyTypeIcon, getPropertyTypeLabel, PROPERTY_TYPE_OPTIONS } from '../utils/propertyTypes';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { PropertyContextMenu } from '../components/PropertyContextMenu';
 import { DatePicker, DateConfig } from '../components/DatePicker';
@@ -57,6 +58,16 @@ const iconMap: Record<string, React.ElementType> = {
   Circle: Circle,
   CheckCircle: CheckCircle,
   CalendarIcon: CalendarIcon,
+  Text: Text,
+  Hash: Hash,
+  List: List,
+  Users: Users,
+  User: User,
+  Attachment: Attachment,
+  Link: Link,
+  AtSign: AtSign,
+  Search: Search,
+  Plus: Plus,
 };
 
 const toSentenceCase = (str: string) => {
@@ -109,7 +120,7 @@ function GoalColumnHeader({
   editingColumnName,
   setEditingColumnId,
   setEditingColumnName,
-  setColumns,
+  onUpdateColumn,
   setIconPickerId,
   setIconPickerType,
   setIconPickerPos,
@@ -125,7 +136,7 @@ function GoalColumnHeader({
   editingColumnName: string;
   setEditingColumnId: React.Dispatch<React.SetStateAction<string | null>>;
   setEditingColumnName: React.Dispatch<React.SetStateAction<string>>;
-  setColumns: React.Dispatch<React.SetStateAction<GoalColumn[]>>;
+  onUpdateColumn: (columnId: string, updates: Partial<GoalColumn>) => void;
   setIconPickerId: React.Dispatch<React.SetStateAction<string | null>>;
   setIconPickerType: React.Dispatch<React.SetStateAction<GoalIconPickerType>>;
   setIconPickerPos: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
@@ -178,14 +189,14 @@ function GoalColumnHeader({
             onClick={(e) => e.stopPropagation()}
             onBlur={() => {
               if (editingColumnName.trim()) {
-                setColumns(prev => prev.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c));
+                onUpdateColumn(col.id, { label: editingColumnName.trim() });
               }
               setEditingColumnId(null);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 if (editingColumnName.trim()) {
-                  setColumns(prev => prev.map(c => c.id === col.id ? { ...c, label: editingColumnName } : c));
+                  onUpdateColumn(col.id, { label: editingColumnName.trim() });
                 }
                 setEditingColumnId(null);
               }
@@ -289,7 +300,7 @@ function GoalReorderRow({
 }
 
 export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: string) => void, selectedGoalId?: string }) {
-  const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, updateSidebarItem, deleteSidebarItem, viewSettings, updateViewSettings } = useAppStore();
+  const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, updateSidebarItem, deleteSidebarItem, user, viewSettings, updateViewSettings } = useAppStore();
   const savedGoalSettings = viewSettings.goals || {};
   const [localSelectedGoalId, setLocalSelectedGoalId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -636,6 +647,30 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     setColumnContextMenu(null);
   };
 
+  const updateGoalColumn = (columnId: string, updates: Partial<GoalColumn>) => {
+    const existingColumn = displayGoalColumns.find(column => column.id === columnId)
+      || allGoalColumns.find(column => column.id === columnId);
+    setColumns(currentColumns => (
+      currentColumns.some(column => column.id === columnId)
+        ? currentColumns.map(column => column.id === columnId ? { ...column, ...updates } : column)
+        : existingColumn
+          ? [...currentColumns, { ...existingColumn, ...updates }]
+          : currentColumns
+    ));
+
+    if (updates.label) {
+      goals.forEach(goal => {
+        if (!goal.customProperties?.some(property => property.id === columnId)) return;
+        updateGoal({
+          ...goal,
+          customProperties: goal.customProperties.map(property => (
+            property.id === columnId ? { ...property, name: updates.label as string } : property
+          )),
+        });
+      });
+    }
+  };
+
   const startColumnResize = (event: React.PointerEvent, columnId: string, currentWidth?: string) => {
     event.preventDefault();
     event.stopPropagation();
@@ -817,6 +852,26 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     const customProp = goal.customProperties?.find(prop => prop.id === columnId);
     if (customProp) return customProp.value;
     return undefined;
+  };
+
+  const getPersonAvatar = (name?: string) => {
+    const displayName = name || 'Abdola Munir';
+    if (displayName === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(displayName.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonCell = (name?: string) => {
+    const displayName = name || 'Abdola Munir';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatar(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
   };
 
   const withGoalCellValue = (goal: Goal, columnId: string, value: any): Goal => {
@@ -1225,7 +1280,8 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     onChange={(e) => setEditingTabName(e.target.value)}
                     onBlur={() => handleRenameTab(tab.id)}
                     onKeyDown={(e) => e.key === 'Enter' && handleRenameTab(tab.id)}
-                    className="bg-transparent border-none outline-none w-20 text-white"
+                    style={{ width: `${Math.max(1, tab.label.length)}ch` }}
+                    className="min-w-0 bg-transparent border-none outline-none text-white"
                   />
                 ) : (
                   <span
@@ -1286,7 +1342,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             className="ml-2 bg-[var(--tokyo-yellow-dim)] text-white px-3 py-1.5 rounded-lg font-medium text-[12px] flex items-center justify-center gap-1.5 hover:bg-[var(--tokyo-yellow)] hover:text-[var(--tokyo-bg-deep)] transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 [stroke-width:2.4]" />
-            New Goal
+            New
           </button>
         </div>
       </div>
@@ -1315,7 +1371,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                     editingColumnName={editingColumnName}
                     setEditingColumnId={setEditingColumnId}
                     setEditingColumnName={setEditingColumnName}
-                    setColumns={setColumns}
+                    onUpdateColumn={updateGoalColumn}
                     setIconPickerId={setIconPickerId}
                     setIconPickerType={setIconPickerType}
                     setIconPickerPos={setIconPickerPos}
@@ -1662,10 +1718,19 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   const formattedValue = customProp?.type === 'date' && customValue
                     ? format(new Date(customValue), 'MMM d, yyyy')
                     : customValue;
+                  const isPersonColumn = column.id === 'assigned'
+                    || column.id === 'creator'
+                    || customProp?.type === 'person'
+                    || customProp?.type === 'created-by'
+                    || customProp?.type === 'last-edited-by';
                   const displayValue = column.id === 'assigned'
                     ? (goal.assignee || 'Unassigned')
                     : column.id === 'creator'
                       ? 'Abdola Munir'
+                      : customProp?.type === 'created-by' || customProp?.type === 'last-edited-by'
+                        ? (formattedValue || 'Abdola Munir')
+                        : customProp?.type === 'person'
+                          ? (formattedValue || 'Unassigned')
                       : (formattedValue || 'Empty');
 
                   return (
@@ -1682,9 +1747,13 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       }}
                       className={goalCellClasses(column.id, "px-4 h-12 border-b border-[var(--tokyo-border)] whitespace-nowrap")}
                     >
-                      <span className="text-[var(--tokyo-text-faint)] text-sm">
-                        {String(displayValue)}
-                      </span>
+                      {isPersonColumn ? (
+                        renderPersonCell(String(displayValue))
+                      ) : (
+                        <span className="text-[var(--tokyo-text-faint)] text-sm">
+                          {String(displayValue)}
+                        </span>
+                      )}
                       {goalFillHandle(column.id)}
                     </motion.td>
                   );
@@ -2133,6 +2202,15 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                       ? [...columns, { ...existingColumn, icon: iconName }]
                       : columns
                   );
+                  goals.forEach(goal => {
+                    if (!goal.customProperties?.some(property => property.id === iconPickerId)) return;
+                    updateGoal({
+                      ...goal,
+                      customProperties: goal.customProperties.map(property => (
+                        property.id === iconPickerId ? { ...property, icon: iconName } : property
+                      )),
+                    });
+                  });
                 }
                 setIconPickerId(null);
                 setIconPickerType(null);
@@ -2334,7 +2412,7 @@ function GoalDetailsPage({ goal, onBack }: {
   onBack: () => void
 }) {
   const { updateGoal, deleteGoal, tasks, addTask, updateTask, user, viewSettings, updateViewSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('Todo list');
+  const [activeTab, setActiveTab] = useState('To-Dos');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
@@ -2382,12 +2460,13 @@ function GoalDetailsPage({ goal, onBack }: {
     setIsPropertyPickerOpen(true);
   };
 
-  const confirmAddProperty = (type: 'text' | 'number' | 'select' | 'date') => {
+  const confirmAddProperty = (type: PropertyType) => {
     const newProp = {
       id: `p${Date.now()}`,
-      name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+      name: `New ${getPropertyTypeLabel(type)}`,
       type,
-      value: ''
+      value: getDefaultPropertyValue(type),
+      icon: getPropertyTypeIcon(type),
     };
     handleUpdate({
       customProperties: [...(goal.customProperties || []), newProp]
@@ -2411,6 +2490,13 @@ function GoalDetailsPage({ goal, onBack }: {
         : [...cols, { id, label: newName.trim(), icon: getCol(id, id, 'Text').icon, width: '150px' }];
       updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
     } else {
+      const savedSettings = viewSettings.goals || {};
+      const cols = savedSettings.columns || [];
+      const existingColumn = cols.find((c: any) => c.id === id);
+      const updatedCols = existingColumn
+        ? cols.map((c: any) => c.id === id ? { ...c, label: newName.trim() } : c)
+        : [...cols, { id, label: newName.trim(), icon: goal.customProperties?.find(p => p.id === id)?.icon || 'Text', width: '180px' }];
+      updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
       handleUpdate({
         customProperties: goal.customProperties?.map(p => 
           p.id === id ? { ...p, name: newName.trim() } : p
@@ -2428,6 +2514,13 @@ function GoalDetailsPage({ goal, onBack }: {
         : [...cols, { id, label: getCol(id, id, 'Text').label, icon: newIcon, width: '150px' }];
       updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
     } else {
+      const savedSettings = viewSettings.goals || {};
+      const cols = savedSettings.columns || [];
+      const existingProperty = goal.customProperties?.find(p => p.id === id);
+      const updatedCols = cols.find((c: any) => c.id === id)
+        ? cols.map((c: any) => c.id === id ? { ...c, icon: newIcon } : c)
+        : [...cols, { id, label: existingProperty?.name || id, icon: newIcon, width: '180px' }];
+      updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
       handleUpdate({
         customProperties: goal.customProperties?.map(p => 
           p.id === id ? { ...p, icon: newIcon } : p
@@ -2466,6 +2559,27 @@ function GoalDetailsPage({ goal, onBack }: {
     return <IconComponent className={className} />;
   };
 
+  const handlePropertyLabelClick = (
+    e: React.MouseEvent,
+    id: string,
+    isSystem: boolean,
+    label: string
+  ) => {
+    e.stopPropagation();
+    if ((e.target as HTMLElement).closest('svg')) {
+      setPropertyIconPicker({ id, isSystem, pos: { x: e.clientX, y: e.clientY } });
+      return;
+    }
+    setEditingPropertyId(id);
+    setEditingPropertyName(label);
+  };
+
+  const handlePropertyLabelContextMenu = (e: React.MouseEvent, id: string, isSystem: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
+  };
+
   const handleUpdateProperty = (propId: string, value: any) => {
     handleUpdate({
       customProperties: goal.customProperties?.map(p => p.id === propId ? { ...p, value } : p)
@@ -2492,6 +2606,25 @@ function GoalDetailsPage({ goal, onBack }: {
       ]);
       setCommentText('');
     }
+  };
+
+  const getPersonAvatarUrl = (name: string) => {
+    if (name === 'Abdola Munir' && user?.photoURL) return user.photoURL;
+    return `https://i.pravatar.cc/150?u=${encodeURIComponent(name.toLowerCase().replace(/\s+/g, '-'))}`;
+  };
+
+  const renderPersonValue = (name?: string) => {
+    const displayName = name?.trim() || 'Unassigned';
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-[var(--tokyo-text-faint)]">
+        <img
+          src={getPersonAvatarUrl(displayName)}
+          className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
+          alt={displayName}
+        />
+        <span className="truncate text-sm font-medium">{displayName}</span>
+      </div>
+    );
   };
 
   const goalTasks = tasks.filter(t => t.goalId === goal.id);
@@ -2604,7 +2737,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: t
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'assigned', true, assignedCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'assigned', true)}>
                   {renderIcon(assignedCol.icon, Users, "w-4 h-4")}
                   {editingPropertyId === 'assigned' ? (
                     <input 
@@ -2621,15 +2754,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'assigned', isSystem: t
                   )}
                 </div>
               </div>
-              <div className="flex -space-x-2">
-                {[
-                  'https://i.pravatar.cc/150?u=5',
-                  'https://i.pravatar.cc/150?u=4',
-                  'https://i.pravatar.cc/150?u=6'
-                ].map((url, i) => (
-                  <img key={i} src={url} className="w-6 h-6 rounded-full border-2 border-[var(--tokyo-bg)] ring-white/5" alt="avatar" />
-                ))}
-              </div>
+              {renderPersonValue(goal.assignee)}
             </div>
           )}
 
@@ -2644,7 +2769,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'date', isSystem: true 
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'date', true, dateCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'date', true)}>
                   {renderIcon(dateCol.icon, CalendarIcon, "w-4 h-4")}
                   {editingPropertyId === 'date' ? (
                     <input 
@@ -2694,7 +2819,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: t
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'priority', true, priorityCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'priority', true)}>
                   {renderIcon(priorityCol.icon, Zap, "w-4 h-4")}
                   {editingPropertyId === 'priority' ? (
                     <input 
@@ -2744,7 +2869,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: tru
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'status', true, statusCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'status', true)}>
                   {renderIcon(statusCol.icon, CheckCircle, "w-4 h-4")}
                   {editingPropertyId === 'status' ? (
                     <input 
@@ -2794,7 +2919,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'progress', isSystem: t
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'progress', true, progressCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'progress', true)}>
                   {renderIcon(progressCol.icon, Circle, "w-4 h-4")}
                   {editingPropertyId === 'progress' ? (
                     <input 
@@ -2838,7 +2963,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: tr
               }}
             >
               <div className="w-40 shrink-0 flex items-center">
-                <div className={propertyLabelClass}>
+                <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, 'creator', true, creatorCol.label)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, 'creator', true)}>
                   {renderIcon(creatorCol.icon, User, "w-4 h-4")}
                   {editingPropertyId === 'creator' ? (
                     <input 
@@ -2855,10 +2980,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: tr
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-5 h-5 rounded-full ring-white/10" alt="creator" />
-                <span className="text-[var(--tokyo-text)] text-sm font-medium">Abdola Munir</span>
-              </div>
+              {renderPersonValue('Abdola Munir')}
             </div>
           )}
 
@@ -2882,7 +3004,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                 }}
               >
                 <div className="w-40 shrink-0 flex items-center">
-                  <div className={propertyLabelClass}>
+                  <div className={propertyLabelClass} onClick={(e) => handlePropertyLabelClick(e, prop.id, false, prop.name)} onContextMenu={(e) => handlePropertyLabelContextMenu(e, prop.id, false)}>
                     {prop.icon ? renderIcon(prop.icon, PropIcon, "w-4 h-4") : <PropIcon className="w-4 h-4" />}
                     {editingPropertyId === prop.id ? (
                       <input 
@@ -2951,15 +3073,15 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
         {/* Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
           <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Todo list', 'Comments', 'Activity'].map(tabId => (
+            {['Notes', 'To-Dos', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
                 className={cn(
-                  "-mb-px flex items-center py-2 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                  "flex items-center py-2 text-sm font-medium transition-[color,box-shadow] whitespace-nowrap cursor-pointer",
                   activeTab === tabId
-                    ? "border-b-[3px] border-[var(--tokyo-yellow)] text-[var(--tokyo-text-strong)]"
-                    : "border-b-[3px] border-transparent text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text-strong)]"
+                    ? "text-[var(--tokyo-text-strong)] shadow-[inset_0_-3px_0_var(--tokyo-yellow)]"
+                    : "text-[var(--tokyo-text-muted)] shadow-[inset_0_-3px_0_transparent] hover:text-[var(--tokyo-text-strong)]"
                 )}
               >
                 {tabId}
@@ -2971,7 +3093,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
 
         {/* Content Area */}
         <div className="flex-1 w-full pl-2.5">
-        {activeTab === 'Todo list' && (
+        {activeTab === 'To-Dos' && (
           <div className="space-y-2">
             {goalTasks.map((task) => (
               <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
@@ -3009,6 +3131,15 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
               <Plus className="w-3.5 h-3.5" />
               <span className="font-medium">Add new task</span>
             </button>
+          </div>
+        )}
+
+        {activeTab === 'Notes' && (
+          <div className="min-h-[42vh] py-2 text-[var(--tokyo-text-strong)]">
+            <BlockEditor
+              initialContent={goal.description || ''}
+              onChange={(nextContent) => handleUpdate({ description: nextContent })}
+            />
           </div>
         )}
 
@@ -3202,36 +3333,34 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              className="fixed z-[120] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-lg shadow-2xl p-2 w-64"
+              className="dayline-dialog fixed z-[120] max-h-[440px] w-72 overflow-auto no-scrollbar rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-2 shadow-2xl"
               style={{ 
                 top: Math.min(propertyPickerPos.y, window.innerHeight - 300), 
                 left: Math.min(propertyPickerPos.x, window.innerWidth - 280) 
               }}
             >
-              <div className="px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+              <div className="dayline-dialog-heading px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Basic properties
               </div>
               <div className="space-y-0.5">
-                {[
-                  { id: 'text', label: 'Text', icon: Text, desc: 'Plain text' },
-                  { id: 'number', label: 'Number', icon: Hash, desc: 'Numerical values' },
-                  { id: 'select', label: 'Select', icon: Layers, desc: 'Choose from options' },
-                  { id: 'date', label: 'Deadline', icon: CalendarIcon, desc: 'Calendar date' },
-                ].map((type) => (
+                {PROPERTY_TYPE_OPTIONS.map((type) => {
+                  const TypeIcon = iconMap[type.icon] || Text;
+                  return (
                   <button
                     key={type.id}
-                    onClick={() => confirmAddProperty(type.id as any)}
+                    onClick={() => confirmAddProperty(type.id)}
                     className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
                   >
                     <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
-                      <type.icon className="w-4 h-4" />
+                      <TypeIcon className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
                       <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           </>

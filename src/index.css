@@ -47,6 +47,7 @@ body {
 .dayline-main-surface {
   background: #130a19;
   box-shadow: inset 1px 0 0 rgba(218, 204, 216, 0.06);
+  scrollbar-gutter: stable;
 }
 
 .dayline-main-surface::before {
@@ -104,16 +105,34 @@ button {
   font-size: 13px !important;
 }
 
+.dayline-dialog,
+.dayline-dialog button,
+.dayline-dialog input,
+.dayline-dialog textarea,
+.dayline-dialog select,
+.dayline-dialog span,
+.dayline-dialog p,
 .property-popover,
 .property-popover button,
 .property-popover span {
-  font-size: 14px !important;
-  line-height: 1.45 !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
 }
 
+.dayline-dialog-heading,
 .property-popover-heading {
-  font-size: 12px !important;
+  font-size: 11px !important;
   line-height: 1.3 !important;
+}
+
+.dayline-dialog button {
+  min-height: 2rem !important;
+  font-weight: 600 !important;
+}
+
+.dayline-dialog svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
 }
 
 .property-context-menu {
