@@ -1,10 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { BlockNoteEditor } from "@blocknote/core";
+import { BlockNoteEditor, getNodeById } from "@blocknote/core";
+import { SideMenuExtension } from "@blocknote/core/extensions";
 import { en } from "@blocknote/core/locales";
-import { useCreateBlockNote } from "@blocknote/react";
+import {
+  BlockColorsItem,
+  DragHandleMenu,
+  GenericPopover,
+  SideMenu,
+  useBlockNoteEditor,
+  useComponentsContext,
+  useCreateBlockNote,
+  useExtension,
+  useExtensionState,
+} from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { format, addDays } from 'date-fns';
-import { AtIcon as AtSign, Calendar02Icon as CalendarDays, Clock01Icon as Clock, UserIcon as User, ZapIcon as Zap } from 'hugeicons-react';
+import {
+  AtIcon as AtSign,
+  Calendar02Icon as CalendarDays,
+  Clock01Icon as Clock,
+  Copy01Icon as Copy,
+  Delete02Icon as Trash2,
+  PaintBrush01Icon as Paintbrush,
+  UserIcon as User,
+  ZapIcon as Zap,
+} from 'hugeicons-react';
 import { useAppStore } from '../store';
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
@@ -16,6 +36,178 @@ type MentionMenuItem = {
   insertText: string;
   aliases?: string[];
 };
+
+const cloneBlockForInsert = (block: any): any => {
+  const { id: _id, children = [], ...rest } = block;
+  return {
+    ...rest,
+    children: children.map(cloneBlockForInsert),
+  };
+};
+
+const SIDE_MENU_HEIGHT = 32;
+
+const getFirstTextClientRect = (element: Element) => {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+
+  while (node) {
+    const text = node.textContent || '';
+    const firstVisibleIndex = text.search(/\S/);
+
+    if (firstVisibleIndex !== -1) {
+      const range = document.createRange();
+      range.setStart(node, firstVisibleIndex);
+      range.setEnd(node, Math.min(firstVisibleIndex + 1, text.length));
+      const rect = range.getBoundingClientRect();
+      range.detach();
+
+      if (rect.height > 0) {
+        return rect;
+      }
+    }
+
+    node = walker.nextNode();
+  }
+
+  return null;
+};
+
+const getLineAlignedSideMenuRect = (blockNode: Element) => {
+  const lineElement =
+    blockNode.querySelector('.bn-inline-content') ||
+    blockNode.querySelector('[data-content-type]') ||
+    blockNode;
+  const lineRect = getFirstTextClientRect(lineElement) || lineElement.getBoundingClientRect();
+  const fallbackRect = blockNode.getBoundingClientRect();
+  const sourceRect = lineRect.height > 0 ? lineRect : fallbackRect;
+  const top = sourceRect.top + (sourceRect.height - SIDE_MENU_HEIGHT) / 2;
+
+  return new DOMRect(sourceRect.left, top, 1, SIDE_MENU_HEIGHT);
+};
+
+function DuplicateBlockItem() {
+  const Components = useComponentsContext()!;
+  const editor = useBlockNoteEditor<any, any, any>();
+  const block = useExtensionState(SideMenuExtension, {
+    editor,
+    selector: (state) => state?.block,
+  });
+
+  if (!block) {
+    return null;
+  }
+
+  return (
+    <Components.Generic.Menu.Item
+      className="bn-menu-item dayline-block-menu-item"
+      icon={<Copy className="h-3.5 w-3.5" />}
+      onClick={() => editor.insertBlocks([cloneBlockForInsert(block)], block, "after")}
+    >
+      Duplicate
+    </Components.Generic.Menu.Item>
+  );
+}
+
+function DeleteBlockItem() {
+  const Components = useComponentsContext()!;
+  const editor = useBlockNoteEditor<any, any, any>();
+  const block = useExtensionState(SideMenuExtension, {
+    editor,
+    selector: (state) => state?.block,
+  });
+
+  if (!block) {
+    return null;
+  }
+
+  return (
+    <Components.Generic.Menu.Item
+      className="bn-menu-item dayline-block-menu-item dayline-block-menu-delete"
+      icon={<Trash2 className="h-3.5 w-3.5" />}
+      onClick={() => editor.removeBlocks([block])}
+    >
+      Delete
+    </Components.Generic.Menu.Item>
+  );
+}
+
+function DaylineDragHandleMenu() {
+  return (
+    <DragHandleMenu>
+      <BlockColorsItem>
+        <span className="dayline-block-menu-label">
+          <Paintbrush className="h-3.5 w-3.5" />
+          <span>Colors</span>
+        </span>
+      </BlockColorsItem>
+      <DuplicateBlockItem />
+      <DeleteBlockItem />
+    </DragHandleMenu>
+  );
+}
+
+function DaylineSideMenu() {
+  return <SideMenu dragHandleMenu={DaylineDragHandleMenu} />;
+}
+
+function DaylineSideMenuController() {
+  const editor = useBlockNoteEditor<any, any, any>();
+  const sideMenu = useExtension(SideMenuExtension);
+  const state = useExtensionState(SideMenuExtension, {
+    selector: (state) => state
+      ? {
+          show: state.show,
+          block: state.block,
+        }
+      : undefined,
+  });
+  const { show, block } = state || {};
+
+  const reference = useMemo(() => {
+    if (!block?.id) {
+      return undefined;
+    }
+
+    return editor.transact((tr) => {
+      const nodePosInfo = getNodeById(block.id, tr.doc);
+
+      if (!nodePosInfo) {
+        return undefined;
+      }
+
+      const { node } = editor.prosemirrorView.domAtPos(nodePosInfo.posBeforeNode + 1);
+
+      if (!(node instanceof Element)) {
+        return undefined;
+      }
+
+      return {
+        element: node,
+        getBoundingClientRect: () => getLineAlignedSideMenuRect(node),
+      };
+    });
+  }, [block?.id, editor]);
+
+  return (
+    <GenericPopover
+      reference={reference}
+      useFloatingOptions={{
+        open: show,
+        placement: 'left-start',
+      }}
+      useDismissProps={{ enabled: false }}
+      focusManagerProps={{ disabled: true }}
+      elementProps={{
+        style: { zIndex: 20 },
+        onMouseEnter: () => sideMenu.freezeMenu(),
+        onMouseLeave: () => sideMenu.unfreezeMenu(),
+      }}
+    >
+      {block?.id && <DaylineSideMenu />}
+    </GenericPopover>
+  );
+}
 
 export function BlockEditor({ initialContent, onChange }: { initialContent: any, onChange: (content: string) => void }) {
   const { user } = useAppStore();
@@ -196,9 +388,8 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
     }
   };
 
-  // Dynamic DOM ancestor contains-method patching & capturing event interceptor to solve side-menu hover instability.
-  // 1. We override `.contains` on all ancestors of .ProseMirror, ensuring parent-descendant checks in BlockNote succeed when hovering the side-menu.
-  // 2. We intercept `mousemove` in the capturing phase on window, stopping it from propagating when over the side-menu, which prevents BlockNote from executing close/hide triggers.
+  // Keep BlockNote hover checks stable when the side menu is rendered outside
+  // the editor element. This makes ancestor `.contains()` checks include menus.
   useEffect(() => {
     let active = true;
     const patchedElements: Map<HTMLElement, typeof HTMLElement.prototype.contains> = new Map();
@@ -237,22 +428,10 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
       requestAnimationFrame(patchAncestors);
     };
 
-    const handleMouseMoveCapture = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target && typeof target.closest === 'function') {
-        const isOverSideMenu = target.closest('.bn-side-menu') || target.classList?.contains('bn-side-menu');
-        if (isOverSideMenu) {
-          event.stopPropagation();
-        }
-      }
-    };
-
     patchAncestors();
-    window.addEventListener('mousemove', handleMouseMoveCapture, true);
 
     return () => {
       active = false;
-      window.removeEventListener('mousemove', handleMouseMoveCapture, true);
       patchedElements.forEach((originalContains, element) => {
         try {
           element.contains = originalContains;
@@ -314,6 +493,7 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
       <BlockNoteView 
         editor={editor} 
         theme="dark" 
+        sideMenu={false}
         onKeyDown={handleEditorKeyDown}
         onKeyUp={(event) => {
           if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
@@ -327,7 +507,9 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
         onChange={() => {
           onChange(JSON.stringify(editor.document));
         }} 
-      />
+      >
+        <DaylineSideMenuController />
+      </BlockNoteView>
       {mentionMenu && filteredMentionItems.length > 0 && (
         <div
           className="bn-suggestion-menu dayline-mention-menu-content fixed z-[180]"

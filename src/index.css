@@ -135,6 +135,26 @@ button {
   height: 0.875rem !important;
 }
 
+.dayline-share-menu,
+.dayline-share-menu button,
+.dayline-share-menu span {
+  font-size: 12px !important;
+  line-height: 1.25rem !important;
+}
+
+.dayline-share-menu-item {
+  min-height: 2rem !important;
+  font-size: 12px !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+.dayline-share-menu-item svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+  flex-shrink: 0 !important;
+}
+
 .property-context-menu {
   width: 11rem !important;
   border-radius: 0.625rem !important;
@@ -211,6 +231,7 @@ button {
   min-width: 0;
   padding: 1.5rem 2rem 4rem 2rem;
   flex: 1;
+  overflow: visible;
 }
 
 .inner-detail-document-rule {
@@ -375,6 +396,7 @@ button {
   --bn-colors-side-menu: var(--tokyo-text-faint);
   --bn-colors-highlights-yellow-background: rgba(255, 225, 0, 0.2);
   --bn-colors-highlights-yellow-text: var(--tokyo-yellow);
+  --bn-ui-base-z-index: 150;
 }
 
 .bn-container,
@@ -397,17 +419,15 @@ button {
   }
 }
 
-.WorkspacePage .bn-editor,
 .inner-detail-document .bn-editor {
   margin-inline: -1.25rem !important;
-  padding-inline: 1.75rem 2rem !important;
+  padding-inline: 2.25rem 2rem !important;
 }
 
 @media (max-width: 1024px) {
-  .WorkspacePage .bn-editor,
   .inner-detail-document .bn-editor {
     margin-inline: -0.625rem !important;
-    padding-inline: 1.25rem 1rem !important;
+    padding-inline: 1.625rem 1rem !important;
   }
 }
 
@@ -421,9 +441,19 @@ button {
 .bn-inline-content,
 .ProseMirror {
   font-size: 16px !important;
-  line-height: 1.65 !important;
+  line-height: 1.32 !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
+}
+
+.bn-block-content,
+.ProseMirror p {
+  margin-top: 0.0625rem !important;
+  margin-bottom: 0.0625rem !important;
+}
+
+.bn-block-outer {
+  margin-block: 0.0625rem !important;
 }
 
 /* Dimmed purplish editor empty block placeholder */
@@ -433,7 +463,7 @@ button {
 .ProseMirror .is-empty::before,
 .ProseMirror .is-editor-empty::before,
 [data-placeholder]::before {
-  color: rgba(192, 154, 223, 0.38) !important;
+  color: rgba(169, 128, 205, 0.28) !important;
   font-weight: 500 !important;
   opacity: 1 !important;
 }
@@ -487,6 +517,20 @@ button {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
+}
+
+.bn-block-content[data-content-type="divider"],
+.ProseMirror [data-content-type="divider"] {
+  padding-block: 0.5rem !important;
+}
+
+.bn-block-content[data-content-type="divider"] hr,
+.ProseMirror [data-content-type="divider"] hr,
+.ProseMirror hr {
+  height: 1px !important;
+  border: 0 !important;
+  background: var(--tokyo-border-strong) !important;
+  opacity: 0.65 !important;
 }
 
 .bn-block-content code,
@@ -649,96 +693,154 @@ button {
   color: var(--tokyo-text);
 }
 
-.bn-side-menu,
-.bn-formatting-toolbar,
+/* Keep BlockNote menus on top without overriding their internal layout. */
+.bn-mantine .mantine-Menu-dropdown,
+.bn-mantine .mantine-Popover-dropdown,
+.bn-toolbar,
 .bn-suggestion-menu {
-  background: var(--tokyo-panel-2) !important;
+  z-index: 220 !important;
+  font-family: var(--font-sans) !important;
   border: 1px solid var(--tokyo-border-strong) !important;
-  color: var(--tokyo-text) !important;
-  border-radius: 8px !important; /* "round edges little bit everywhere" */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
 }
 
-.bn-side-menu {
-  display: flex !important;
-  align-items: center !important;
+.bn-mantine .mantine-Menu-item,
+.bn-mantine .mantine-Menu-label,
+.bn-toolbar .mantine-Button-root,
+.bn-toolbar .mantine-ActionIcon-root {
+  font-size: 12px !important;
+  line-height: 1.25rem !important;
+}
+
+.bn-mantine .bn-drag-handle-menu .mantine-Menu-item {
+  min-height: 2rem !important;
+  padding: 0.375rem 0.625rem !important;
+  font-size: 12px !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+}
+
+.bn-mantine .bn-drag-handle-menu .mantine-Menu-item-section[data-position="left"] {
+  width: 1.25rem !important;
+  min-width: 1.25rem !important;
+  margin-inline-end: 0.5rem !important;
   justify-content: center !important;
-  align-self: center !important;
-  height: 28px !important; /* Compact premium height */
-  min-height: 28px !important;
-  padding: 2px !important; /* Uniform smaller padding */
-  gap: 2px !important; /* Clean button gap */
-  box-sizing: border-box !important;
-
-  /* Positioned to avoid clipping and align with text */
-  transform: translateX(0) !important; /* Remove negative offset */
-  opacity: 0.75 !important;
-  transition: opacity 0.15s ease !important;
 }
 
-/* Explicit layout styling for the draggable wrapper containing the drag-handle button */
-.bn-side-menu > [draggable="true"] {
+.bn-mantine .bn-drag-handle-menu .mantine-Menu-item-label {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  text-align: left !important;
+}
+
+.bn-mantine .dayline-block-menu-item,
+.bn-mantine .dayline-block-menu-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+.bn-mantine .dayline-block-menu-label {
+  width: 100% !important;
+}
+
+.bn-mantine .dayline-block-menu-item svg,
+.bn-mantine .dayline-block-menu-label svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+  flex: 0 0 1.25rem !important;
+  margin-inline-end: 0.5rem !important;
+}
+
+.bn-mantine .dayline-block-menu-delete,
+.bn-mantine .dayline-block-menu-delete svg {
+  color: #ff7a9d !important;
+}
+
+.bn-side-menu,
+.bn-side-menu[data-block-type],
+.bn-side-menu[data-block-type="heading"][data-level],
+.bn-side-menu[data-block-type="file"],
+.bn-side-menu[data-block-type="audio"],
+.bn-side-menu[data-url] {
+  z-index: 220 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 22px !important; /* Exact match to button height */
-  width: 22px !important; /* Exact match to button width */
+  gap: 0.1875rem !important;
+  padding: 0.1875rem !important;
+  border: 1px solid var(--tokyo-border-strong) !important;
+  border-radius: 0.625rem !important;
+  overflow: visible !important;
+  background: transparent !important;
+  height: 2rem !important;
+  min-height: 2rem !important;
+  max-height: 2rem !important;
+  line-height: 1 !important;
+  position: relative !important;
+  transform: translateX(-0.375rem) !important;
   box-sizing: border-box !important;
 }
 
-/* Invisible hover bridge to maintain hover state when moving mouse between text and plus icon */
 .bn-side-menu::after {
   content: "" !important;
   position: absolute !important;
-  top: -10px !important;
-  bottom: -10px !important;
-  left: 100% !important; /* Starts exactly at the right edge of the capsule, completely clearing the buttons */
-  width: 40px !important; /* Bridges the spatial gap to the text block perfectly */
+  top: -0.25rem !important;
+  right: -0.625rem !important;
+  bottom: -0.25rem !important;
+  width: 0.625rem !important;
   background: transparent !important;
-  pointer-events: auto !important;
-  z-index: -1 !important;
+  pointer-events: none !important;
 }
 
-.bn-side-menu:hover {
-  opacity: 1 !important;
-}
-
-.bn-side-menu button,
-.bn-formatting-toolbar button,
-.bn-suggestion-menu button {
-  color: var(--tokyo-text-muted) !important;
-  border-radius: 6px !important; /* "round edges little bit everywhere" */
-}
-
-.bn-side-menu button {
-  height: 22px !important; /* Symmetrical square button */
-  width: 22px !important;
+.bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item) {
+  border: 0 !important;
+  border-radius: 0.4375rem !important;
+  width: 1.5rem !important;
+  min-width: 1.5rem !important;
+  max-width: 1.5rem !important;
+  height: 1.5rem !important;
+  min-height: 1.5rem !important;
+  max-height: 1.5rem !important;
+  padding: 0 !important;
+  margin: 0 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  margin: 0 !important; /* Clear any browser/Mantine default margins */
-  padding: 0 !important; /* Clear any browser/Mantine default paddings */
-  pointer-events: auto !important; /* Guarantee absolute clickability */
-  cursor: pointer !important;
+  flex: 0 0 1.5rem !important;
+  line-height: 1 !important;
   box-sizing: border-box !important;
 }
 
-.bn-side-menu button svg {
-  width: 15px !important; /* Perfect balanced size for 22px buttons */
-  height: 15px !important;
-  min-width: 15px !important;
-  min-height: 15px !important;
-  max-width: 15px !important;
-  max-height: 15px !important;
+.bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item) svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+  display: block !important;
+  flex: 0 0 auto !important;
 }
 
-.bn-side-menu button:hover,
-.bn-formatting-toolbar button:hover,
-.bn-suggestion-menu button:hover {
-  background: var(--tokyo-hover-strong) !important;
-  color: var(--tokyo-text-strong) !important;
+.bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item):first-child svg {
+  width: 0.8125rem !important;
+  height: 0.8125rem !important;
+}
+
+.bn-color-picker-dropdown {
+  min-width: 16.5rem !important;
+}
+
+.prosemirror-dropcursor-block,
+.prosemirror-dropcursor-vertical,
+.bn-table-drop-cursor {
+  background-color: var(--tokyo-yellow) !important;
+  border-color: var(--tokyo-yellow) !important;
+  height: 2px !important;
+}
+
+.prosemirror-dropcursor-vertical {
+  width: 2px !important;
 }
 
 .dayline-mention-menu {
