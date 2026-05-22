@@ -310,6 +310,24 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
   );
 }
 
+const renderCommentText = (text: string) => {
+  const parts = text.split(/(\s+)/);
+  return parts.map((part, index) => {
+    if (part.startsWith('@') && part.length > 1) {
+      const match = part.match(/^(@[a-zA-Z0-9_.-]+)(.*)$/);
+      if (match) {
+        return (
+          <React.Fragment key={index}>
+            <span className="text-[#38bdf8] hover:underline cursor-pointer font-medium">{match[1]}</span>
+            {match[2]}
+          </React.Fragment>
+        );
+      }
+    }
+    return part;
+  });
+};
+
 function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
   item: CustomPageItem;
   page: CustomPage;
@@ -866,19 +884,19 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           {activeTab === 'Comments' && (
             <>
               {/* Comment Input */}
-              <div className="bg-white/[0.015] border border-[var(--tokyo-border)] rounded-xl p-3 mb-8">
-                <div className="flex gap-2.5 mb-2.5">
-                  <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full shrink-0 border border-white/5" alt="me" />
+              <div className="bg-white/[0.015] border border-[var(--tokyo-border)] rounded-lg p-2 mb-6">
+                <div className="flex gap-2 mb-2">
+                  <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-6 h-6 rounded-full shrink-0 border border-white/5" alt="me" />
                   <textarea 
                     rows={1.5}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     placeholder="Add your comment..." 
-                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-xs resize-none py-0.5 shadow-none"
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-[11px] resize-none py-0.5 shadow-none"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3.5 text-[var(--tokyo-text-faint)]">
+                  <div className="flex items-center gap-2.5 text-[var(--tokyo-text-faint)]">
                     <button className="hover:text-white transition-colors cursor-pointer"><Smile className="w-3.5 h-3.5" /></button>
                     <button className="hover:text-white transition-colors cursor-pointer"><AtSign className="w-3.5 h-3.5" /></button>
                     <button className="hover:text-white transition-colors cursor-pointer"><Link className="w-3.5 h-3.5" /></button>
@@ -887,7 +905,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   </div>
                   <button 
                     onClick={handleAddComment}
-                    className="bg-[var(--tokyo-yellow-dim)] text-white px-3.5 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20 cursor-pointer"
+                    className="bg-[var(--tokyo-yellow-dim)] text-white px-2.5 py-1 rounded text-[11px] font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-md shadow-black/20 cursor-pointer"
                   >
                     Comment
                   </button>
@@ -896,10 +914,19 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
 
               {/* Comment List */}
               <div className="space-y-4 pb-20">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3 group bg-white/[0.01] border border-[var(--tokyo-border)] rounded-xl p-3.5 hover:bg-white/[0.02] transition-all">
-                    <img src={comment.avatar} className="w-7 h-7 rounded-full shrink-0 border border-white/5" alt="avatar" />
-                    <div className="flex-1 space-y-1.5 min-w-0">
+                {comments.map((comment, index) => (
+                  <div 
+                    key={comment.id} 
+                    className={`flex gap-2.5 group pb-4 ${
+                      index !== comments.length - 1 ? 'border-b border-white/[0.04]' : ''
+                    }`}
+                  >
+                    <img 
+                      src={comment.name === 'Abdola Munir' ? (user?.photoURL || comment.avatar) : comment.avatar} 
+                      className="w-7 h-7 rounded-full shrink-0 border border-white/5" 
+                      alt="avatar" 
+                    />
+                    <div className="flex-1 space-y-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-[var(--tokyo-text-strong)] font-semibold text-xs">{comment.name}</span>
@@ -907,21 +934,28 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                           <span className="text-[var(--tokyo-text-faint)] text-[10px]">{comment.time}</span>
                         </div>
                         <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors cursor-pointer">
-                          <MoreHorizontal className="w-4 h-4" />
+                          <MoreHorizontal className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       <p className="text-[var(--tokyo-text)] text-xs leading-relaxed break-words">
-                        {comment.text}
+                        {renderCommentText(comment.text)}
                       </p>
                       <div className="flex items-center gap-2 pt-1 flex-wrap">
-                        <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors h-5 w-5 flex items-center justify-center rounded hover:bg-white/5 cursor-pointer"><Smile className="w-3.5 h-3.5" /></button>
+                        <button className="text-[var(--tokyo-text-faint)] hover:text-white transition-colors h-4.5 w-4.5 flex items-center justify-center rounded hover:bg-white/5 cursor-pointer">
+                          <Smile className="w-3 h-3" />
+                        </button>
                         {comment.reactions?.map((reaction, ri) => (
-                          <button key={ri} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--tokyo-yellow-soft)] border border-[var(--tokyo-yellow-dim)] text-[10px] text-[var(--tokyo-yellow)] font-medium hover:bg-[var(--tokyo-yellow-dim)]/20 transition-all h-5 cursor-pointer">
+                          <button 
+                            key={ri} 
+                            className="flex items-center gap-1.5 px-1.5 h-4.5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[9.5px] text-[var(--tokyo-text-strong)] font-medium hover:bg-white/5 transition-all cursor-pointer"
+                          >
                             <span>{reaction.emoji}</span>
-                            <span>{reaction.count}</span>
+                            <span className="text-[var(--tokyo-text-faint)]">{reaction.count}</span>
                           </button>
                         ))}
-                        <button className="text-[var(--tokyo-text-muted)] text-[11px] font-medium hover:text-white transition-colors ml-1 cursor-pointer">Reply</button>
+                        <button className="text-[var(--tokyo-text-muted)] text-[10.5px] font-medium hover:text-white transition-colors ml-1 cursor-pointer">
+                          Reply
+                        </button>
                       </div>
                     </div>
                   </div>
