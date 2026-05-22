@@ -370,9 +370,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
         return uniqueColumns;
       }, []),
   ];
+  const goalBuiltInColumnIds = new Set(['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned', 'areas']);
+  const goalDetailColumnIds = new Set(goalDetailColumns.map(column => column.id));
+  const validGoalColumns = columns.filter(column => goalBuiltInColumnIds.has(column.id) || goalDetailColumnIds.has(column.id));
   const allGoalColumns = [
-    ...columns,
-    ...goalDetailColumns.filter(detailColumn => !columns.some(column => column.id === detailColumn.id)),
+    ...validGoalColumns,
+    ...goalDetailColumns.filter(detailColumn => !validGoalColumns.some(column => column.id === detailColumn.id)),
   ];
   const displayGoalColumns = allGoalColumns.filter(column => !column.hidden);
 
@@ -732,31 +735,31 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     const getDropTarget = (offset: number) => {
       const projectedCenter = startLeft + offset + draggedColumnWidth / 2;
       const remainingColumns = startColumns.filter(column => column.id !== columnId);
+      const totalWidth = startColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
       let targetIndex = remainingColumns.length;
-      let runningLeft = 0;
 
       for (let index = 0; index < remainingColumns.length; index += 1) {
         const column = remainingColumns[index];
-        const originalIndex = startColumns.findIndex(startColumn => startColumn.id === column.id);
-        const visibleCenterOffset = originalIndex > startIndex ? draggedColumnWidth : 0;
-        const columnCenter = runningLeft + getColumnWidthNumber(column.width) / 2 + visibleCenterOffset;
+        const originalLeft = startColumns
+          .slice(0, startColumns.findIndex(startColumn => startColumn.id === column.id))
+          .reduce((total, startColumn) => total + getColumnWidthNumber(startColumn.width), 0);
+        const columnCenter = originalLeft + getColumnWidthNumber(column.width) / 2;
         if (projectedCenter < columnCenter) {
           targetIndex = index;
           break;
         }
-        runningLeft += getColumnWidthNumber(column.width);
       }
 
-      const indicatorX = remainingColumns
-        .slice(0, targetIndex)
-        .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
-      const visualIndicatorX = targetIndex > startIndex || (targetIndex === startIndex && offset > 0)
-        ? indicatorX + draggedColumnWidth
-        : indicatorX;
+      const targetColumn = remainingColumns[targetIndex];
+      const indicatorX = targetColumn
+        ? startColumns
+            .slice(0, startColumns.findIndex(startColumn => startColumn.id === targetColumn.id))
+            .reduce((total, startColumn) => total + getColumnWidthNumber(startColumn.width), 0)
+        : totalWidth;
 
       return {
         targetIndex,
-        indicatorX: visualIndicatorX,
+        indicatorX,
       };
     };
 
@@ -1081,7 +1084,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               >
                 {isEditingTitle ? titleValue : currentPageTitle}
               </h1>
-              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-1.5 text-xs font-semibold text-[var(--tokyo-text-faint)]">
                 {goals.length}
               </span>
             </div>
@@ -1349,7 +1352,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
       {/* Table Container */}
       <div className="flex-1 overflow-visible">
-        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId || draggingColumnId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
           <div className="relative min-h-full overflow-visible" style={{ width: `${goalTableWidth}px` }}>
           <div ref={goalTableRef} className="relative min-h-full overflow-visible" style={{ width: `${goalTableWidth}px` }}>
           <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${goalTableWidth}px` }}>
@@ -2438,8 +2441,8 @@ function GoalDetailsPage({ goal, onBack }: {
   const [editingPropertyName, setEditingPropertyName] = useState<string>('');
   const [comments, setComments] = useState([
     { id: '1', name: 'Raheem Sterling', time: '25m ago', text: '@abdolamunir I will do it ASAP.', avatar: 'https://i.pravatar.cc/150?u=5' },
-    { id: '2', name: 'Abdola Munir', time: '50m ago', text: '@raheemsterling @alensheerer Create a comprehensive set of UI components, ensuring consistency in style and functionality.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: '👍', count: 1 }] },
-    { id: '3', name: 'Abdola Munir', time: '1h 20m ago', text: 'Specify typography rules and font choices to maintain a unified and professional appearance.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: '👍', count: 1 }] }
+    { id: '2', name: 'Abdola Munir', time: '50m ago', text: '@raheemsterling @alensheerer Create a comprehensive set of UI components, ensuring consistency in style and functionality.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: 'Like', count: 1 }] },
+    { id: '3', name: 'Abdola Munir', time: '1h 20m ago', text: 'Specify typography rules and font choices to maintain a unified and professional appearance.', avatar: 'https://i.pravatar.cc/150?u=abdolamunir', reactions: [{ emoji: 'Like', count: 1 }] }
   ]);
   
   const priorities = ['low', 'medium', 'high'];
@@ -2463,7 +2466,7 @@ function GoalDetailsPage({ goal, onBack }: {
   const confirmAddProperty = (type: PropertyType) => {
     const newProp = {
       id: `p${Date.now()}`,
-      name: `New ${getPropertyTypeLabel(type)}`,
+      name: getPropertyTypeLabel(type),
       type,
       value: getDefaultPropertyValue(type),
       icon: getPropertyTypeIcon(type),
@@ -2552,7 +2555,8 @@ function GoalDetailsPage({ goal, onBack }: {
   const assignedCol = getCol('assigned', 'Assigned', 'Users');
 
   const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop -mx-2 px-2 py-1 relative";
-  const propertyLabelClass = "property-label-trigger flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+  const propertyLabelClass = "property-label-trigger flex h-8 items-center gap-2 w-[145px] px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] whitespace-nowrap overflow-hidden [&_span]:truncate [&_svg]:shrink-0 [&_svg]:[stroke-width:2.1] [&_input]:min-w-0 cursor-pointer";
+  const addPropertyClass = "flex h-8 items-center gap-2 rounded-lg px-2.5 text-[13px] leading-none font-medium text-[var(--tokyo-text-faint)] transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] whitespace-nowrap cursor-pointer";
 
   const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
     const IconComponent = ALL_ICONS[iconName] || fallback;
@@ -2653,10 +2657,10 @@ function GoalDetailsPage({ goal, onBack }: {
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+      <div className="inner-detail-layout max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
         {/* Header */}
-        <div className="flex-shrink-0 w-full">
-        <div className="mb-5 flex items-center gap-3">
+        <div className="inner-detail-header flex-shrink-0 w-full">
+        <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
             <div 
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -2675,6 +2679,7 @@ function GoalDetailsPage({ goal, onBack }: {
               className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
               placeholder="Untitled Goal"
             />
+            <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">Goal page</p>
           </div>
           <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
             <button
@@ -2723,9 +2728,26 @@ function GoalDetailsPage({ goal, onBack }: {
             </button>
           </div>
         </div>
+
+        <div className="inner-detail-document">
+          <button
+            onClick={handleAddProperty}
+            className={`${addPropertyClass} inner-add-property-trigger`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add property</span>
+          </button>
+          <div className="inner-detail-document-rule" />
+          <div className="min-h-[42vh] text-[var(--tokyo-text-strong)]">
+            <BlockEditor
+              initialContent={goal.description || ''}
+              onChange={(nextContent) => handleUpdate({ description: nextContent })}
+            />
+          </div>
+        </div>
         
         {/* Properties - Vertical List */}
-        <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
+        <div className="inner-detail-properties space-y-2 mb-3 max-w-3xl">
           {/* Assigned */}
           {!assignedCol.hidden && (
             <div 
@@ -2801,7 +2823,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'date', isSystem: true 
                     }
                   });
                 }}
-                className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
+                className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
               >
                 {goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'Set date...'}
               </div>
@@ -2848,7 +2870,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: t
                     });
                   }}
                   className={cn(
-                    "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
+                    "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] h-7 flex items-center",
                     getPriorityBadgeClasses(goal.priority)
                   )}
                 >
@@ -2898,7 +2920,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: tru
                     });
                   }}
                   className={cn(
-                    "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
+                    "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] h-7",
                     getGoalStatusClasses(goal.status)
                   )}
                 >
@@ -2936,7 +2958,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'progress', isSystem: t
                   )}
                 </div>
               </div>
-              <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
+              <div className="flex items-center rounded-lg h-7 transition-all">
                 <div className="flex items-center gap-3">
                   <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
                     {goal.progress || 0}%
@@ -3032,12 +3054,12 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>
                   ) : (
-                    <div className="flex-1 flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all group/val">
+                    <div className="flex-1 flex items-center hover:bg-white/[0.03] rounded-lg h-7 transition-all group/val">
                       <input 
                         type={prop.type === 'number' ? 'number' : 'text'}
                         value={prop.value}
@@ -3062,18 +3084,18 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
           <div className="flex items-center h-8">
             <button 
               onClick={handleAddProperty}
-              className="flex items-center gap-1.5 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] text-[11px] font-semibold transition-colors cursor-pointer"
+              className={`${addPropertyClass} inner-add-property-trigger`}
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Add property</span>
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
-          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Notes', 'To-Dos', 'Comments', 'Activity'].map(tabId => (
+        <div className="inner-detail-tabs flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar">
+            {['To-Dos', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
@@ -3092,7 +3114,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 w-full pl-2.5">
+        <div className="inner-detail-panel-content flex-1 w-full">
         {activeTab === 'To-Dos' && (
           <div className="space-y-2">
             {goalTasks.map((task) => (
@@ -3131,15 +3153,6 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
               <Plus className="w-3.5 h-3.5" />
               <span className="font-medium">Add new task</span>
             </button>
-          </div>
-        )}
-
-        {activeTab === 'Notes' && (
-          <div className="min-h-[42vh] py-2 text-[var(--tokyo-text-strong)]">
-            <BlockEditor
-              initialContent={goal.description || ''}
-              onChange={(nextContent) => handleUpdate({ description: nextContent })}
-            />
           </div>
         )}
 

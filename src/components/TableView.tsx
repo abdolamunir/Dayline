@@ -173,6 +173,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     ? page.items
     : page.items.filter(item => item.status === activeTab);
   const baseColumns = resizingColumns || page.columns;
+  const builtInColumnIds = new Set(['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned', 'areas']);
+  const propertyColumnIds = new Set(page.properties.map(property => property.id));
+  const validBaseColumns = baseColumns.filter(column => builtInColumnIds.has(column.id) || propertyColumnIds.has(column.id));
   const pagePropertyColumns: CustomPage['columns'] = page.properties.map(property => ({
     id: property.id,
     label: property.name,
@@ -180,8 +183,8 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     width: '180px',
   }));
   const allColumns: CustomPage['columns'] = [
-    ...baseColumns,
-    ...pagePropertyColumns.filter(propertyColumn => !baseColumns.some(column => column.id === propertyColumn.id)),
+    ...validBaseColumns,
+    ...pagePropertyColumns.filter(propertyColumn => !validBaseColumns.some(column => column.id === propertyColumn.id)),
   ];
   const displayColumns = allColumns.filter(column => !column.hidden);
 
@@ -352,29 +355,29 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     const getDropTarget = (offset: number) => {
       const projectedCenter = startLeft + offset + draggedColumnWidth / 2;
       const remainingColumns = startColumns.filter(column => column.id !== columnId);
+      const totalWidth = startColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
       let targetIndex = remainingColumns.length;
-      let runningLeft = 0;
 
       for (let index = 0; index < remainingColumns.length; index += 1) {
         const column = remainingColumns[index];
-        const originalIndex = startColumns.findIndex(startColumn => startColumn.id === column.id);
-        const visibleCenterOffset = originalIndex > startIndex ? draggedColumnWidth : 0;
-        const columnCenter = runningLeft + getColumnWidthNumber(column.width) / 2 + visibleCenterOffset;
+        const originalLeft = startColumns
+          .slice(0, startColumns.findIndex(startColumn => startColumn.id === column.id))
+          .reduce((total, startColumn) => total + getColumnWidthNumber(startColumn.width), 0);
+        const columnCenter = originalLeft + getColumnWidthNumber(column.width) / 2;
         if (projectedCenter < columnCenter) {
           targetIndex = index;
           break;
         }
-        runningLeft += getColumnWidthNumber(column.width);
       }
 
-      const indicatorX = remainingColumns
-        .slice(0, targetIndex)
-        .reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
-      const visualIndicatorX = targetIndex > startIndex || (targetIndex === startIndex && offset > 0)
-        ? indicatorX + draggedColumnWidth
-        : indicatorX;
+      const targetColumn = remainingColumns[targetIndex];
+      const indicatorX = targetColumn
+        ? startColumns
+            .slice(0, startColumns.findIndex(startColumn => startColumn.id === targetColumn.id))
+            .reduce((total, startColumn) => total + getColumnWidthNumber(startColumn.width), 0)
+        : totalWidth;
 
-      return { targetIndex, indicatorX: visualIndicatorX };
+      return { targetIndex, indicatorX };
     };
 
     const renderDragUpdate = () => {
@@ -398,14 +401,34 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setDraggingColumnOffset(0);
     setColumnDropIndicatorX(startLeft);
 
+    let hasMoved = false;
+
     const handlePointerMove = (pointerEvent: PointerEvent) => {
       pointerEvent.preventDefault();
       latestOffset = pointerEvent.clientX - startX;
+      if (Math.abs(latestOffset) > 3) hasMoved = true;
       scheduleDragUpdate();
     };
 
-    const cleanup = () => {
+    const cleanup = (pointerEvent?: PointerEvent) => {
       if (animationFrameId !== null) window.cancelAnimationFrame(animationFrameId);
+      if (!hasMoved) {
+        setDraggingColumnId(null);
+        setDraggingColumnOffset(0);
+        setColumnDropIndicatorX(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', cleanup);
+
+        const target = pointerEvent?.target as HTMLElement | null;
+        if (target?.closest('[data-column-label="true"]')) {
+          setEditingColumnId(columnId);
+          setEditingColumnName(draggedColumn.label);
+        }
+        return;
+      }
+
       const remainingColumns = startColumns.filter(column => column.id !== columnId);
       const finalTarget = getDropTarget(Math.round(latestOffset));
       const nextColumns = [...remainingColumns];
@@ -711,12 +734,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
   const handleRenameTab = (tabId: string) => {
     if (editingTabName.trim()) {
-      onUpdatePage({
-        ...page,
-        tabs: page.tabs.map(tab => (
-          tab.id === tabId ? { ...tab, label: editingTabName.trim() } : tab
-        )),
-      });
+      const nextTabs = localTabs.map(tab => (
+        tab.id === tabId ? { ...tab, label: editingTabName.trim() } : tab
+      ));
+      setLocalTabs(nextTabs);
+      latestTabsRef.current = nextTabs;
+      onUpdatePage({ ...page, tabs: nextTabs });
     }
     setEditingTabId(null);
     setEditingTabName('');
@@ -841,7 +864,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               >
                 {isEditingTitle ? titleValue : page.title}
               </h1>
-              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-1.5 text-xs font-semibold text-[var(--tokyo-text-faint)]">
                 {page.items.length}
               </span>
             </div>
@@ -1061,7 +1084,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
       {/* Table Container */}
       <div className="flex-1 overflow-visible">
-        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId || draggingColumnId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
           <div ref={tableRef} className="relative min-h-full overflow-visible" style={{ width: `${tableWidth}px` }}>
           <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${tableWidth}px` }}>
             <colgroup>
@@ -1121,9 +1144,8 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                         />
                       ) : (
                         <span 
-                          data-column-control="true"
+                          data-column-label="true"
                           className="capitalize cursor-pointer text-[var(--tokyo-text-muted)]/80 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] px-1 h-7 rounded-md transition-colors text-sm font-medium inline-flex min-w-0 max-w-full items-center whitespace-nowrap overflow-hidden text-ellipsis"
-                          onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingColumnId(col.id);
@@ -1761,7 +1783,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               <button
                 type="button"
                 onClick={() => {
-                  const tab = page.tabs.find(candidate => candidate.id === tabContextMenu.id);
+                  const tab = localTabs.find(candidate => candidate.id === tabContextMenu.id);
                   if (tab) {
                     setEditingTabId(tab.id);
                     setEditingTabName(tab.label);
@@ -1772,6 +1794,22 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               >
                 <Pencil className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
                 Rename
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const tab = localTabs.find(candidate => candidate.id === tabContextMenu.id);
+                  if (tab) {
+                    setIconPickerId(tab.id);
+                    setIconPickerType('tab');
+                    setIconPickerPos({ x: tabContextMenu.x, y: tabContextMenu.y });
+                  }
+                  setTabContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <Smile className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                Change Icon
               </button>
               <div className="my-1 h-px bg-[var(--tokyo-border)]" />
               <button
@@ -1979,7 +2017,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               <IconPicker 
                 currentIcon={
                   iconPickerType === 'tab' 
-                    ? (page.tabs.find(t => t.id === iconPickerId)?.icon || 'Target')
+                    ? (localTabs.find(t => t.id === iconPickerId)?.icon || 'Target')
                     : iconPickerType === 'main'
                       ? page.icon
                       : iconPickerType === 'item'
@@ -1988,7 +2026,10 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 }
                 onSelect={(iconName) => {
                   if (iconPickerType === 'tab') {
-                    onUpdatePage({ ...page, tabs: page.tabs.map(t => t.id === iconPickerId ? { ...t, icon: iconName } : t) });
+                    const nextTabs = localTabs.map(t => t.id === iconPickerId ? { ...t, icon: iconName } : t);
+                    setLocalTabs(nextTabs);
+                    latestTabsRef.current = nextTabs;
+                    onUpdatePage({ ...page, tabs: nextTabs });
                   } else if (iconPickerType === 'main') {
                     onUpdatePage({ ...page, icon: iconName });
                   } else if (iconPickerType === 'item') {

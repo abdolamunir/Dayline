@@ -158,6 +158,125 @@ button {
   height: 0.875rem !important;
 }
 
+.inner-add-property-trigger,
+.inner-add-property-trigger span {
+  font-size: 14px !important;
+  line-height: 1.25rem !important;
+  font-weight: 500 !important;
+}
+
+.inner-add-property-trigger svg {
+  width: 1rem !important;
+  height: 1rem !important;
+  flex-shrink: 0 !important;
+  stroke-width: 2.1 !important;
+}
+
+.inner-detail-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.inner-detail-header {
+  display: contents;
+}
+
+.inner-detail-titlebar {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0 !important;
+  padding: 2rem 4rem 1.25rem;
+  border-bottom: 1px solid var(--tokyo-border);
+  min-width: 0;
+}
+
+.inner-detail-document {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  padding: 5.5rem 4rem 4rem;
+}
+
+.inner-detail-document-rule {
+  height: 1px;
+  width: min(46rem, 100%);
+  margin: 1.75rem 0 4.25rem;
+  background: var(--tokyo-border);
+}
+
+.inner-detail-document-placeholder {
+  color: var(--tokyo-text-faint);
+  font-size: 0.875rem;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.inner-detail-properties {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  max-width: none !important;
+  width: 100%;
+  margin: 0 !important;
+  padding: 5.75rem 1.25rem 1.25rem;
+  border-left: 1px solid var(--tokyo-border);
+}
+
+.inner-detail-tabs {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  margin: 0 !important;
+  padding: 0 1.25rem;
+  border-left: 1px solid var(--tokyo-border);
+}
+
+.inner-detail-panel-content {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  width: 100%;
+  padding: 4.25rem 1.25rem 4rem;
+  border-left: 1px solid var(--tokyo-border);
+  overflow: auto;
+}
+
+@media (max-width: 1024px) {
+  .inner-detail-layout {
+    display: flex !important;
+    flex-direction: column;
+  }
+
+  .inner-detail-header {
+    display: block;
+  }
+
+  .inner-detail-titlebar,
+  .inner-detail-document,
+  .inner-detail-properties,
+  .inner-detail-tabs,
+  .inner-detail-panel-content {
+    border-left: 0;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .inner-detail-properties {
+    padding-top: 1.25rem;
+  }
+
+  .inner-detail-document {
+    padding-top: 2.5rem;
+  }
+}
+
 .dayline-date-picker {
   width: 16rem !important;
 }

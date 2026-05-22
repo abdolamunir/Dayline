@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '../store';
-import { 
-  PencilEdit01Icon as Pencil, 
+import { PropertyType } from '../types';
+import {
+  PencilEdit01Icon as Pencil,
   MoreHorizontalIcon as MoreHorizontal,
   Target01Icon as Target,
   Add01Icon as Plus,
@@ -29,7 +30,9 @@ import {
   UserGroupIcon as Users,
   ZapIcon as Zap,
   UserIcon as User,
-  Activity01Icon as Activity
+  Activity01Icon as Activity,
+  TextIcon as Text,
+  ListViewIcon as List
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -42,6 +45,7 @@ import { EmptyState, PrimaryButton, SearchButton, StatusPill, ToolButton, ViewTa
 import { TableView } from '../components/TableView';
 import { getPriorityBadgeClasses } from '../utils/badges';
 import { PropertyContextMenu } from '../components/PropertyContextMenu';
+import { getDefaultPropertyValue, getPropertyTypeIcon, getPropertyTypeLabel, PROPERTY_TYPE_OPTIONS } from '../utils/propertyTypes';
 
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
@@ -49,6 +53,19 @@ const iconMap: Record<string, React.ElementType> = {
   Clock: Clock,
   CheckCircle2: CheckCircle2,
   Target: Target,
+  Text,
+  Hash: Hashtag,
+  Layers,
+  CalendarIcon,
+  List,
+  CheckCircle,
+  Users,
+  User,
+  Attachment,
+  Link,
+  AtSign,
+  Search,
+  Plus,
 };
 
 const GOALS_TEMPLATE_VERSION = 'goals-database-v1';
@@ -91,7 +108,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
   const [columns, setColumns] = useState(() => {
     let initial = shouldUseSavedTemplate && savedNoteSettings.columns ? savedNoteSettings.columns : DEFAULT_NOTE_COLUMNS;
-    
+
     const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
     const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned'];
     initial = initial.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
@@ -130,15 +147,15 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
 
   if (selectedNote) {
     return (
-      <NoteDetailsPage 
-        note={selectedNote} 
+      <NoteDetailsPage
+        note={selectedNote}
         onBack={() => {
           if (onViewChange) {
             onViewChange('notes');
           } else {
             setLocalSelectedNoteId(null);
           }
-        }} 
+        }}
       />
     );
   }
@@ -155,7 +172,12 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
   const noteDetailProperties = [
     { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
     { id: 'creator', name: 'Creator', type: 'text' as const, value: '' },
-  ];
+    ...notes.flatMap(note => note.customProperties || []),
+  ].reduce<Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>>((properties, property) => {
+    if (properties.some(existingProperty => existingProperty.id === property.id)) return properties;
+    properties.push(property);
+    return properties;
+  }, []);
   const noteDatabasePage = {
     id: 'notes',
     title: sidebarItem?.label || savedNoteSettings.title || 'Notes',
@@ -178,6 +200,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
         areas: getNoteAreaId(note),
         assigned: note.assignee || 'Unassigned',
         creator: 'Abdola Munir',
+        ...Object.fromEntries((note.customProperties || []).map(property => [property.id, property.value])),
       },
     })),
     properties: noteDetailProperties,
@@ -210,13 +233,22 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
 
         const nextNotes = updatedPage.items.map(item => {
           const existingNote = notes.find(note => note.id === item.id);
+          const customProperties = updatedPage.properties
+            .filter(property => property.id !== 'assigned' && property.id !== 'creator')
+            .map(property => {
+              const existingProperty = existingNote?.customProperties?.find(candidate => candidate.id === property.id);
+              return {
+                ...property,
+                value: item.properties[property.id] ?? existingProperty?.value ?? property.value ?? getDefaultPropertyValue(property.type),
+              };
+            });
           const areaValue = String(item.properties.areas || '');
           const areaId = areas.find(area => area.id === areaValue || area.name === areaValue)?.id;
           const assignee = item.properties.assigned && item.properties.assigned !== 'Unassigned'
             ? String(item.properties.assigned)
             : existingNote?.assignee || '';
           return existingNote
-            ? { ...existingNote, title: item.title, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId, assignee }
+            ? { ...existingNote, title: item.title, icon: item.icon, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId, assignee, customProperties }
             : {
               id: item.id,
               title: item.title,
@@ -228,6 +260,8 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
               progress: item.progress,
               assignee,
               areaId,
+              icon: item.icon || 'Pencil',
+              customProperties,
             };
         });
         replaceNotes(nextNotes);
@@ -235,12 +269,12 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
     />
   );}
 
-function NoteDetailsPage({ note, onBack }: { 
+function NoteDetailsPage({ note, onBack }: {
   note: any;
   onBack: () => void;
 }) {
   const { updateNote, deleteNote, user, viewSettings, updateViewSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('Notes');
+  const [activeTab, setActiveTab] = useState('Comments');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([
     {
@@ -249,7 +283,7 @@ function NoteDetailsPage({ note, onBack }: {
       avatar: 'https://i.pravatar.cc/150?u=4',
       time: '50m ago',
       text: 'Great notes. Let\'s review the document structure and make sure we cover all edge cases.',
-      reactions: [{ emoji: '👍', count: 1 }]
+      reactions: [{ emoji: 'Like', count: 1 }]
     },
     {
       id: 2,
@@ -269,11 +303,14 @@ function NoteDetailsPage({ note, onBack }: {
     currentValue: string;
   } | null>(null);
   const [datePickerConfig, setDatePickerConfig] = useState<{
+    id?: string;
     pos: { x: number, y: number };
     currentDate?: Date;
   } | null>(null);
-  const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
-  const [propertyIconPicker, setPropertyIconPicker] = useState<{ id: string; pos: { x: number; y: number } } | null>(null);
+  const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
+  const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
+  const [propertyContextMenu, setPropertyContextMenu] = useState<{ x: number; y: number; id: string; isSystem: boolean } | null>(null);
+  const [propertyIconPicker, setPropertyIconPicker] = useState<{ id: string; isSystem: boolean; pos: { x: number; y: number } } | null>(null);
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
   const [editingPropertyName, setEditingPropertyName] = useState('');
 
@@ -290,6 +327,40 @@ function NoteDetailsPage({ note, onBack }: {
   const handleDelete = () => {
     deleteNote(note.id);
     onBack();
+  };
+
+  const handleAddProperty = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPropertyPickerPos({ x: rect.left, y: rect.bottom + 8 });
+    setIsPropertyPickerOpen(true);
+  };
+
+  const confirmAddProperty = (type: PropertyType) => {
+    const newProp = {
+      id: `p${Date.now()}`,
+      name: getPropertyTypeLabel(type),
+      type,
+      value: getDefaultPropertyValue(type),
+      icon: getPropertyTypeIcon(type),
+    };
+    handleUpdate({
+      customProperties: [...(note.customProperties || []), newProp]
+    });
+    setIsPropertyPickerOpen(false);
+  };
+
+  const handleUpdateProperty = (propId: string, value: any) => {
+    handleUpdate({
+      customProperties: note.customProperties?.map((property: any) => (
+        property.id === propId ? { ...property, value } : property
+      ))
+    });
+  };
+
+  const handleDeleteProperty = (propId: string) => {
+    handleUpdate({
+      customProperties: note.customProperties?.filter((property: any) => property.id !== propId)
+    });
   };
 
   const handleCopyLink = async () => {
@@ -337,8 +408,9 @@ function NoteDetailsPage({ note, onBack }: {
     );
   };
 
-  const propertyRowClass = "flex items-center h-9 -mx-3 px-3 group";
-  const propertyLabelClass = "flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+  const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop -mx-2 px-2 py-1 relative";
+  const propertyLabelClass = "property-label-trigger flex h-8 items-center gap-2 w-[145px] px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] whitespace-nowrap overflow-hidden [&_span]:truncate [&_svg]:shrink-0 [&_svg]:[stroke-width:2.1] [&_input]:min-w-0 cursor-pointer";
+  const addPropertyClass = "flex h-8 items-center gap-2 rounded-lg px-2.5 text-[13px] leading-none font-medium text-[var(--tokyo-text-faint)] transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] whitespace-nowrap cursor-pointer";
   const noteColumns = viewSettings?.notes?.columns || [];
   const getCol = (id: string, defaultLabel: string, defaultIcon: string) => {
     const col = noteColumns.find((column: any) => column.id === id);
@@ -354,25 +426,46 @@ function NoteDetailsPage({ note, onBack }: {
       : [...cols, { id, label: updates.label || current.label, icon: updates.icon || current.icon, width: '150px', hidden: updates.hidden }];
     updateViewSettings('notes', { ...savedSettings, columns: updatedColumns });
   };
-  const handleRenameProperty = (id: string, newName: string) => {
+  const handleRenameProperty = (id: string, isSystem: boolean, newName: string) => {
     if (!newName.trim()) return;
     updateColumnMeta(id, { label: newName.trim() });
+    if (!isSystem) {
+      handleUpdate({
+        customProperties: note.customProperties?.map((property: any) => (
+          property.id === id ? { ...property, name: newName.trim() } : property
+        ))
+      });
+    }
   };
-  const handleUpdatePropertyIcon = (id: string, icon: string) => {
+  const handleUpdatePropertyIcon = (id: string, isSystem: boolean, icon: string) => {
     updateColumnMeta(id, { icon });
+    if (!isSystem) {
+      handleUpdate({
+        customProperties: note.customProperties?.map((property: any) => (
+          property.id === id ? { ...property, icon } : property
+        ))
+      });
+    }
+  };
+  const handleDeletePropertyAction = (id: string, isSystem: boolean) => {
+    if (isSystem) {
+      updateColumnMeta(id, { hidden: true });
+      return;
+    }
+    handleDeleteProperty(id);
   };
   const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
     const IconComponent = ALL_ICONS[iconName] || fallback;
     return <IconComponent className={className} />;
   };
-  const renderPropertyLabel = (id: string, label: string, iconName: string, fallback: React.ElementType) => (
+  const renderPropertyLabel = (id: string, isSystem: boolean, label: string, iconName: string | undefined, fallback: React.ElementType) => (
     <div className="w-40 shrink-0 flex items-center">
       <div
         className={propertyLabelClass}
         onClick={(e) => {
           e.stopPropagation();
           if ((e.target as HTMLElement).closest('svg')) {
-            setPropertyIconPicker({ id, pos: { x: e.clientX, y: e.clientY } });
+            setPropertyIconPicker({ id, isSystem, pos: { x: e.clientX, y: e.clientY } });
             return;
           }
           setEditingPropertyId(id);
@@ -381,22 +474,22 @@ function NoteDetailsPage({ note, onBack }: {
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setPropertyContextMenu({ x: e.clientX, y: e.clientY, id });
+          setPropertyContextMenu({ x: e.clientX, y: e.clientY, id, isSystem });
         }}
       >
-        {renderIcon(iconName, fallback, "w-4 h-4")}
+        {renderIcon(iconName || '', fallback, "w-4 h-4")}
         {editingPropertyId === id ? (
           <input
             type="text"
             value={editingPropertyName}
             onChange={(e) => setEditingPropertyName(e.target.value)}
             onBlur={() => {
-              handleRenameProperty(id, editingPropertyName);
+              handleRenameProperty(id, isSystem, editingPropertyName);
               setEditingPropertyId(null);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                handleRenameProperty(id, editingPropertyName);
+                handleRenameProperty(id, isSystem, editingPropertyName);
                 setEditingPropertyId(null);
               }
             }}
@@ -418,11 +511,11 @@ function NoteDetailsPage({ note, onBack }: {
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+      <div className="inner-detail-layout max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
         {/* Header */}
-        <div className="flex-shrink-0 w-full">
-          <div className="mb-5 flex items-center gap-3">
-            <div 
+        <div className="inner-detail-header flex-shrink-0 w-full">
+          <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
+            <div
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
@@ -433,13 +526,14 @@ function NoteDetailsPage({ note, onBack }: {
               {React.createElement(ALL_ICONS[note.icon] || Pencil, { className: "w-6 h-6" })}
             </div>
             <div className="min-w-0 flex-1">
-              <input 
+              <input
                 type="text"
                 value={note.title}
                 onChange={(e) => handleUpdate({ title: e.target.value })}
                 className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
                 placeholder="Untitled Note"
               />
+              <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">Document page</p>
             </div>
             <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
               <button
@@ -479,7 +573,7 @@ function NoteDetailsPage({ note, onBack }: {
                   </>
                 )}
               </div>
-              <button 
+              <button
                 onClick={onBack}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
                 title="Close"
@@ -490,12 +584,29 @@ function NoteDetailsPage({ note, onBack }: {
           </div>
         </div>
 
+        <div className="inner-detail-document">
+          <button
+            onClick={handleAddProperty}
+            className={`${addPropertyClass} inner-add-property-trigger`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add property</span>
+          </button>
+          <div className="inner-detail-document-rule" />
+          <div className="min-h-[55vh] text-[var(--tokyo-text-strong)]">
+            <BlockEditor
+              initialContent={note.content}
+              onChange={(nextContent) => handleUpdate({ content: nextContent })}
+            />
+          </div>
+        </div>
+
         {/* Properties - Vertical List */}
-        <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
+        <div className="inner-detail-properties space-y-2 -mt-6 -mb-3 max-w-3xl">
           {/* Assigned */}
           {!assignedCol.hidden && (
           <div className={propertyRowClass}>
-            {renderPropertyLabel('assigned', assignedCol.label, assignedCol.icon, Users)}
+            {renderPropertyLabel('assigned', true, assignedCol.label, assignedCol.icon, Users)}
             {renderPersonValue(note.assignee)}
           </div>
           )}
@@ -503,8 +614,8 @@ function NoteDetailsPage({ note, onBack }: {
           {/* Created Date */}
           {!dateCol.hidden && (
           <div className={propertyRowClass}>
-            {renderPropertyLabel('date', dateCol.label, dateCol.icon, CalendarIcon)}
-            <div 
+            {renderPropertyLabel('date', true, dateCol.label, dateCol.icon, CalendarIcon)}
+            <div
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 setDatePickerConfig({
@@ -512,7 +623,7 @@ function NoteDetailsPage({ note, onBack }: {
                   currentDate: note.createdAt ? new Date(note.createdAt) : undefined
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
+              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
             >
               {note.createdAt ? format(new Date(note.createdAt), 'MMM d, yyyy') : 'Set date...'}
             </div>
@@ -522,9 +633,9 @@ function NoteDetailsPage({ note, onBack }: {
           {/* Priority */}
           {!priorityCol.hidden && (
           <div className={propertyRowClass}>
-            {renderPropertyLabel('priority', priorityCol.label, priorityCol.icon, Zap)}
+            {renderPropertyLabel('priority', true, priorityCol.label, priorityCol.icon, Zap)}
             <div className="relative flex items-center">
-              <div 
+              <div
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   setCustomDropdown({
@@ -534,7 +645,7 @@ function NoteDetailsPage({ note, onBack }: {
                   });
                 }}
                 className={cn(
-                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
+                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] h-7 flex items-center",
                   getPriorityBadgeClasses(note.priority || 'medium')
                 )}
               >
@@ -547,9 +658,9 @@ function NoteDetailsPage({ note, onBack }: {
           {/* Status */}
           {!statusCol.hidden && (
           <div className={propertyRowClass}>
-            {renderPropertyLabel('status', statusCol.label, statusCol.icon, CheckCircle)}
+            {renderPropertyLabel('status', true, statusCol.label, statusCol.icon, CheckCircle)}
             <div className="relative flex items-center gap-2">
-              <div 
+              <div
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   setCustomDropdown({
@@ -559,7 +670,7 @@ function NoteDetailsPage({ note, onBack }: {
                   });
                 }}
                 className={cn(
-                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
+                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] h-7",
                   (note.status === 'completed' || note.status === 'done') ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
                   (note.status === 'active' || note.status === 'in-progress') ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                   note.status === 'planning' ? "bg-stone-500/20 text-stone-400" :
@@ -575,7 +686,7 @@ function NoteDetailsPage({ note, onBack }: {
           {/* Creator */}
           {!creatorCol.hidden && (
           <div className={propertyRowClass}>
-            {renderPropertyLabel('creator', creatorCol.label, creatorCol.icon, User)}
+            {renderPropertyLabel('creator', true, creatorCol.label, creatorCol.icon, User)}
             {renderPersonValue('Abdola Munir')}
           </div>
           )}
@@ -583,14 +694,14 @@ function NoteDetailsPage({ note, onBack }: {
           {/* Progress */}
           {!progressCol.hidden && (
           <div className={propertyRowClass}>
-            {renderPropertyLabel('progress', progressCol.label, progressCol.icon, Circle)}
-            <div className="flex items-center px-2.5 -ml-2.5 rounded-lg h-7 transition-all">
+            {renderPropertyLabel('progress', true, progressCol.label, progressCol.icon, Circle)}
+            <div className="flex items-center rounded-lg h-7 transition-all">
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
                   {note.progress || 0}%
                 </div>
                 <div className="h-1.5 w-36 bg-white/[0.06] rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-[var(--tokyo-green)] rounded-full transition-all duration-300"
                     style={{ width: `${Math.max(0, Math.min(100, note.progress || 0))}%` }}
                   />
@@ -599,12 +710,78 @@ function NoteDetailsPage({ note, onBack }: {
             </div>
           </div>
           )}
+
+          {/* Custom Properties */}
+          {note.customProperties?.map((prop: any) => {
+            const PropIcon = {
+              text: Text,
+              number: Hashtag,
+              select: Layers,
+              date: CalendarIcon,
+              'multi-select': List,
+              status: CheckCircle,
+              person: Users,
+              files: Attachment,
+              url: Link,
+              email: AtSign,
+            }[prop.type as string] || Text;
+
+            return (
+              <div key={prop.id} className={propertyRowClass}>
+                {renderPropertyLabel(prop.id, false, prop.name, prop.icon, PropIcon)}
+                <div className="flex-1 flex items-center gap-4">
+                  {prop.type === 'date' ? (
+                    <div
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setDatePickerConfig({
+                          id: `prop:${prop.id}`,
+                          pos: { x: rect.left, y: rect.bottom + 8 },
+                          currentDate: prop.value ? new Date(prop.value) : undefined
+                        });
+                      }}
+                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                    >
+                      {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex items-center hover:bg-white/[0.03] rounded-lg h-7 transition-all group/val">
+                      <input
+                        type={prop.type === 'number' ? 'number' : 'text'}
+                        value={prop.value}
+                        onChange={(e) => handleUpdateProperty(prop.id, e.target.value)}
+                        placeholder="Empty"
+                        className="bg-transparent border-none p-0 text-[var(--tokyo-text-strong)] text-sm font-medium focus:ring-0 flex-1 [color-scheme:dark] placeholder:text-white/5"
+                      />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleDeleteProperty(prop.id)}
+                    className="opacity-0 group-hover/prop:opacity-100 text-white/20 hover:text-white transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Add new property */}
+          <div className="flex items-center h-8">
+            <button
+              onClick={handleAddProperty}
+              className={`${addPropertyClass} inner-add-property-trigger`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add property</span>
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
-          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Notes', 'Comments', 'Activity'].map(tabId => (
+        <div className="inner-detail-tabs flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar">
+            {['Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
@@ -622,27 +799,18 @@ function NoteDetailsPage({ note, onBack }: {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 w-full pl-2.5 pt-4">
-          {activeTab === 'Notes' && (
-            <div className="min-h-[55vh] py-2 text-[var(--tokyo-text-strong)]">
-              <BlockEditor
-                initialContent={note.content}
-                onChange={(nextContent) => handleUpdate({ content: nextContent })}
-              />
-            </div>
-          )}
-
+        <div className="inner-detail-panel-content flex-1 w-full pt-4">
           {activeTab === 'Comments' && (
             <>
               {/* Comment Input */}
               <div className="bg-white/[0.015] border border-[var(--tokyo-border)] rounded-xl p-3 mb-8">
                 <div className="flex gap-2.5 mb-2.5">
                   <img src={user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff"} className="w-7 h-7 rounded-full shrink-0 border border-white/5" alt="me" />
-                  <textarea 
+                  <textarea
                     rows={1.5}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Add your comment..." 
+                    placeholder="Add your comment..."
                     className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus:ring-transparent focus:border-transparent focus-visible:ring-0 focus-visible:outline-none text-[var(--tokyo-text-strong)] placeholder:text-white/20 text-xs resize-none py-0.5 shadow-none"
                   />
                 </div>
@@ -654,7 +822,7 @@ function NoteDetailsPage({ note, onBack }: {
                     <button className="hover:text-white transition-colors cursor-pointer"><Hashtag className="w-3.5 h-3.5" /></button>
                     <button className="hover:text-white transition-colors cursor-pointer"><Attachment className="w-3.5 h-3.5" /></button>
                   </div>
-                  <button 
+                  <button
                     onClick={handleAddComment}
                     className="bg-[var(--tokyo-yellow-dim)] text-white px-3.5 py-1.5 rounded-md text-xs font-semibold hover:bg-[var(--tokyo-yellow)] transition-colors shadow-lg shadow-black/20 cursor-pointer"
                   >
@@ -715,11 +883,11 @@ function NoteDetailsPage({ note, onBack }: {
         {isIconPickerOpen && iconPickerPos && (
           <>
             <div className="fixed inset-0 z-[110]" onClick={() => setIsIconPickerOpen(false)} />
-            <div 
+            <div
               className="fixed z-[120]"
               style={{ top: iconPickerPos.y, left: iconPickerPos.x }}
             >
-              <IconPicker 
+              <IconPicker
                 currentIcon={note.icon || 'Pencil'}
                 onSelect={(iconName) => {
                   handleUpdate({ icon: iconName });
@@ -737,15 +905,21 @@ function NoteDetailsPage({ note, onBack }: {
             onClose={() => setPropertyContextMenu(null)}
             onRename={() => {
               setEditingPropertyId(propertyContextMenu.id);
-              setEditingPropertyName(getCol(propertyContextMenu.id, propertyContextMenu.id, 'File').label);
+              setEditingPropertyName(
+                propertyContextMenu.isSystem
+                  ? getCol(propertyContextMenu.id, propertyContextMenu.id, 'File').label
+                  : (note.customProperties?.find((property: any) => property.id === propertyContextMenu.id)?.name || '')
+              );
             }}
             onChangeIcon={() => {
               setPropertyIconPicker({
                 id: propertyContextMenu.id,
+                isSystem: propertyContextMenu.isSystem,
                 pos: { x: propertyContextMenu.x, y: propertyContextMenu.y }
               });
             }}
-            onHide={() => updateColumnMeta(propertyContextMenu.id, { hidden: true })}
+            onHide={propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, true) : undefined}
+            onDelete={!propertyContextMenu.isSystem ? () => handleDeletePropertyAction(propertyContextMenu.id, false) : undefined}
           />
         )}
 
@@ -760,9 +934,13 @@ function NoteDetailsPage({ note, onBack }: {
               }}
             >
               <IconPicker
-                currentIcon={getCol(propertyIconPicker.id, propertyIconPicker.id, 'File').icon}
+                currentIcon={
+                  propertyIconPicker.isSystem
+                    ? getCol(propertyIconPicker.id, propertyIconPicker.id, 'File').icon
+                    : (note.customProperties?.find((property: any) => property.id === propertyIconPicker.id)?.icon || 'File')
+                }
                 onSelect={(iconName) => {
-                  handleUpdatePropertyIcon(propertyIconPicker.id, iconName);
+                  handleUpdatePropertyIcon(propertyIconPicker.id, propertyIconPicker.isSystem, iconName);
                   setPropertyIconPicker(null);
                 }}
                 onClose={() => setPropertyIconPicker(null)}
@@ -774,21 +952,21 @@ function NoteDetailsPage({ note, onBack }: {
         {customDropdown && (
           <>
             <div className="fixed inset-0 z-[130]" onClick={() => setCustomDropdown(null)} />
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
               className="property-popover fixed z-[140] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl p-1.5 w-48 overflow-hidden"
-              style={{ 
-                top: Math.min(customDropdown.pos.y, window.innerHeight - 200), 
-                left: Math.min(customDropdown.pos.x, window.innerWidth - 200) 
+              style={{
+                top: Math.min(customDropdown.pos.y, window.innerHeight - 200),
+                left: Math.min(customDropdown.pos.x, window.innerWidth - 200)
               }}
             >
               <div className="property-popover-heading px-2.5 py-1 font-bold text-[var(--tokyo-text-faint)] tracking-wider">
                 Select {toSentenceCase(customDropdown.type)}
               </div>
               <div className="space-y-0.5">
-                {(customDropdown.type === 'status' ? ['planning', 'active', 'completed', 'paused'] : 
+                {(customDropdown.type === 'status' ? ['planning', 'active', 'completed', 'paused'] :
                   ['low', 'medium', 'high']
                 ).map((option) => (
                   <button
@@ -813,21 +991,68 @@ function NoteDetailsPage({ note, onBack }: {
         {datePickerConfig && (
           <>
             <div className="fixed inset-0 z-[110]" onClick={() => setDatePickerConfig(null)} />
-            <div 
+            <div
               className="fixed z-[120]"
-              style={{ 
-                top: Math.min(datePickerConfig.pos.y, window.innerHeight - 450), 
-                left: Math.min(datePickerConfig.pos.x, window.innerWidth - 300) 
+              style={{
+                top: Math.min(datePickerConfig.pos.y, window.innerHeight - 450),
+                left: Math.min(datePickerConfig.pos.x, window.innerWidth - 300)
               }}
             >
-              <DatePicker 
+              <DatePicker
                 selectedDate={datePickerConfig.currentDate}
                 onSelect={(date) => {
-                  handleUpdate({ createdAt: date.toISOString() });
+                  if (datePickerConfig.id?.startsWith('prop:')) {
+                    handleUpdateProperty(datePickerConfig.id.replace('prop:', ''), date.toISOString());
+                  } else {
+                    handleUpdate({ createdAt: date.toISOString() });
+                  }
                 }}
                 onClose={() => setDatePickerConfig(null)}
               />
             </div>
+          </>
+        )}
+
+        {isPropertyPickerOpen && propertyPickerPos && (
+          <>
+            <div
+              className="fixed inset-0 z-[110]"
+              onClick={() => setIsPropertyPickerOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+              className="dayline-dialog fixed z-[120] max-h-[440px] w-72 overflow-auto no-scrollbar rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] p-2 shadow-2xl"
+              style={{
+                top: Math.min(propertyPickerPos.y, window.innerHeight - 300),
+                left: Math.min(propertyPickerPos.x, window.innerWidth - 280)
+              }}
+            >
+              <div className="dayline-dialog-heading px-3 py-2 text-xs font-bold text-[var(--tokyo-text-faint)] tracking-wider">
+                Basic properties
+              </div>
+              <div className="space-y-0.5">
+                {PROPERTY_TYPE_OPTIONS.map((type) => {
+                  const TypeIcon = iconMap[type.icon] || Text;
+                  return (
+                    <button
+                      key={type.id}
+                      onClick={() => confirmAddProperty(type.id)}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-[var(--tokyo-hover)] transition-colors text-left group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-[var(--tokyo-hover)] flex items-center justify-center text-[var(--tokyo-text-muted)] group-hover:text-white transition-colors">
+                        <TypeIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-[var(--tokyo-text-strong)] group-hover:text-white">{type.label}</div>
+                        <div className="text-xs text-[var(--tokyo-text-faint)]">{type.desc}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
           </>
         )}
       </AnimatePresence>

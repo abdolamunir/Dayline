@@ -263,7 +263,7 @@ function ProjectDetailsPage({ project, onBack }: {
   const [editingPropertyName, setEditingPropertyName] = useState<string>('');
   const [comments, setComments] = useState([
     { id: '1', name: 'Raheem Sterling', time: '25m ago', text: '@stephenrobert I will do it ASAP.', avatar: 'https://i.pravatar.cc/150?u=5' },
-    { id: '2', name: 'Stephen Robert', time: '50m ago', text: 'Project looks good, let\'s focus on the UI components.', avatar: 'https://i.pravatar.cc/150?u=4', reactions: [{ emoji: '👍', count: 1 }] }
+    { id: '2', name: 'Stephen Robert', time: '50m ago', text: 'Project looks good, let\'s focus on the UI components.', avatar: 'https://i.pravatar.cc/150?u=4', reactions: [{ emoji: 'Like', count: 1 }] }
   ]);
 
   const priorities = ['low', 'medium', 'high'];
@@ -287,7 +287,7 @@ function ProjectDetailsPage({ project, onBack }: {
   const confirmAddProperty = (type: PropertyType) => {
     const newProp = {
       id: `p${Date.now()}`,
-      name: `New ${getPropertyTypeLabel(type)}`,
+      name: getPropertyTypeLabel(type),
       type,
       value: getDefaultPropertyValue(type),
       icon: getPropertyTypeIcon(type),
@@ -376,7 +376,8 @@ function ProjectDetailsPage({ project, onBack }: {
   const assignedCol = getCol('assigned', 'Assigned', 'Users');
 
   const propertyRowClass = "flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop -mx-2 px-2 py-1 relative";
-  const propertyLabelClass = "property-label-trigger flex h-7 items-center gap-3 w-[145px] -ml-2.5 px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] cursor-pointer";
+  const propertyLabelClass = "property-label-trigger flex h-8 items-center gap-2 w-[145px] px-2.5 rounded-lg text-[var(--tokyo-text-faint)] text-sm font-medium transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] whitespace-nowrap overflow-hidden [&_span]:truncate [&_svg]:shrink-0 [&_svg]:[stroke-width:2.1] [&_input]:min-w-0 cursor-pointer";
+  const addPropertyClass = "flex h-8 items-center gap-2 rounded-lg px-2.5 text-[13px] leading-none font-medium text-[var(--tokyo-text-faint)] transition-colors hover:bg-white/[0.03] hover:text-[var(--tokyo-text-muted)] whitespace-nowrap cursor-pointer";
 
   const renderIcon = (iconName: string, fallback: React.ElementType, className: string) => {
     const IconComponent = ALL_ICONS[iconName] || fallback;
@@ -477,10 +478,10 @@ function ProjectDetailsPage({ project, onBack }: {
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
+      <div className="inner-detail-layout max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
         {/* Header */}
-        <div className="flex-shrink-0 w-full">
-          <div className="mb-5 flex items-center gap-3">
+        <div className="inner-detail-header flex-shrink-0 w-full">
+          <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
             <div 
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -499,6 +500,7 @@ function ProjectDetailsPage({ project, onBack }: {
                 className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
                 placeholder="Untitled Project"
               />
+              <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">Project page</p>
             </div>
             <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
               <button
@@ -549,8 +551,25 @@ function ProjectDetailsPage({ project, onBack }: {
           </div>
         </div>
 
+        <div className="inner-detail-document">
+          <button
+            onClick={handleAddProperty}
+            className={`${addPropertyClass} inner-add-property-trigger`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add property</span>
+          </button>
+          <div className="inner-detail-document-rule" />
+          <div className="min-h-[42vh] text-[var(--tokyo-text-strong)]">
+            <BlockEditor
+              initialContent={project.description || ''}
+              onChange={(nextContent) => handleUpdate({ description: nextContent })}
+            />
+          </div>
+        </div>
+
         {/* Properties - Vertical List */}
-        <div className="space-y-2 mb-12 max-w-3xl pl-2.5">
+        <div className="inner-detail-properties space-y-2 -mt-6 -mb-3 max-w-3xl">
           {/* Assigned */}
           {!assignedCol.hidden && (
             <div 
@@ -620,7 +639,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'deadline', isSystem: t
                   currentDate: project.deadline ? new Date(project.deadline) : undefined
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white"
+              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
             >
               {project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Set deadline...'}
             </div>
@@ -667,7 +686,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'priority', isSystem: t
                   });
                 }}
                 className={cn(
-                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7 flex items-center",
+                  "px-2.5 py-0.5 rounded-lg text-sm font-medium cursor-pointer transition-all hover:bg-white/[0.03] h-7 flex items-center",
                   getPriorityBadgeClasses(project.priority || 'medium')
                 )}
               >
@@ -717,7 +736,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'status', isSystem: tru
                   });
                 }}
                 className={cn(
-                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] -ml-2.5 h-7",
+                  "flex items-center px-2.5 py-0.5 rounded-lg text-sm font-medium whitespace-nowrap cursor-pointer transition-all hover:bg-white/[0.03] h-7",
                   project.status === 'completed' ? "bg-[rgba(166,227,125,0.14)] text-[var(--tokyo-green)]" :
                   project.status === 'active' ? "bg-[rgba(198,140,255,0.14)] text-[var(--tokyo-purple)]" :
                   project.status === 'planning' ? "bg-stone-500/20 text-stone-400" :
@@ -810,12 +829,12 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>
                   ) : (
-                    <div className="flex-1 flex items-center hover:bg-white/[0.03] px-2.5 -ml-2.5 rounded-lg h-7 transition-all group/val">
+                    <div className="flex-1 flex items-center hover:bg-white/[0.03] rounded-lg h-7 transition-all group/val">
                       <input 
                         type={prop.type === 'number' ? 'number' : 'text'}
                         value={prop.value}
@@ -840,7 +859,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
           <div className="flex items-center h-8">
             <button 
               onClick={handleAddProperty}
-              className="flex items-center gap-1.5 text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] text-[11px] font-semibold transition-colors cursor-pointer"
+              className={`${addPropertyClass} inner-add-property-trigger`}
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add property</span>
@@ -849,9 +868,9 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
-          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-2.5">
-            {['Notes', 'To-Dos', 'Comments', 'Activity'].map(tabId => (
+        <div className="inner-detail-tabs flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar">
+            {['To-Dos', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
@@ -869,7 +888,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 w-full pl-2.5">
+        <div className="inner-detail-panel-content flex-1 w-full">
           {activeTab === 'To-Dos' && (
             <div className="space-y-2">
               {projectTasks.map((task) => (
@@ -908,15 +927,6 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                 <Plus className="w-3.5 h-3.5" />
                 <span className="font-medium">Add new task</span>
               </button>
-            </div>
-          )}
-
-          {activeTab === 'Notes' && (
-            <div className="min-h-[42vh] py-2 text-[var(--tokyo-text-strong)]">
-              <BlockEditor
-                initialContent={project.description || ''}
-                onChange={(nextContent) => handleUpdate({ description: nextContent })}
-              />
             </div>
           )}
 

@@ -43,6 +43,8 @@ export interface Note {
   progress: number; // 0-100
   assignee?: string;
   areaId?: ID;
+  customProperties?: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
+  icon?: string;
 }
 
 export type TaskStatus = 'todo' | 'doing' | 'done';

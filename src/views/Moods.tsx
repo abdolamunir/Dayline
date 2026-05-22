@@ -23,7 +23,10 @@ export function Moods() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         {moods.map(mood => (
           <div key={mood.id} className="bg-[var(--tokyo-hover)] border border-[var(--tokyo-border-strong)] rounded-2xl p-6 flex flex-col items-center gap-3">
-            <div className="text-4xl capitalize">{mood.type === 'rad' ? '🤩' : mood.type === 'good' ? '😊' : mood.type === 'meh' ? '😐' : '😔'}</div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.03] text-[var(--tokyo-text-faint)]">
+              <Smile className="h-5 w-5 [stroke-width:2.1]" />
+            </div>
+            <div className="text-sm font-medium capitalize text-[var(--tokyo-text)]">{mood.type}</div>
             <div className="text-xs font-medium text-[var(--tokyo-text-faint)]">{mood.date}</div>
           </div>
         ))}

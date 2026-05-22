@@ -37,7 +37,7 @@ export function WorkspaceHeader({
               {title}
             </h1>
             {typeof count === 'number' && (
-              <span className="inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-2 text-[13px] font-semibold text-[var(--tokyo-text-faint)]">
+              <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-1.5 text-xs font-semibold text-[var(--tokyo-text-faint)]">
                 {count}
               </span>
             )}
