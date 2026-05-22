@@ -384,6 +384,7 @@ button {
   color: var(--tokyo-text) !important;
   font-family: var(--font-sans) !important;
   --bn-colors-border: transparent !important; /* BlockNote vertical line color removal override */
+  overflow: visible !important; /* Ensure side menu popovers/capsules are never clipped on left/right edges */
 }
 
 .bn-editor {
@@ -399,14 +400,14 @@ button {
 .WorkspacePage .bn-editor,
 .inner-detail-document .bn-editor {
   margin-inline: -1.25rem !important;
-  padding-inline: 1.25rem 2rem !important;
+  padding-inline: 1.75rem 2rem !important;
 }
 
 @media (max-width: 1024px) {
   .WorkspacePage .bn-editor,
   .inner-detail-document .bn-editor {
     margin-inline: -0.625rem !important;
-    padding-inline: 0.625rem 1rem !important;
+    padding-inline: 1.25rem 1rem !important;
   }
 }
 
@@ -432,7 +433,8 @@ button {
 .ProseMirror .is-empty::before,
 .ProseMirror .is-editor-empty::before,
 [data-placeholder]::before {
-  color: rgba(192, 154, 223, 0.55) !important;
+  color: rgba(192, 154, 223, 0.38) !important;
+  font-weight: 500 !important;
   opacity: 1 !important;
 }
 
@@ -662,10 +664,45 @@ button {
   align-items: center !important;
   justify-content: center !important;
   align-self: center !important;
-  height: 28px !important; /* Premium smaller height, not stretched */
+  height: 28px !important; /* Compact premium height */
   min-height: 28px !important;
-  padding: 3px 4px !important;
+  padding: 2px !important; /* Uniform smaller padding */
+  gap: 2px !important; /* Clean button gap */
   box-sizing: border-box !important;
+
+  /* Positioned to avoid clipping and align with text */
+  transform: translateX(0) !important; /* Remove negative offset */
+  opacity: 0.75 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+/* Explicit layout styling for the draggable wrapper containing the drag-handle button */
+.bn-side-menu > [draggable="true"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 22px !important; /* Exact match to button height */
+  width: 22px !important; /* Exact match to button width */
+  box-sizing: border-box !important;
+}
+
+/* Invisible hover bridge to maintain hover state when moving mouse between text and plus icon */
+.bn-side-menu::after {
+  content: "" !important;
+  position: absolute !important;
+  top: -10px !important;
+  bottom: -10px !important;
+  left: 100% !important; /* Starts exactly at the right edge of the capsule, completely clearing the buttons */
+  width: 40px !important; /* Bridges the spatial gap to the text block perfectly */
+  background: transparent !important;
+  pointer-events: auto !important;
+  z-index: -1 !important;
+}
+
+.bn-side-menu:hover {
+  opacity: 1 !important;
 }
 
 .bn-side-menu button,
@@ -676,59 +713,30 @@ button {
 }
 
 .bn-side-menu button {
-  height: 20px !important;
-  width: 20px !important;
+  height: 22px !important; /* Symmetrical square button */
+  width: 22px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  margin: 0 !important; /* Clear any browser/Mantine default margins */
+  padding: 0 !important; /* Clear any browser/Mantine default paddings */
+  pointer-events: auto !important; /* Guarantee absolute clickability */
+  cursor: pointer !important;
+  box-sizing: border-box !important;
+}
+
+.bn-side-menu button svg {
+  width: 15px !important; /* Perfect balanced size for 22px buttons */
+  height: 15px !important;
+  min-width: 15px !important;
+  min-height: 15px !important;
+  max-width: 15px !important;
+  max-height: 15px !important;
 }
 
 .bn-side-menu button:hover,
 .bn-formatting-toolbar button:hover,
 .bn-suggestion-menu button:hover {
-  background: var(--tokyo-hover-strong) !important;
-  color: var(--tokyo-text-strong) !important;
-}
-
-.bn-side-menu-trigger {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  align-self: center !important;
-  height: 28px !important; /* Match side menu height, prevent vertical stretching */
-  min-height: 28px !important;
-  padding: 3px 4px !important;
-  background: var(--tokyo-panel-2) !important;
-  border: 1px solid var(--tokyo-border-strong) !important;
-  border-radius: 8px !important; /* "round edges little bit everywhere" */
-  gap: 4px !important;
-  opacity: 0.65;
-  transition: all 0.2s ease !important;
-  transform: translateX(4px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-  box-sizing: border-box !important;
-}
-
-.bn-side-menu-trigger:hover {
-  opacity: 1 !important;
-  background: var(--tokyo-panel-2) !important;
-  border-color: var(--tokyo-border-strong) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
-}
-
-.bn-side-menu-trigger button {
-  width: 20px !important;
-  height: 20px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: 4px !important;
-  color: var(--tokyo-text-muted) !important;
-  background: transparent !important;
-  transition: all 0.15s ease !important;
-}
-
-.bn-side-menu-trigger button:hover {
   background: var(--tokyo-hover-strong) !important;
   color: var(--tokyo-text-strong) !important;
 }

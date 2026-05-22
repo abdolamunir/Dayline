@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BlockNoteEditor } from "@blocknote/core";
+import { en } from "@blocknote/core/locales";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { format, addDays } from 'date-fns';
@@ -41,6 +42,13 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
 
   const editor = useCreateBlockNote({
     initialContent: parsedContent,
+    dictionary: {
+      ...en,
+      placeholders: {
+        ...en.placeholders,
+        default: "Type / for commands",
+      },
+    },
   });
 
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Abdolamunir';
@@ -187,6 +195,73 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
       insertMentionItem(filteredMentionItems[selectedMentionIndex]);
     }
   };
+
+  // Dynamic DOM ancestor contains-method patching & capturing event interceptor to solve side-menu hover instability.
+  // 1. We override `.contains` on all ancestors of .ProseMirror, ensuring parent-descendant checks in BlockNote succeed when hovering the side-menu.
+  // 2. We intercept `mousemove` in the capturing phase on window, stopping it from propagating when over the side-menu, which prevents BlockNote from executing close/hide triggers.
+  useEffect(() => {
+    let active = true;
+    const patchedElements: Map<HTMLElement, typeof HTMLElement.prototype.contains> = new Map();
+
+    const patchAncestors = () => {
+      if (!active) return;
+
+      const proseMirrorElements = document.querySelectorAll('.ProseMirror');
+      proseMirrorElements.forEach((pmEl) => {
+        let current: HTMLElement | null = pmEl as HTMLElement;
+        while (current && current !== document.documentElement) {
+          if (!patchedElements.has(current)) {
+            const originalContains = current.contains;
+            current.contains = function(other) {
+              if (other && other instanceof Node) {
+                let checkEl: HTMLElement | null = other as HTMLElement;
+                while (checkEl && checkEl !== document.documentElement) {
+                  if (checkEl.classList && (
+                    checkEl.classList.contains('bn-side-menu') || 
+                    checkEl.classList.contains('bn-formatting-toolbar') ||
+                    checkEl.classList.contains('bn-suggestion-menu')
+                  )) {
+                    return true;
+                  }
+                  checkEl = checkEl.parentElement;
+                }
+              }
+              return originalContains.call(this, other);
+            };
+            patchedElements.set(current, originalContains);
+          }
+          current = current.parentElement;
+        }
+      });
+
+      requestAnimationFrame(patchAncestors);
+    };
+
+    const handleMouseMoveCapture = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target && typeof target.closest === 'function') {
+        const isOverSideMenu = target.closest('.bn-side-menu') || target.classList?.contains('bn-side-menu');
+        if (isOverSideMenu) {
+          event.stopPropagation();
+        }
+      }
+    };
+
+    patchAncestors();
+    window.addEventListener('mousemove', handleMouseMoveCapture, true);
+
+    return () => {
+      active = false;
+      window.removeEventListener('mousemove', handleMouseMoveCapture, true);
+      patchedElements.forEach((originalContains, element) => {
+        try {
+          element.contains = originalContains;
+        } catch (e) {
+          // Ignore
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     const isEditorEvent = (event: Event) => {
