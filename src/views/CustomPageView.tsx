@@ -231,7 +231,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         )}
       </div>
 
-      <div className="space-y-2 border-b border-white/[0.06] py-3">
+      <div className="space-y-2 border-b border-white/[0.06] py-3 -mx-4 px-4 md:-mx-8 md:px-8">
         {page.properties.map(prop => (
           <div key={prop.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 group/prop">
             <div className="w-full sm:w-48 flex items-center gap-2 text-[var(--tokyo-text-muted)]">
@@ -290,7 +290,7 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
         </div>
       </div>
 
-      <div className="min-h-[55vh] py-5 text-[var(--tokyo-text-strong)]">
+      <div className="min-h-[55vh] py-5 text-[var(--tokyo-text-strong)] main-document-editor">
         <BlockEditor
           initialContent={content}
           onChange={(nextContent) => {
@@ -494,7 +494,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
           alt={displayName}
         />
-        <span className="truncate text-sm font-medium">{displayName}</span>
+        <span className="whitespace-nowrap text-sm font-medium">{displayName}</span>
       </div>
     );
   };
@@ -566,71 +566,73 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
         <div className="inner-detail-main">
           {/* Header */}
           <div className="inner-detail-header flex-shrink-0 w-full">
-            <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
-              <div 
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                  setIsIconPickerOpen(true);
-                }}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-              >
-                {React.createElement(ALL_ICONS[item.icon] || FileIcon, { className: "w-6 h-6" })}
-              </div>
-              <div className="min-w-0 flex-1">
-                <input 
-                  type="text"
-                  value={item.title}
-                  onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
-                  className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                  placeholder="Untitled Item"
-                />
-              </div>
-              <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-                <button
-                  onClick={() => void handleCopyLink()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="Copy link"
+            <div className="inner-detail-titlebar mb-5">
+              <div className="inner-detail-titlebar-content flex items-center gap-3">
+                <div 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                    setIsIconPickerOpen(true);
+                  }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
                 >
-                  <Link className="h-[18px] w-[18px]" />
-                </button>
-                <button
-                  onClick={() => setIsFavorite((favorite) => !favorite)}
-                  className={cn(
-                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                    isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                  )}
-                  title="Favorite"
-                >
-                  <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setIsShareMenuOpen((open) => !open)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                    title="Invite people"
-                  >
-                    <Users className="h-[18px] w-[18px]" />
-                  </button>
-                  {isShareMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                      <div className="dayline-share-menu absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                        <button className="dayline-share-menu-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
-                          <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                          Invite people
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  {React.createElement(ALL_ICONS[item.icon] || FileIcon, { className: "w-6 h-6" })}
                 </div>
-                <button 
-                  onClick={onBack}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="Close"
-                >
-                  <X className="h-[18px] w-[18px]" />
-                </button>
+                <div className="min-w-0 flex-1">
+                  <input 
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
+                    className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                    placeholder="Untitled Item"
+                  />
+                </div>
+                <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+                  <button
+                    onClick={() => void handleCopyLink()}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                    title="Copy link"
+                  >
+                    <Link className="h-[18px] w-[18px]" />
+                  </button>
+                  <button
+                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    className={cn(
+                      "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                    )}
+                    title="Favorite"
+                  >
+                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsShareMenuOpen((open) => !open)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                      title="Invite people"
+                    >
+                      <Users className="h-[18px] w-[18px]" />
+                    </button>
+                    {isShareMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                        <div className="dayline-share-menu absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                          <button className="dayline-share-menu-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                            <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                            Invite people
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button 
+                    onClick={onBack}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                    title="Close"
+                  >
+                    <X className="h-[18px] w-[18px]" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -729,7 +731,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                 <div className="inline-flex items-center justify-center px-2 py-0.5 min-w-[38px] text-[11px] font-semibold bg-white/[0.04] text-[var(--tokyo-green)] rounded-[6px]">
                   {item.progress || 0}%
                 </div>
-                <div className="h-1.5 w-36 bg-white/[0.06] rounded-full overflow-hidden">
+                <div className="h-1.5 w-20 bg-white/[0.06] rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-[var(--tokyo-green)] rounded-full transition-all duration-300"
                     style={{ width: `${Math.max(0, Math.min(100, item.progress || 0))}%` }}

@@ -447,7 +447,7 @@ function ProjectDetailsPage({ project, onBack }: {
           className="h-5 w-5 shrink-0 rounded-full ring-1 ring-white/10"
           alt={displayName}
         />
-        <span className="truncate text-sm font-medium">{displayName}</span>
+        <span className="whitespace-nowrap text-sm font-medium">{displayName}</span>
       </div>
     );
   };
@@ -482,71 +482,73 @@ function ProjectDetailsPage({ project, onBack }: {
         <div className="inner-detail-main">
           {/* Header */}
           <div className="inner-detail-header flex-shrink-0 w-full">
-            <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
-              <div 
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setIconPickerId(project.id);
-                  setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                }}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-              >
-                {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
-              </div>
-              <div className="min-w-0 flex-1">
-                <input 
-                  type="text"
-                  value={project.name}
-                  onChange={(e) => handleUpdate({ name: e.target.value })}
-                  className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                  placeholder="Untitled Project"
-                />
-              </div>
-              <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-                <button
-                  onClick={() => void handleCopyProjectLink()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="Copy link"
+            <div className="inner-detail-titlebar mb-5">
+              <div className="inner-detail-titlebar-content flex items-center gap-3">
+                <div 
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setIconPickerId(project.id);
+                    setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                  }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
                 >
-                  <Link className="h-[18px] w-[18px]" />
-                </button>
-                <button
-                  onClick={() => setIsFavorite((favorite) => !favorite)}
-                  className={cn(
-                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                    isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                  )}
-                  title="Favorite"
-                >
-                  <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
-                </button>
-                <div className="relative">
-                  <button
-                    onClick={() => setIsShareMenuOpen((open) => !open)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                    title="Invite people"
-                  >
-                    <Users className="h-[18px] w-[18px]" />
-                  </button>
-                  {isShareMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                      <div className="dayline-share-menu absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                        <button className="dayline-share-menu-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
-                          <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                          Invite people
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
                 </div>
-                <button 
-                  onClick={onBack}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="Close"
-                >
-                  <X className="h-[18px] w-[18px]" />
-                </button>
+                <div className="min-w-0 flex-1">
+                  <input 
+                    type="text"
+                    value={project.name}
+                    onChange={(e) => handleUpdate({ name: e.target.value })}
+                    className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                    placeholder="Untitled Project"
+                  />
+                </div>
+                <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+                  <button
+                    onClick={() => void handleCopyProjectLink()}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                    title="Copy link"
+                  >
+                    <Link className="h-[18px] w-[18px]" />
+                  </button>
+                  <button
+                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    className={cn(
+                      "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                    )}
+                    title="Favorite"
+                  >
+                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsShareMenuOpen((open) => !open)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                      title="Invite people"
+                    >
+                      <Users className="h-[18px] w-[18px]" />
+                    </button>
+                    {isShareMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                        <div className="dayline-share-menu absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                          <button className="dayline-share-menu-item flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                            <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                            Invite people
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button 
+                    onClick={onBack}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                    title="Close"
+                  >
+                    <X className="h-[18px] w-[18px]" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -886,7 +888,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
           {activeTab === 'To-Dos' && (
             <div className="space-y-2">
               {projectTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
+                <div key={task.id} className="flex items-center gap-3 px-1.5 py-1.5 group hover:bg-white/[0.03] rounded-md transition-all">
                   <button 
                     onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
                     className={cn(
@@ -1003,14 +1005,14 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                 { user: 'Abdola Munir', action: 'changed status to', value: project.status, time: 'Just now' },
                 { user: 'Abdola Munir', action: 'created this project', value: '', time: '3h ago' },
               ].map((activity, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <img src={activity.user === 'Abdola Munir' ? (user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff") : "https://i.pravatar.cc/150?u=abdolamunir"} className="w-7 h-7 rounded-full" alt="avatar" />
-                  <div className="flex items-center gap-2">
-                    <span className="text-[var(--tokyo-text-strong)] font-medium">{activity.user}</span>
-                    <span className="text-[var(--tokyo-text-faint)]">{activity.action}</span>
-                    {activity.value && <span className="text-[var(--tokyo-text-strong)] font-medium">{toSentenceCase(activity.value)}</span>}
-                    <span className="text-white/20">•</span>
-                    <span className="text-[var(--tokyo-text-faint)]">{activity.time}</span>
+                <div key={i} className="flex items-start gap-3 text-sm">
+                  <img src={activity.user === 'Abdola Munir' ? (user?.photoURL || "https://ui-avatars.com/api/?name=Abdola+Munir&background=0D8ABC&color=fff") : "https://i.pravatar.cc/150?u=abdolamunir"} className="w-7 h-7 rounded-full mt-0.5" alt="avatar" />
+                  <div className="flex-1 text-sm leading-relaxed text-[var(--tokyo-text-faint)]">
+                    <span className="text-[var(--tokyo-text-strong)] font-semibold mr-1.5">{activity.user}</span>
+                    <span className="mr-1.5">{activity.action}</span>
+                    {activity.value && <span className="text-[var(--tokyo-text-strong)] font-semibold mr-1.5">{toSentenceCase(activity.value)}</span>}
+                    <span className="text-white/10 mx-1.5">•</span>
+                    <span className="text-[var(--tokyo-text-faint)] whitespace-nowrap">{activity.time}</span>
                   </div>
                 </div>
               ))}

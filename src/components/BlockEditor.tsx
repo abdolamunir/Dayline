@@ -101,10 +101,12 @@ function DuplicateBlockItem() {
   return (
     <Components.Generic.Menu.Item
       className="bn-menu-item dayline-block-menu-item"
-      icon={<Copy className="h-3.5 w-3.5" />}
       onClick={() => editor.insertBlocks([cloneBlockForInsert(block)], block, "after")}
     >
-      Duplicate
+      <span className="dayline-block-menu-label">
+        <Copy className="h-3.5 w-3.5" />
+        <span>Duplicate</span>
+      </span>
     </Components.Generic.Menu.Item>
   );
 }
@@ -124,10 +126,12 @@ function DeleteBlockItem() {
   return (
     <Components.Generic.Menu.Item
       className="bn-menu-item dayline-block-menu-item dayline-block-menu-delete"
-      icon={<Trash2 className="h-3.5 w-3.5" />}
       onClick={() => editor.removeBlocks([block])}
     >
-      Delete
+      <span className="dayline-block-menu-label dayline-block-menu-delete">
+        <Trash2 className="h-3.5 w-3.5" />
+        <span>Delete</span>
+      </span>
     </Components.Generic.Menu.Item>
   );
 }

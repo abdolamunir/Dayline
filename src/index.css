@@ -194,13 +194,15 @@ button {
 
 .inner-detail-layout {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(350px, 400px); /* Increased right sidebar width for better proportions */
   gap: 0 !important;
   width: 100% !important;
-  max-width: none !important;
+  max-width: none !important; /* stretch layout edge-to-edge so vertical/horizontal lines hit boundaries */
   min-height: 100%;
-  margin: 0 !important;
-  padding: 0 !important;
+  margin: 0 !important; /* stretch to absolute edges */
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .inner-detail-main {
@@ -222,14 +224,24 @@ button {
 
 .inner-detail-titlebar {
   margin: 0 !important;
-  padding: 1.25rem 1.5rem 0.75rem 2rem;
+  width: 100% !important;
   border-bottom: 1px solid var(--tokyo-border);
   min-width: 0;
 }
 
+.inner-detail-titlebar-content {
+  width: 100% !important;
+  max-width: 72rem !important; /* same as max-w-6xl for perfect alignment */
+  margin: 0 auto !important; /* center the header contents */
+  padding: 2.5rem 2rem 2.25rem 2.5rem !important; /* Increased bottom padding to 2.25rem for breathing room under the title */
+}
+
 .inner-detail-document {
+  width: 100% !important;
+  max-width: 72rem !important; /* same as max-w-6xl for perfect left alignment */
+  margin: 0 auto !important; /* center the content block */
   min-width: 0;
-  padding: 1.5rem 2rem 4rem 2rem;
+  padding: 1.5rem 2rem 4rem 1.25rem !important; /* Reverted back to 1.25rem left padding exactly as it was */
   flex: 1;
   overflow: visible;
 }
@@ -252,26 +264,53 @@ button {
   max-width: none !important;
   width: 100%;
   margin: 0 !important;
-  padding: 1.25rem 1.25rem 1rem;
+  padding: 2.25rem 1.5rem 1rem 1.5rem !important; /* Reduced horizontal padding to 1.5rem for more width and breathing room */
 }
 
 .inner-detail-tabs {
   margin: 0 !important;
-  padding: 0 1.25rem;
+  padding: 0 1.5rem !important; /* Reduced horizontal padding matching properties */
 }
 
 .inner-detail-panel-content {
   min-width: 0;
   width: 100%;
-  padding: 1.25rem 1.25rem 4rem;
+  padding: 1.25rem 1.5rem 4rem !important; /* Reduced horizontal padding matching properties */
   overflow-y: auto;
   flex: 1;
+}
+
+/* Hide scrollbar by default, only show it on hover or active scroll for cleaner aesthetics */
+.inner-detail-panel-content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.inner-detail-panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inner-detail-panel-content::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.inner-detail-panel-content:hover::-webkit-scrollbar-thumb {
+  background: rgba(201, 196, 203, 0.16);
+}
+
+.inner-detail-panel-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 196, 203, 0.3);
 }
 
 @media (max-width: 1024px) {
   .inner-detail-layout {
     display: flex !important;
     flex-direction: column;
+    padding-top: 0.9rem !important; /* cumulative 1.75rem with titlebar top padding (0.85rem), matching goals page pt-7 */
+    padding-left: 1rem !important; /* mobile padding same as main goals page */
+    padding-right: 1rem !important;
   }
 
   .inner-detail-sidebar {
@@ -280,18 +319,28 @@ button {
   }
 
   .inner-detail-titlebar {
-    padding: 0.85rem 1rem 0.75rem 1rem;
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .inner-detail-titlebar-content {
+    padding: 0.85rem 1rem 1.75rem 1rem !important; /* Increased bottom padding to 1.75rem under the title on mobile */
+    max-width: none !important;
+    margin: 0 !important;
   }
 
   .inner-detail-document {
-    padding: 1.5rem 1rem 4rem 1rem;
+    padding: 1.5rem 1rem 4rem 1rem !important;
+    max-width: none !important;
+    margin: 0 !important;
   }
 
   .inner-detail-properties,
   .inner-detail-tabs,
   .inner-detail-panel-content {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   .inner-detail-properties {
@@ -409,25 +458,43 @@ button {
   overflow: visible !important; /* Ensure side menu popovers/capsules are never clipped on left/right edges */
 }
 
-.bn-editor {
-  padding-inline: 2rem !important;
+.bn-editor,
+.ProseMirror {
+  padding-inline: 0 2rem !important;
+  padding-left: 0 !important;
+  padding-right: 2rem !important;
 }
 
 @media (max-width: 1024px) {
-  .bn-editor {
-    padding-inline: 1rem !important;
+  .bn-editor,
+  .ProseMirror {
+    padding-inline: 0 1rem !important;
+    padding-left: 0 !important;
+    padding-right: 1rem !important;
   }
 }
 
-.inner-detail-document .bn-editor {
-  margin-inline: -1.25rem !important;
-  padding-inline: 2.25rem 2rem !important;
+.inner-detail-document .bn-editor,
+.inner-detail-document .ProseMirror {
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-inline: 0 !important;
+  padding-inline-start: 0 !important;
+  padding-inline-end: 0 !important;
 }
 
 @media (max-width: 1024px) {
-  .inner-detail-document .bn-editor {
-    margin-inline: -0.625rem !important;
-    padding-inline: 1.625rem 1rem !important;
+  .inner-detail-document .bn-editor,
+  .inner-detail-document .ProseMirror {
+    margin-left: 0 !important;
+    margin-inline-start: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-inline: 0 !important;
+    padding-inline-start: 0 !important;
+    padding-inline-end: 0 !important;
   }
 }
 
@@ -435,6 +502,24 @@ button {
 .bn-block,
 .ProseMirror p {
   color: var(--tokyo-text) !important;
+}
+
+/* Align and dim body editor content perfectly on inner detail pages */
+.inner-detail-document .bn-block-outer,
+.inner-detail-document .bn-block,
+.inner-detail-document .bn-block-content,
+.inner-detail-document .bn-inline-content,
+.inner-detail-document .ProseMirror p {
+  color: var(--tokyo-text) !important; /* Premium soft base text, slightly dim compared to title */
+}
+
+/* Align and brighten body editor content perfectly on main document pages */
+.main-document-editor .bn-block-outer,
+.main-document-editor .bn-block,
+.main-document-editor .bn-block-content,
+.main-document-editor .bn-inline-content,
+.main-document-editor .ProseMirror p {
+  color: var(--tokyo-text-strong) !important; /* Premium bright strong text */
 }
 
 .bn-block-content,
@@ -454,6 +539,26 @@ button {
 
 .bn-block-outer {
   margin-block: 0.0625rem !important;
+}
+
+/* Inner detail body content: no extra block margin — container padding handles alignment like Goals page */
+.inner-detail-document .bn-block {
+  margin-left: 0 !important;
+}
+
+/* Align body editor content perfectly with page title in main document pages */
+.main-document-editor .bn-block {
+  margin-left: 4.25rem !important; /* 3.5rem icon + 0.75rem gap */
+}
+
+@media (max-width: 1024px) {
+  /* Maintain the same alignments on mobile as well! */
+  .inner-detail-document .bn-block {
+    margin-left: 0 !important;
+  }
+  .main-document-editor .bn-block {
+    margin-left: 4.25rem !important;
+  }
 }
 
 /* Dimmed purplish editor empty block placeholder */
@@ -479,8 +584,8 @@ button {
   color: var(--tokyo-text-strong) !important;
   font-weight: 800 !important;
   line-height: 1.25 !important;
-  margin-top: 1.5rem !important;
-  margin-bottom: 0.35rem !important;
+  margin-top: 0.6rem !important;
+  margin-bottom: 0.15rem !important;
 }
 
 .bn-block-content h2,
@@ -493,8 +598,8 @@ button {
   color: var(--tokyo-text-strong) !important;
   font-weight: 800 !important;
   line-height: 1.25 !important;
-  margin-top: 1.25rem !important;
-  margin-bottom: 0.35rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.15rem !important;
 }
 
 .bn-block-content h3,
@@ -507,8 +612,8 @@ button {
   color: var(--tokyo-text-strong) !important;
   font-weight: 800 !important;
   line-height: 1.25 !important;
-  margin-top: 1rem !important;
-  margin-bottom: 0.35rem !important;
+  margin-top: 0.4rem !important;
+  margin-bottom: 0.15rem !important;
 }
 
 .bn-block-content a,
@@ -521,7 +626,30 @@ button {
 
 .bn-block-content[data-content-type="divider"],
 .ProseMirror [data-content-type="divider"] {
-  padding-block: 0.5rem !important;
+  padding-block: 0 !important;
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+  padding-left: 0 !important;
+  padding-inline-start: 0 !important;
+}
+
+.bn-block-outer:has([data-content-type="divider"]),
+.bn-block-outer:has(hr) {
+  margin-block: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  width: 100% !important;
+  padding-left: 0 !important;
+  padding-inline-start: 0 !important;
+}
+
+.bn-block-outer:has([data-content-type="divider"]) .bn-block-content,
+.bn-block-outer:has(hr) .bn-block-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  display: block !important;
 }
 
 .bn-block-content[data-content-type="divider"] hr,
@@ -531,6 +659,11 @@ button {
   border: 0 !important;
   background: var(--tokyo-border-strong) !important;
   opacity: 0.65 !important;
+  margin-top: 0.45rem !important; /* slightly increased spacing */
+  margin-bottom: 0.45rem !important; /* slightly increased spacing */
+  margin-left: 0 !important;
+  margin-inline-start: 0 !important;
+  width: 100% !important;
 }
 
 .bn-block-content code,
@@ -770,18 +903,19 @@ button {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 0.1875rem !important;
+  gap: 0 !important;
   padding: 0.1875rem !important;
-  border: 1px solid var(--tokyo-border-strong) !important;
-  border-radius: 0.625rem !important;
+  border: 0 !important;
+  border-radius: 0.5rem !important;
   overflow: visible !important;
   background: transparent !important;
+  width: 2rem !important;
   height: 2rem !important;
   min-height: 2rem !important;
   max-height: 2rem !important;
   line-height: 1 !important;
   position: relative !important;
-  transform: translateX(-0.375rem) !important;
+  transform: translateX(-0.0625rem) !important;
   box-sizing: border-box !important;
 }
 
@@ -796,9 +930,14 @@ button {
   pointer-events: none !important;
 }
 
+/* Hide the plus button (first child) in side menu */
+.bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item):first-child {
+  display: none !important;
+}
+
 .bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item) {
   border: 0 !important;
-  border-radius: 0.4375rem !important;
+  border-radius: 0.375rem !important;
   width: 1.5rem !important;
   min-width: 1.5rem !important;
   max-width: 1.5rem !important;
@@ -816,15 +955,18 @@ button {
 }
 
 .bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item) svg {
-  width: 0.875rem !important;
-  height: 0.875rem !important;
+  width: 1.0625rem !important;
+  height: 1.0625rem !important;
   display: block !important;
   flex: 0 0 auto !important;
+  color: var(--tokyo-text-muted) !important; /* beautiful text-muted color */
+  opacity: 0.65 !important; /* clearly visible, not dim */
+  transition: opacity 0.15s ease-in-out, color 0.15s ease-in-out !important;
 }
 
-.bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item):first-child svg {
-  width: 0.8125rem !important;
-  height: 0.8125rem !important;
+.bn-side-menu .mantine-UnstyledButton-root:not(.mantine-Menu-item):hover svg {
+  color: var(--tokyo-text-strong) !important; /* premium brighter highlight on hover */
+  opacity: 1 !important;
 }
 
 .bn-color-picker-dropdown {

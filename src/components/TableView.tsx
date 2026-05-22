@@ -938,7 +938,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
       </header>
 
       <div className="flex flex-col gap-1 flex-1 overflow-hidden">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--tokyo-border)] pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[var(--tokyo-border)] pb-2 -mx-4 px-4 md:-mx-8 md:px-8">
         <Reorder.Group
           as="div"
           ref={tabContainerRef}
