@@ -273,7 +273,7 @@ function NoteDetailsPage({ note, onBack }: {
   note: any;
   onBack: () => void;
 }) {
-  const { updateNote, deleteNote, tasks, addTask, updateTask, user, viewSettings, updateViewSettings } = useAppStore();
+  const { updateNote, deleteNote, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('To-Dos');
   const noteTasks = tasks.filter(t => t.noteId === note.id);
 
@@ -830,6 +830,12 @@ function NoteDetailsPage({ note, onBack }: {
                     type="text"
                     value={task.title}
                     onChange={(e) => updateTask({ ...task, title: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !task.title) {
+                        e.preventDefault();
+                        deleteTask(task.id);
+                      }
+                    }}
                     placeholder="Task description..."
                     className={cn(
                       "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",

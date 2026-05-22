@@ -365,7 +365,7 @@ button {
   --bn-colors-hovered-background: var(--tokyo-hover-strong);
   --bn-colors-selected-background: rgba(198, 140, 255, 0.16);
   --bn-colors-text: var(--tokyo-text);
-  --bn-colors-border: var(--tokyo-border);
+  --bn-colors-border: transparent !important; /* Hide left indentation line variables */
   --bn-border-radius: 5px;
   font-family: var(--font-sans);
 }
@@ -383,6 +383,7 @@ button {
   background: transparent !important;
   color: var(--tokyo-text) !important;
   font-family: var(--font-sans) !important;
+  --bn-colors-border: transparent !important; /* BlockNote vertical line color removal override */
 }
 
 .bn-editor {
@@ -424,17 +425,29 @@ button {
   letter-spacing: 0 !important;
 }
 
+/* Dimmed purplish editor empty block placeholder */
+.bn-inline-content[data-placeholder]::before,
+.bn-block-content[data-placeholder]::before,
+.ProseMirror [data-placeholder]::before,
+.ProseMirror .is-empty::before,
+.ProseMirror .is-editor-empty::before,
+[data-placeholder]::before {
+  color: rgba(192, 154, 223, 0.55) !important;
+  opacity: 1 !important;
+}
+
+
 .bn-block-content h1,
 .bn-block-content .bn-heading-h1,
 .ProseMirror h1,
 .bn-block-content h1 .bn-inline-content,
 .bn-block-content .bn-heading-h1 .bn-inline-content,
 .ProseMirror h1 .bn-inline-content {
-  font-size: 2.15rem !important;
+  font-size: 1.75rem !important; /* Match page title size (28px) exactly */
   color: var(--tokyo-text-strong) !important;
   font-weight: 800 !important;
-  line-height: 1.2 !important;
-  margin-top: 2rem !important;
+  line-height: 1.25 !important;
+  margin-top: 1.5rem !important;
   margin-bottom: 0.35rem !important;
 }
 
@@ -444,11 +457,11 @@ button {
 .bn-block-content h2 .bn-inline-content,
 .bn-block-content .bn-heading-h2 .bn-inline-content,
 .ProseMirror h2 .bn-inline-content {
-  font-size: 1.55rem !important;
+  font-size: 1.45rem !important; /* Clean hierarchy below 1.75rem */
   color: var(--tokyo-text-strong) !important;
   font-weight: 800 !important;
-  line-height: 1.2 !important;
-  margin-top: 1.75rem !important;
+  line-height: 1.25 !important;
+  margin-top: 1.25rem !important;
   margin-bottom: 0.35rem !important;
 }
 
@@ -458,11 +471,11 @@ button {
 .bn-block-content h3 .bn-inline-content,
 .bn-block-content .bn-heading-h3 .bn-inline-content,
 .ProseMirror h3 .bn-inline-content {
-  font-size: 1.25rem !important;
+  font-size: 1.2rem !important; /* Clean hierarchy below 1.45rem */
   color: var(--tokyo-text-strong) !important;
   font-weight: 800 !important;
-  line-height: 1.2 !important;
-  margin-top: 1.5rem !important;
+  line-height: 1.25 !important;
+  margin-top: 1rem !important;
   margin-bottom: 0.35rem !important;
 }
 
@@ -506,16 +519,58 @@ button {
   font-weight: 800;
 }
 /* Checkbox List Item Wrapper centering and layout */
+.bn-block-outer[data-content-type="checkListItem"] .bn-block-content,
 .bn-block-content[data-content-type="checkListItem"],
-.ProseMirror [data-content-type="checkListItem"] {
+.bn-block-content:has(input[type="checkbox"]),
+.ProseMirror [data-content-type="checkListItem"],
+.ProseMirror li:has(input[type="checkbox"]) {
   display: flex !important;
   align-items: center !important;
+  align-content: center !important;
+  min-height: 1.75rem !important;
 }
 
-/* Remove hierarchical nested vertical lines */
+.bn-block-content[data-content-type="checkListItem"] > div:has(input[type="checkbox"]),
+.bn-block-content:has(input[type="checkbox"]) > div:has(input[type="checkbox"]),
+.ProseMirror [data-content-type="checkListItem"] > div:has(input[type="checkbox"]) {
+  height: 1.125rem !important;
+  min-height: 1.125rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.bn-block-content[data-content-type="checkListItem"] .bn-inline-content,
+.bn-block-content:has(input[type="checkbox"]) .bn-inline-content,
+.ProseMirror [data-content-type="checkListItem"] .bn-inline-content {
+  display: inline-block !important;
+  align-self: center !important;
+  line-height: 1.25 !important; /* collapse line height to center text precisely with checkbox box */
+}
+
+/* Remove hierarchical nested vertical lines completely */
 .bn-block-group,
-.ProseMirror .bn-block-group {
+.bn-block-group-wrapper,
+.bn-editor .bn-block-group,
+.ProseMirror .bn-block-group,
+.bn-block-group::before,
+.bn-block-group::after,
+.ProseMirror .bn-block-group::before,
+.ProseMirror .bn-block-group::after,
+.bn-block-group .bn-block-outer::before,
+.bn-block-group .bn-block-outer::after,
+.ProseMirror .bn-block-group .bn-block-outer::before,
+.ProseMirror .bn-block-group .bn-block-outer::after,
+.bn-block-group .bn-block-outer:not([data-prev-depth-changed])::before,
+.bn-block-group .bn-block-outer:not([data-prev-depth-changed])::after,
+.bn-block-group .bn-block:not(:has(.bn-toggle-wrapper)) .bn-block-group .bn-block-outer::before,
+.bn-block-group .bn-block:not(:has(.bn-toggle-wrapper)) .bn-block-group .bn-block-outer::after {
   border-left: none !important; /* Hides the hierarchy vertical grey line */
+  border-left-width: 0 !important;
+  border-left-color: transparent !important;
   padding-left: 1.5rem !important; /* Maintains clean indentation spacing */
 }
 
@@ -539,9 +594,12 @@ button {
   margin: 0 !important;
   margin-right: 0.65rem !important; /* Add space between checkbox and text */
   box-sizing: border-box !important;
-  display: inline-block !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
+  transform: none !important; /* Center mathematically via flex layout, no hardcoded translateY needed */
 }
 
 .bn-block-content input[type="checkbox"]:hover,
@@ -593,14 +651,36 @@ button {
 .bn-formatting-toolbar,
 .bn-suggestion-menu {
   background: var(--tokyo-panel-2) !important;
-  border-color: var(--tokyo-border-strong) !important;
+  border: 1px solid var(--tokyo-border-strong) !important;
   color: var(--tokyo-text) !important;
+  border-radius: 8px !important; /* "round edges little bit everywhere" */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+}
+
+.bn-side-menu {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  height: 28px !important; /* Premium smaller height, not stretched */
+  min-height: 28px !important;
+  padding: 3px 4px !important;
+  box-sizing: border-box !important;
 }
 
 .bn-side-menu button,
 .bn-formatting-toolbar button,
 .bn-suggestion-menu button {
   color: var(--tokyo-text-muted) !important;
+  border-radius: 6px !important; /* "round edges little bit everywhere" */
+}
+
+.bn-side-menu button {
+  height: 20px !important;
+  width: 20px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .bn-side-menu button:hover,
@@ -613,19 +693,32 @@ button {
 .bn-side-menu-trigger {
   display: flex !important;
   align-items: center !important;
-  gap: 2px !important;
-  opacity: 0.6;
-  transition: opacity 0.2s ease, transform 0.2s ease !important;
+  justify-content: center !important;
+  align-self: center !important;
+  height: 28px !important; /* Match side menu height, prevent vertical stretching */
+  min-height: 28px !important;
+  padding: 3px 4px !important;
+  background: var(--tokyo-panel-2) !important;
+  border: 1px solid var(--tokyo-border-strong) !important;
+  border-radius: 8px !important; /* "round edges little bit everywhere" */
+  gap: 4px !important;
+  opacity: 0.65;
+  transition: all 0.2s ease !important;
   transform: translateX(4px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  box-sizing: border-box !important;
 }
 
 .bn-side-menu-trigger:hover {
   opacity: 1 !important;
+  background: var(--tokyo-panel-2) !important;
+  border-color: var(--tokyo-border-strong) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
 }
 
 .bn-side-menu-trigger button {
-  width: 22px !important;
-  height: 22px !important;
+  width: 20px !important;
+  height: 20px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;

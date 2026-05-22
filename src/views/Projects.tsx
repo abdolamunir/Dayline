@@ -235,7 +235,7 @@ function ProjectDetailsPage({ project, onBack }: {
   project: Project, 
   onBack: () => void
 }) {
-  const { updateProject, deleteProject, tasks, addTask, updateTask, user, viewSettings, updateViewSettings } = useAppStore();
+  const { updateProject, deleteProject, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('To-Dos');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -906,6 +906,12 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                     type="text"
                     value={task.title}
                     onChange={(e) => updateTask({ ...task, title: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !task.title) {
+                        e.preventDefault();
+                        deleteTask(task.id);
+                      }
+                    }}
                     placeholder="Task description..."
                     className={cn(
                       "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",
