@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 
 export function WorkspacePage({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("mx-auto flex min-h-full w-full max-w-6xl flex-col gap-6 p-4 pt-7 md:px-8 md:pb-8 md:pt-10", className)}>
+    <div className={cn("mx-auto flex min-h-full w-full max-w-6xl flex-col gap-6 p-4 pt-3 md:px-8 md:pb-8 md:pt-4", className)}>
       {children}
     </div>
   );

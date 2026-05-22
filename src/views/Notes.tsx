@@ -273,8 +273,21 @@ function NoteDetailsPage({ note, onBack }: {
   note: any;
   onBack: () => void;
 }) {
-  const { updateNote, deleteNote, user, viewSettings, updateViewSettings } = useAppStore();
-  const [activeTab, setActiveTab] = useState('Comments');
+  const { updateNote, deleteNote, tasks, addTask, updateTask, user, viewSettings, updateViewSettings } = useAppStore();
+  const [activeTab, setActiveTab] = useState('To-Dos');
+  const noteTasks = tasks.filter(t => t.noteId === note.id);
+
+  const handleAddTask = () => {
+    const id = `t${Date.now()}`;
+    addTask({
+      id,
+      title: '',
+      status: 'todo',
+      priority: 'medium',
+      noteId: note.id,
+      tags: []
+    });
+  };
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([
     {
@@ -511,98 +524,92 @@ function NoteDetailsPage({ note, onBack }: {
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      <div className="inner-detail-layout max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
-        {/* Header */}
-        <div className="inner-detail-header flex-shrink-0 w-full">
-          <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
-            <div
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                setIsIconPickerOpen(true);
-              }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-            >
-              {React.createElement(ALL_ICONS[note.icon] || Pencil, { className: "w-6 h-6" })}
-            </div>
-            <div className="min-w-0 flex-1">
-              <input
-                type="text"
-                value={note.title}
-                onChange={(e) => handleUpdate({ title: e.target.value })}
-                className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                placeholder="Untitled Note"
-              />
-              <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">Document page</p>
-            </div>
-            <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-              <button
-                onClick={() => void handleCopyLink()}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                title="Copy link"
+      <div className="inner-detail-layout flex-1">
+        <div className="inner-detail-main">
+          {/* Header */}
+          <div className="inner-detail-header flex-shrink-0 w-full">
+            <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
+              <div
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                  setIsIconPickerOpen(true);
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
               >
-                <Link className="h-[18px] w-[18px]" />
-              </button>
-              <button
-                onClick={() => setIsFavorite((favorite) => !favorite)}
-                className={cn(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                  isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                )}
-                title="Favorite"
-              >
-                <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setIsShareMenuOpen((open) => !open)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="Invite people"
-                >
-                  <Users className="h-[18px] w-[18px]" />
-                </button>
-                {isShareMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                    <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                      <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
-                        <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                        Invite people
-                      </button>
-                    </div>
-                  </>
-                )}
+                {React.createElement(ALL_ICONS[note.icon] || Pencil, { className: "w-6 h-6" })}
               </div>
-              <button
-                onClick={onBack}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                title="Close"
-              >
-                <X className="h-[18px] w-[18px]" />
-              </button>
+              <div className="min-w-0 flex-1">
+                <input
+                  type="text"
+                  value={note.title}
+                  onChange={(e) => handleUpdate({ title: e.target.value })}
+                  className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                  placeholder="Untitled Note"
+                />
+              </div>
+              <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+                <button
+                  onClick={() => void handleCopyLink()}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Copy link"
+                >
+                  <Link className="h-[18px] w-[18px]" />
+                </button>
+                <button
+                  onClick={() => setIsFavorite((favorite) => !favorite)}
+                  className={cn(
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                    isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                  )}
+                  title="Favorite"
+                >
+                  <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsShareMenuOpen((open) => !open)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                    title="Invite people"
+                  >
+                    <Users className="h-[18px] w-[18px]" />
+                  </button>
+                  {isShareMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                      <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                        <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                          <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                          Invite people
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={onBack}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Close"
+                >
+                  <X className="h-[18px] w-[18px]" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="inner-detail-document">
+            <div className="min-h-[55vh] text-[var(--tokyo-text-strong)]">
+              <BlockEditor
+                initialContent={note.content}
+                onChange={(nextContent) => handleUpdate({ content: nextContent })}
+              />
             </div>
           </div>
         </div>
 
-        <div className="inner-detail-document">
-          <button
-            onClick={handleAddProperty}
-            className={`${addPropertyClass} inner-add-property-trigger`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add property</span>
-          </button>
-          <div className="inner-detail-document-rule" />
-          <div className="min-h-[55vh] text-[var(--tokyo-text-strong)]">
-            <BlockEditor
-              initialContent={note.content}
-              onChange={(nextContent) => handleUpdate({ content: nextContent })}
-            />
-          </div>
-        </div>
-
-        {/* Properties - Vertical List */}
-        <div className="inner-detail-properties space-y-2 -mt-6 -mb-3 max-w-3xl">
+        <div className="inner-detail-sidebar">
+          {/* Properties - Vertical List */}
+          <div className="inner-detail-properties space-y-2">
           {/* Assigned */}
           {!assignedCol.hidden && (
           <div className={propertyRowClass}>
@@ -781,7 +788,7 @@ function NoteDetailsPage({ note, onBack }: {
         {/* Tabs */}
         <div className="inner-detail-tabs flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--tokyo-border)]">
           <div className="flex items-center gap-5 overflow-x-auto no-scrollbar">
-            {['Comments', 'Activity'].map(tabId => (
+            {['To-Dos', 'Comments', 'Activity'].map(tabId => (
               <div
                 key={tabId}
                 onClick={() => setActiveTab(tabId)}
@@ -800,6 +807,47 @@ function NoteDetailsPage({ note, onBack }: {
 
         {/* Content Area */}
         <div className="inner-detail-panel-content flex-1 w-full pt-4">
+          {activeTab === 'To-Dos' && (
+            <div className="space-y-2">
+              {noteTasks.map((task) => (
+                <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.015] border border-[var(--tokyo-border)] rounded-md group hover:bg-white/[0.03] transition-all">
+                  <button
+                    onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
+                    className={cn(
+                      "w-[18px] h-[18px] shrink-0 rounded-[4px] border-[2px] flex items-center justify-center transition-all cursor-pointer",
+                      task.status === 'done'
+                        ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]"
+                        : "border-[var(--tokyo-yellow)] bg-transparent hover:bg-[var(--tokyo-yellow)]/10"
+                    )}
+                  >
+                    {task.status === 'done' && (
+                      <svg className="w-3 h-3 text-[var(--tokyo-bg)] stroke-[3.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </button>
+                  <input
+                    type="text"
+                    value={task.title}
+                    onChange={(e) => updateTask({ ...task, title: e.target.value })}
+                    placeholder="Task description..."
+                    className={cn(
+                      "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",
+                      task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
+                    )}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={handleAddTask}
+                className="flex items-center gap-2 px-1 py-2 text-sm text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-yellow)] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="font-medium">Add new task</span>
+              </button>
+            </div>
+          )}
+
           {activeTab === 'Comments' && (
             <>
               {/* Comment Input */}
@@ -877,6 +925,7 @@ function NoteDetailsPage({ note, onBack }: {
           )}
         </div>
       </div>
+    </div>
 
       {/* Popovers */}
       <AnimatePresence>

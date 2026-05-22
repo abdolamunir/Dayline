@@ -478,98 +478,92 @@ function ProjectDetailsPage({ project, onBack }: {
 
   return (
     <div className="min-h-full bg-[var(--tokyo-bg)] flex flex-col">
-      <div className="inner-detail-layout max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full w-full flex-1">
-        {/* Header */}
-        <div className="inner-detail-header flex-shrink-0 w-full">
-          <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
-            <div 
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setIconPickerId(project.id);
-                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-              }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-            >
-              {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
-            </div>
-            <div className="min-w-0 flex-1">
-              <input 
-                type="text"
-                value={project.name}
-                onChange={(e) => handleUpdate({ name: e.target.value })}
-                className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                placeholder="Untitled Project"
-              />
-              <p className="mt-1 text-sm font-medium text-[var(--tokyo-text-faint)]">Project page</p>
-            </div>
-            <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
-              <button
-                onClick={() => void handleCopyProjectLink()}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                title="Copy link"
+      <div className="inner-detail-layout flex-1">
+        <div className="inner-detail-main">
+          {/* Header */}
+          <div className="inner-detail-header flex-shrink-0 w-full">
+            <div className="inner-detail-titlebar mb-5 flex items-center gap-3">
+              <div 
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setIconPickerId(project.id);
+                  setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
               >
-                <Link className="h-[18px] w-[18px]" />
-              </button>
-              <button
-                onClick={() => setIsFavorite((favorite) => !favorite)}
-                className={cn(
-                  "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                  isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
-                )}
-                title="Favorite"
-              >
-                <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setIsShareMenuOpen((open) => !open)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                  title="Invite people"
-                >
-                  <Users className="h-[18px] w-[18px]" />
-                </button>
-                {isShareMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
-                    <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
-                      <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
-                        <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
-                        Invite people
-                      </button>
-                    </div>
-                  </>
-                )}
+                {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
               </div>
-              <button 
-                onClick={onBack}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-                title="Close"
-              >
-                <X className="h-[18px] w-[18px]" />
-              </button>
+              <div className="min-w-0 flex-1">
+                <input 
+                  type="text"
+                  value={project.name}
+                  onChange={(e) => handleUpdate({ name: e.target.value })}
+                  className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                  placeholder="Untitled Project"
+                />
+              </div>
+              <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+                <button
+                  onClick={() => void handleCopyProjectLink()}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Copy link"
+                >
+                  <Link className="h-[18px] w-[18px]" />
+                </button>
+                <button
+                  onClick={() => setIsFavorite((favorite) => !favorite)}
+                  className={cn(
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
+                    isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                  )}
+                  title="Favorite"
+                >
+                  <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsShareMenuOpen((open) => !open)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                    title="Invite people"
+                  >
+                    <Users className="h-[18px] w-[18px]" />
+                  </button>
+                  {isShareMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsShareMenuOpen(false)} />
+                      <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1.5 shadow-2xl">
+                        <button className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
+                          <Users className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                          Invite people
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <button 
+                  onClick={onBack}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Close"
+                >
+                  <X className="h-[18px] w-[18px]" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="inner-detail-document">
+            <div className="min-h-[42vh] text-[var(--tokyo-text-strong)]">
+              <BlockEditor
+                initialContent={project.description || ''}
+                onChange={(nextContent) => handleUpdate({ description: nextContent })}
+              />
             </div>
           </div>
         </div>
 
-        <div className="inner-detail-document">
-          <button
-            onClick={handleAddProperty}
-            className={`${addPropertyClass} inner-add-property-trigger`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add property</span>
-          </button>
-          <div className="inner-detail-document-rule" />
-          <div className="min-h-[42vh] text-[var(--tokyo-text-strong)]">
-            <BlockEditor
-              initialContent={project.description || ''}
-              onChange={(nextContent) => handleUpdate({ description: nextContent })}
-            />
-          </div>
-        </div>
-
-        {/* Properties - Vertical List */}
-        <div className="inner-detail-properties space-y-2 -mt-6 -mb-3 max-w-3xl">
+        <div className="inner-detail-sidebar">
+          {/* Properties - Vertical List */}
+          <div className="inner-detail-properties space-y-2 mb-3">
           {/* Assigned */}
           {!assignedCol.hidden && (
             <div 
@@ -1018,6 +1012,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
           )}
         </div>
       </div>
+    </div>
 
       {/* Popovers */}
       <AnimatePresence>

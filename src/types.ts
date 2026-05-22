@@ -62,6 +62,7 @@ export interface Task {
   projectId?: ID;
   goalId?: ID;
   areaId?: ID;
+  noteId?: ID;
   tags: string[];
 }
 
