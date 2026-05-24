@@ -855,9 +855,6 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   >
                     <Trash2 className="w-4 h-4 shrink-0 text-current" />
                     <span className="text-sm font-medium flex-1 text-left">Trash</span>
-                    {trash.length > 0 && (
-                      <span className="text-xs font-medium text-current">{trash.length}</span>
-                    )}
                   </button>
                 </>
               ) : (

@@ -42,12 +42,20 @@ body {
   letter-spacing: 0;
   font-feature-settings: "liga" 1, "calt" 1, "zero" 1;
   text-rendering: geometricPrecision;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .dayline-main-surface {
   background: #130a19;
   box-shadow: inset 1px 0 0 rgba(218, 204, 216, 0.06);
-  scrollbar-gutter: stable;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar,
+.dayline-main-surface::-webkit-scrollbar {
+  display: none;
 }
 
 .dayline-main-surface::before {
@@ -198,7 +206,7 @@ button {
   gap: 0 !important;
   width: 100% !important;
   max-width: none !important; /* stretch layout edge-to-edge so vertical/horizontal lines hit boundaries */
-  min-height: 100%;
+  min-height: 0;
   margin: 0 !important; /* stretch to absolute edges */
   padding-top: 0 !important;
   padding-left: 0 !important;
@@ -209,13 +217,67 @@ button {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .inner-detail-sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  background: var(--tokyo-sidebar-2);
   border-left: 1px solid var(--tokyo-border);
+}
+
+@media (min-width: 768px) {
+  .dayline-main-surface:has(.inner-detail-layout) {
+    height: 100vh;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+  }
+
+  .dayline-main-surface:has(.inner-detail-layout) > .flex-1 {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .inner-detail-layout {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden;
+  }
+
+  .inner-detail-main {
+    height: 100vh;
+    max-height: 100vh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .inner-detail-main::-webkit-scrollbar {
+    display: none;
+  }
+
+  .inner-detail-document {
+    flex: 0 0 auto;
+  }
+
+  .inner-detail-sidebar {
+    position: relative;
+    top: auto;
+    align-self: stretch;
+    height: 100vh;
+    max-height: 100vh;
+  }
 }
 
 .inner-detail-header {
@@ -265,6 +327,21 @@ button {
   width: 100%;
   margin: 0 !important;
   padding: 2.25rem 1.5rem 1rem 1.5rem !important; /* Reduced horizontal padding to 1.5rem for more width and breathing room */
+}
+
+.inner-detail-properties .inner-date-value {
+  width: fit-content !important;
+  color: var(--tokyo-text-faint) !important;
+  background: transparent !important;
+  font-size: 13px !important;
+  line-height: 1.25rem !important;
+  font-weight: 500 !important;
+  transition: color 0.15s ease !important;
+}
+
+.inner-detail-properties .inner-date-value:hover {
+  color: var(--tokyo-text-muted) !important;
+  background: transparent !important;
 }
 
 .inner-detail-tabs {
@@ -323,6 +400,10 @@ button {
   }
 
   .inner-detail-sidebar {
+    position: static;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     border-left: 0;
     border-top: 1px solid var(--tokyo-border);
   }
@@ -550,6 +631,25 @@ button {
   margin-block: 0.0625rem !important;
 }
 
+/* Match wrapped and unwrapped inner body text to the same editor rhythm. */
+.inner-detail-document .bn-block-outer {
+  margin-block: 0.0625rem !important;
+}
+
+.inner-detail-document .bn-block,
+.inner-detail-document .bn-block-content,
+.inner-detail-document .bn-inline-content,
+.inner-detail-document .bn-inline-content *,
+.inner-detail-document .ProseMirror p,
+.inner-detail-document .ProseMirror p * {
+  line-height: 1.32 !important;
+}
+
+.inner-detail-document .bn-block-content > *,
+.inner-detail-document .bn-inline-content > * {
+  line-height: inherit !important;
+}
+
 /* Inner detail body content: no extra block margin — container padding handles alignment like Goals page */
 .inner-detail-document .bn-block {
   margin-left: 0 !important;
@@ -623,6 +723,27 @@ button {
   line-height: 1.25 !important;
   margin-top: 0.4rem !important;
   margin-bottom: 0.15rem !important;
+}
+
+.inner-detail-document .bn-block-content h1,
+.inner-detail-document .bn-block-content .bn-heading-h1,
+.inner-detail-document .ProseMirror h1,
+.inner-detail-document .bn-block-content h1 .bn-inline-content,
+.inner-detail-document .bn-block-content .bn-heading-h1 .bn-inline-content,
+.inner-detail-document .ProseMirror h1 .bn-inline-content,
+.inner-detail-document .bn-block-content h2,
+.inner-detail-document .bn-block-content .bn-heading-h2,
+.inner-detail-document .ProseMirror h2,
+.inner-detail-document .bn-block-content h2 .bn-inline-content,
+.inner-detail-document .bn-block-content .bn-heading-h2 .bn-inline-content,
+.inner-detail-document .ProseMirror h2 .bn-inline-content,
+.inner-detail-document .bn-block-content h3,
+.inner-detail-document .bn-block-content .bn-heading-h3,
+.inner-detail-document .ProseMirror h3,
+.inner-detail-document .bn-block-content h3 .bn-inline-content,
+.inner-detail-document .bn-block-content .bn-heading-h3 .bn-inline-content,
+.inner-detail-document .ProseMirror h3 .bn-inline-content {
+  line-height: 1.32 !important;
 }
 
 .bn-block-content a,
@@ -885,9 +1006,18 @@ button {
 }
 
 .bn-mantine .bn-link-toolbar {
+  width: fit-content !important;
+  max-width: none !important;
   gap: 0.25rem !important;
   padding: 0.375rem 0.4375rem !important;
   border-radius: 0.625rem !important;
+  overflow: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.bn-mantine .bn-link-toolbar::-webkit-scrollbar {
+  display: none !important;
 }
 
 .bn-toolbar .mantine-Button-root,
@@ -1159,8 +1289,9 @@ button {
 
 /* Custom Scrollbar Styles */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 ::-webkit-scrollbar-track {

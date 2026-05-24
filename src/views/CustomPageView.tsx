@@ -733,7 +733,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   currentDate: item.date ? new Date(item.date) : undefined
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
+              className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
             >
               {item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'Set date...'}
             </div>
@@ -789,7 +789,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                         propId: prop.id
                       });
                     }}
-                    className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                    className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
                   >
                     {item.properties[prop.id] ? format(new Date(item.properties[prop.id]), 'MMM d, yyyy') : 'Empty'}
                   </div>

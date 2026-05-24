@@ -653,7 +653,7 @@ function AreaDetailsPage({ area, onBack }: {
                             currentDate: prop.value ? new Date(prop.value) : undefined
                           });
                         }}
-                        className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                        className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
                       >
                         {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                       </div>

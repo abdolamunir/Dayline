@@ -53,6 +53,7 @@ function ViewLoadingFallback() {
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>(() => readLastView());
+  const [viewRefreshKey, setViewRefreshKey] = useState(0);
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandPaletteInitialValue, setCommandPaletteInitialValue] = useState('');
@@ -65,11 +66,14 @@ function AppContent() {
   const { customPages, user, loading } = useAppStore();
 
   const changeView = useCallback((view: ViewType) => {
+    if (view === currentView) {
+      setViewRefreshKey(key => key + 1);
+    }
     setCurrentView(view);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
     }
-  }, []);
+  }, [currentView]);
 
   useEffect(() => {
     if (!user || loading) return;
@@ -103,7 +107,7 @@ function AppContent() {
     if (currentView.startsWith('page-')) {
       const page = customPages.find(p => p.id === currentView);
       if (page) {
-        return <CustomPageView key={page.id} page={page} onViewChange={changeView} />;
+        return <CustomPageView key={`${page.id}-${viewRefreshKey}`} page={page} onViewChange={changeView} />;
       }
     }
 
@@ -120,10 +124,10 @@ function AppContent() {
     switch (currentView) {
       case 'dashboard': return <Dashboard />;
       case 'tasks': return <Tasks />;
-      case 'projects': return <Projects />;
-      case 'areas': return <Areas />;
+      case 'projects': return <Projects key={`projects-${viewRefreshKey}`} />;
+      case 'areas': return <Areas key={`areas-${viewRefreshKey}`} />;
       case 'habits': return <Habits />;
-      case 'notes': return <Notes />;
+      case 'notes': return <Notes key={`notes-${viewRefreshKey}`} />;
       case 'goals': return <Goals onViewChange={changeView} />;
       case 'ideas': return <Ideas />;
       case 'journal': return <Journal />;
@@ -142,7 +146,7 @@ function AppContent() {
           </div>
         );
     }
-  }, [changeView, currentView, customPages]);
+  }, [changeView, currentView, customPages, viewRefreshKey]);
 
   const currentPageLabel = currentView.startsWith('page-')
     ? customPages.find(p => p.id === currentView)?.title || 'Page'

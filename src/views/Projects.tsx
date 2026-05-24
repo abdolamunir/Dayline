@@ -652,7 +652,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'deadline', isSystem: t
                   currentDate: project.deadline ? new Date(project.deadline) : undefined
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
+              className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
             >
               {project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Set deadline...'}
             </div>
@@ -842,7 +842,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                      className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>

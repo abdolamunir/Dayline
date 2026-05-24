@@ -2838,7 +2838,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'date', isSystem: true 
                     }
                   });
                 }}
-                className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
+                className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
               >
                 {goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'Set date...'}
               </div>
@@ -3069,7 +3069,7 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: prop.id, isSystem: fals
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                      className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>

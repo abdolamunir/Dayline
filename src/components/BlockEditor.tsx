@@ -323,11 +323,13 @@ function DaylineLinkToolbarController() {
     const destroyOnSelectionChangeHandler = editor.onSelectionChange(textCursorCallback);
 
     document.addEventListener("pointerover", mouseCursorCallback, true);
+    document.addEventListener("pointermove", mouseCursorCallback, true);
 
     return () => {
       destroyOnChangeHandler();
       destroyOnSelectionChangeHandler();
       document.removeEventListener("pointerover", mouseCursorCallback, true);
+      document.removeEventListener("pointermove", mouseCursorCallback, true);
     };
   }, [editor, editor.domElement, link?.cursorType, linkToolbar, toolbarPositionFrozen]);
 
@@ -371,8 +373,6 @@ function DaylineLinkToolbarController() {
       focusManagerProps={{ disabled: true }}
       elementProps={{
         style: { zIndex: 50 },
-        onMouseEnter: () => setToolbarPositionFrozen(true),
-        onMouseLeave: () => setToolbarPositionFrozen(false),
       }}
     >
       {link && (
@@ -476,7 +476,33 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
     });
   }, [mentionItems, mentionMenu?.query]);
 
+  const isNodeInsideEditor = (node: Node | null | undefined) => {
+    const editorElement = editor.domElement;
+    return Boolean(node && editorElement?.contains(node));
+  };
+
+  const hasActiveEditorSelection = () => {
+    const editorElement = editor.domElement;
+    const selection = window.getSelection();
+    const activeElement = document.activeElement;
+
+    return Boolean(
+      editorElement &&
+      activeElement &&
+      editorElement.contains(activeElement) &&
+      selection &&
+      selection.rangeCount > 0 &&
+      (isNodeInsideEditor(selection.anchorNode) || isNodeInsideEditor(selection.focusNode))
+    );
+  };
+
   const updateMentionMenu = () => {
+    if (!hasActiveEditorSelection()) {
+      setMentionMenu(null);
+      mentionRangeRef.current = null;
+      return;
+    }
+
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
       setMentionMenu(null);
@@ -671,7 +697,28 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
       if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
         return;
       }
+      if (!isEditorEvent(event)) {
+        setMentionMenu(null);
+        mentionRangeRef.current = null;
+        return;
+      }
       updateMentionMenu();
+    };
+
+    const handleNativeInput = (event: Event) => {
+      if (!isEditorEvent(event)) {
+        setMentionMenu(null);
+        mentionRangeRef.current = null;
+        return;
+      }
+      updateMentionMenu();
+    };
+
+    const handleNativePointerDown = (event: PointerEvent) => {
+      if (!isEditorEvent(event)) {
+        setMentionMenu(null);
+        mentionRangeRef.current = null;
+      }
     };
 
     const handleNativeBlur = () => {
@@ -680,14 +727,16 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
 
     document.addEventListener('keydown', handleNativeKeyDown, true);
     document.addEventListener('keyup', handleNativeKeyUp, true);
-    document.addEventListener('input', updateMentionMenu, true);
+    document.addEventListener('input', handleNativeInput, true);
+    document.addEventListener('pointerdown', handleNativePointerDown, true);
     document.addEventListener('blur', handleNativeBlur, true);
     const mentionWatcher = window.setInterval(updateMentionMenu, 180);
 
     return () => {
       document.removeEventListener('keydown', handleNativeKeyDown, true);
       document.removeEventListener('keyup', handleNativeKeyUp, true);
-      document.removeEventListener('input', updateMentionMenu, true);
+      document.removeEventListener('input', handleNativeInput, true);
+      document.removeEventListener('pointerdown', handleNativePointerDown, true);
       document.removeEventListener('blur', handleNativeBlur, true);
       window.clearInterval(mentionWatcher);
     };

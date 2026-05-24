@@ -650,7 +650,7 @@ function NoteDetailsPage({ note, onBack }: {
                   currentDate: note.createdAt ? new Date(note.createdAt) : undefined
                 });
               }}
-              className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white"
+              className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
             >
               {note.createdAt ? format(new Date(note.createdAt), 'MMM d, yyyy') : 'Set date...'}
             </div>
@@ -767,7 +767,7 @@ function NoteDetailsPage({ note, onBack }: {
                           currentDate: prop.value ? new Date(prop.value) : undefined
                         });
                       }}
-                      className="text-[var(--tokyo-text-strong)] text-sm font-medium cursor-pointer hover:bg-white/[0.03] rounded-lg h-7 flex items-center transition-all hover:text-white flex-1"
+                      className="inner-date-value relative inline-flex items-center gap-0.5 cursor-pointer"
                     >
                       {prop.value ? format(new Date(prop.value), 'MMM d, yyyy') : 'Empty'}
                     </div>
