@@ -50,7 +50,7 @@ export function PropertyContextMenu({
             {onHide && (
               <button
                 onClick={() => { onHide(); onClose(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] transition-colors text-left"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--tokyo-pink)] hover:bg-[rgba(224,107,138,0.1)] transition-colors text-left"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Property</span>

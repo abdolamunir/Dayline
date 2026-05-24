@@ -848,13 +848,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     onClick={() => onViewChange('trash')}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-1.5 rounded-md transition-colors cursor-pointer group",
-                      currentView === 'trash' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:text-white hover:bg-[var(--tokyo-hover)]"
+                      currentView === 'trash'
+                        ? "bg-[rgba(224,107,138,0.14)] text-[var(--tokyo-pink)]"
+                        : "text-[var(--tokyo-pink)] hover:bg-[rgba(224,107,138,0.1)]"
                     )}
                   >
-                    <Trash2 className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)]" />
+                    <Trash2 className="w-4 h-4 shrink-0 text-current" />
                     <span className="text-sm font-medium flex-1 text-left">Trash</span>
                     {trash.length > 0 && (
-                      <span className={cn("text-xs font-medium", currentView === 'trash' ? "text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text-muted)]")}>{trash.length}</span>
+                      <span className="text-xs font-medium text-current">{trash.length}</span>
                     )}
                   </button>
                 </>
@@ -904,7 +906,16 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       </div>
                     )}
                   </div>
-                  <button onClick={() => onViewChange('trash')} className={cn("p-2 rounded-md transition-colors cursor-pointer", currentView === 'trash' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text-faint)] hover:text-white")} title="Trash">
+                  <button
+                    onClick={() => onViewChange('trash')}
+                    className={cn(
+                      "p-2 rounded-md transition-colors cursor-pointer",
+                      currentView === 'trash'
+                        ? "bg-[rgba(224,107,138,0.14)] text-[var(--tokyo-pink)]"
+                        : "text-[var(--tokyo-pink)] hover:bg-[rgba(224,107,138,0.1)]"
+                    )}
+                    title="Trash"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

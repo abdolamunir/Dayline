@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Target01Icon as Target, 
   Add01Icon as Plus, 
@@ -169,24 +169,32 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const latestColumnsRef = useRef<CustomPage['columns']>(page.columns);
   const suppressOpenUntilRef = useRef(0);
 
-  const filteredItems = activeTab === 'all'
-    ? page.items
-    : page.items.filter(item => item.status === activeTab);
+  const filteredItems = useMemo(() => (
+    activeTab === 'all'
+      ? page.items
+      : page.items.filter(item => item.status === activeTab)
+  ), [activeTab, page.items]);
   const baseColumns = resizingColumns || page.columns;
-  const builtInColumnIds = new Set(['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned', 'areas']);
-  const propertyColumnIds = new Set(page.properties.map(property => property.id));
-  const validBaseColumns = baseColumns.filter(column => builtInColumnIds.has(column.id) || propertyColumnIds.has(column.id));
-  const pagePropertyColumns: CustomPage['columns'] = page.properties.map(property => ({
-    id: property.id,
-    label: property.name,
-    icon: property.icon || getPropertyTypeIcon(property.type),
-    width: '180px',
-  }));
-  const allColumns: CustomPage['columns'] = [
+  const builtInColumnIds = useMemo(() => new Set(['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned', 'areas']), []);
+  const propertyColumnIds = useMemo(() => new Set(page.properties.map(property => property.id)), [page.properties]);
+  const validBaseColumns = useMemo(() => (
+    baseColumns.filter(column => builtInColumnIds.has(column.id) || propertyColumnIds.has(column.id))
+  ), [baseColumns, builtInColumnIds, propertyColumnIds]);
+  const pagePropertyColumns: CustomPage['columns'] = useMemo(() => (
+    page.properties.map(property => ({
+      id: property.id,
+      label: property.name,
+      icon: property.icon || getPropertyTypeIcon(property.type),
+      width: '180px',
+    }))
+  ), [page.properties]);
+  const allColumns: CustomPage['columns'] = useMemo(() => [
     ...validBaseColumns,
     ...pagePropertyColumns.filter(propertyColumn => !validBaseColumns.some(column => column.id === propertyColumn.id)),
-  ];
-  const displayColumns = allColumns.filter(column => !column.hidden);
+  ], [pagePropertyColumns, validBaseColumns]);
+  const displayColumns = useMemo(() => (
+    allColumns.filter(column => !column.hidden)
+  ), [allColumns]);
 
   useEffect(() => {
     latestColumnsRef.current = displayColumns;
@@ -554,8 +562,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     return sortConfig.direction === 'asc' ? result : -result;
   };
 
-  const visibleItems = sortConfigs.length > 0
-    ? [...filteredItems].sort((firstItem, secondItem) => {
+  const visibleItems = useMemo(() => (
+    sortConfigs.length > 0
+      ? [...filteredItems].sort((firstItem, secondItem) => {
         for (const sortConfig of sortConfigs) {
           const result = compareItemsBySort(firstItem, secondItem, sortConfig);
           if (result !== 0) return result;
@@ -563,7 +572,8 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
         return 0;
       })
-    : filteredItems;
+      : filteredItems
+  ), [filteredItems, sortConfigs]);
 
   const getFillRangeItemIds = (drag = fillDrag) => {
     if (!drag) return [];
@@ -800,7 +810,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
   const fillRangeItemIds = getFillRangeItemIds();
   const fillRangeItemIdSet = new Set(fillRangeItemIds);
-  const tableWidth = displayColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0);
+  const tableWidth = useMemo(() => (
+    displayColumns.reduce((total, column) => total + getColumnWidthNumber(column.width), 0)
+  ), [displayColumns]);
   const isTabDragActive = page.tabs.some(tab => tab.id === draggingId);
   const handleRenamePage = () => {
     const nextTitle = titleValue.trim() || page.title;

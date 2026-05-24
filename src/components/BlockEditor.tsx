@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BlockNoteEditor, getNodeById } from "@blocknote/core";
-import { SideMenuExtension } from "@blocknote/core/extensions";
+import { LinkToolbarExtension, SideMenuExtension } from "@blocknote/core/extensions";
 import { en } from "@blocknote/core/locales";
+import { flip, offset, safePolygon } from "@floating-ui/react";
 import {
   BlockColorsItem,
   DragHandleMenu,
   GenericPopover,
+  LinkToolbar,
   SideMenu,
   useBlockNoteEditor,
   useComponentsContext,
@@ -46,6 +48,7 @@ const cloneBlockForInsert = (block: any): any => {
 };
 
 const SIDE_MENU_HEIGHT = 32;
+const BLOCKS_WITH_MARKER_GUTTERS = new Set(['checkListItem', 'numberedListItem', 'bulletListItem']);
 
 const getFirstTextClientRect = (element: Element) => {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -74,6 +77,11 @@ const getFirstTextClientRect = (element: Element) => {
 };
 
 const getLineAlignedSideMenuRect = (blockNode: Element) => {
+  const blockContent =
+    blockNode.matches('.bn-block-content[data-content-type]')
+      ? blockNode
+      : blockNode.querySelector('.bn-block-content[data-content-type], [data-content-type]');
+  const contentType = blockContent?.getAttribute('data-content-type') || '';
   const lineElement =
     blockNode.querySelector('.bn-inline-content') ||
     blockNode.querySelector('[data-content-type]') ||
@@ -82,8 +90,11 @@ const getLineAlignedSideMenuRect = (blockNode: Element) => {
   const fallbackRect = blockNode.getBoundingClientRect();
   const sourceRect = lineRect.height > 0 ? lineRect : fallbackRect;
   const top = sourceRect.top + (sourceRect.height - SIDE_MENU_HEIGHT) / 2;
+  const left = BLOCKS_WITH_MARKER_GUTTERS.has(contentType)
+    ? (blockContent?.getBoundingClientRect().left || fallbackRect.left)
+    : sourceRect.left;
 
-  return new DOMRect(sourceRect.left, top, 1, SIDE_MENU_HEIGHT);
+  return new DOMRect(left, top, 1, SIDE_MENU_HEIGHT);
 };
 
 function DuplicateBlockItem() {
@@ -209,6 +220,170 @@ function DaylineSideMenuController() {
       }}
     >
       {block?.id && <DaylineSideMenu />}
+    </GenericPopover>
+  );
+}
+
+function DaylineLinkToolbarController() {
+  const editor = useBlockNoteEditor<any, any, any>();
+  const linkToolbar = useExtension(LinkToolbarExtension);
+  const [toolbarOpen, setToolbarOpen] = useState(false);
+  const [toolbarPositionFrozen, setToolbarPositionFrozen] = useState(false);
+  const [link, setLink] = useState<any>();
+
+  useEffect(() => {
+    const getHoveredAnchor = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) {
+        return null;
+      }
+
+      const anchor = target.closest('a[href]');
+      if (!(anchor instanceof HTMLElement)) {
+        return null;
+      }
+
+      const editorElement = editor.domElement;
+      return editorElement?.contains(anchor) ? anchor : null;
+    };
+
+    const getFirstTextNode = (element: Element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      return walker.nextNode();
+    };
+
+    const getLinkAtAnchor = (anchor: HTMLElement) => {
+      const linkAtElement = linkToolbar.getLinkAtElement(anchor);
+      if (linkAtElement) {
+        return linkAtElement;
+      }
+
+      const textNode = getFirstTextNode(anchor);
+      if (!textNode) {
+        return undefined;
+      }
+
+      try {
+        const position = editor.prosemirrorView.posAtDOM(textNode, 0) + 1;
+        return linkToolbar.getMarkAtPos(position, "link");
+      } catch {
+        return undefined;
+      }
+    };
+
+    const textCursorCallback = () => {
+      const textCursorLink = linkToolbar.getLinkAtSelection();
+
+      if (!textCursorLink) {
+        if (toolbarPositionFrozen) {
+          return;
+        }
+
+        setLink(undefined);
+        setToolbarOpen(false);
+        return;
+      }
+
+      setLink({
+        cursorType: "text",
+        url: textCursorLink.mark.attrs.href as string,
+        text: textCursorLink.text,
+        range: textCursorLink.range,
+        element: linkToolbar.getLinkElementAtPos(textCursorLink.range.from),
+      });
+
+      if (!toolbarPositionFrozen) {
+        setToolbarOpen(true);
+      }
+    };
+
+    const mouseCursorCallback = (event: PointerEvent) => {
+      if (toolbarPositionFrozen || link?.cursorType === "text") {
+        return;
+      }
+
+      const hoveredAnchor = getHoveredAnchor(event.target);
+      if (!hoveredAnchor) return;
+
+      const mouseCursorLink = getLinkAtAnchor(hoveredAnchor);
+      if (!mouseCursorLink) {
+        return;
+      }
+
+      setLink({
+        cursorType: "mouse",
+        url: mouseCursorLink.mark.attrs.href as string,
+        text: mouseCursorLink.text,
+        range: mouseCursorLink.range,
+        element: linkToolbar.getLinkElementAtPos(mouseCursorLink.range.from) || hoveredAnchor,
+      });
+      setToolbarOpen(true);
+    };
+
+    const destroyOnChangeHandler = editor.onChange(textCursorCallback);
+    const destroyOnSelectionChangeHandler = editor.onSelectionChange(textCursorCallback);
+
+    document.addEventListener("pointerover", mouseCursorCallback, true);
+
+    return () => {
+      destroyOnChangeHandler();
+      destroyOnSelectionChangeHandler();
+      document.removeEventListener("pointerover", mouseCursorCallback, true);
+    };
+  }, [editor, editor.domElement, link?.cursorType, linkToolbar, toolbarPositionFrozen]);
+
+  const reference = useMemo(
+    () => (link?.element ? { element: link.element, cacheMountedBoundingClientRect: true } : undefined),
+    [link?.element],
+  );
+
+  if (!editor.isEditable) {
+    return null;
+  }
+
+  return (
+    <GenericPopover
+      reference={reference}
+      useFloatingOptions={{
+        open: toolbarOpen,
+        onOpenChange: (open, _event, reason) => {
+          if (toolbarPositionFrozen) {
+            return;
+          }
+
+          if (link?.cursorType === "text" && reason === "hover") {
+            return;
+          }
+
+          if (reason === "escape-key") {
+            editor.focus();
+          }
+
+          setToolbarOpen(open);
+        },
+        placement: "top-start",
+        middleware: [offset(10), flip()],
+      }}
+      useHoverProps={{
+        enabled: link?.cursorType === "mouse",
+        delay: { open: 250, close: 250 },
+        handleClose: safePolygon(),
+      }}
+      focusManagerProps={{ disabled: true }}
+      elementProps={{
+        style: { zIndex: 50 },
+        onMouseEnter: () => setToolbarPositionFrozen(true),
+        onMouseLeave: () => setToolbarPositionFrozen(false),
+      }}
+    >
+      {link && (
+        <LinkToolbar
+          url={link.url}
+          text={link.text}
+          range={link.range}
+          setToolbarOpen={setToolbarOpen}
+          setToolbarPositionFrozen={setToolbarPositionFrozen}
+        />
+      )}
     </GenericPopover>
   );
 }
@@ -447,6 +622,32 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
   }, []);
 
   useEffect(() => {
+    const editorElement = editor.domElement;
+    if (!editorElement) return;
+
+    const disableNativeWritingAids = () => {
+      const editorNodes = [
+        editorElement,
+        ...Array.from(editorElement.querySelectorAll<HTMLElement>('*')),
+      ];
+
+      editorNodes.forEach((element) => {
+        element.setAttribute('spellcheck', 'false');
+        element.setAttribute('autocorrect', 'off');
+        element.setAttribute('autocapitalize', 'off');
+        element.setAttribute('data-ms-editor', 'false');
+      });
+    };
+
+    disableNativeWritingAids();
+
+    const observer = new MutationObserver(disableNativeWritingAids);
+    observer.observe(editorElement, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [editor]);
+
+  useEffect(() => {
     const isEditorEvent = (event: Event) => {
       const editorElement = editor.domElement;
       if (!event.target) {
@@ -497,7 +698,11 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
       <BlockNoteView 
         editor={editor} 
         theme="dark" 
+        linkToolbar={false}
         sideMenu={false}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
         onKeyDown={handleEditorKeyDown}
         onKeyUp={(event) => {
           if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
@@ -513,6 +718,7 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
         }} 
       >
         <DaylineSideMenuController />
+        <DaylineLinkToolbarController />
       </BlockNoteView>
       {mentionMenu && filteredMentionItems.length > 0 && (
         <div

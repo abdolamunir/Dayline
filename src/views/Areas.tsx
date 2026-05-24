@@ -799,15 +799,15 @@ function AreaDetailsPage({ area, onBack }: {
                     <div className="flex-1 space-y-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-xs">{comment.name}</span>
-                          <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[10px]">•</span>
-                          <span className="text-[var(--tokyo-text-faint)] text-[10px]">{comment.time}</span>
+                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
+                          <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-xs">•</span>
+                          <span className="text-[var(--tokyo-text-faint)] text-xs">{comment.time}</span>
                         </div>
                         <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors cursor-pointer">
                           <MoreHorizontal className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <p className="text-[var(--tokyo-text)] text-xs leading-relaxed break-words">
+                      <p className="text-[var(--tokyo-text)] text-sm leading-relaxed break-words">
                         {renderCommentText(comment.text)}
                       </p>
                       <div className="flex items-center gap-2 pt-1 flex-wrap">
@@ -817,13 +817,13 @@ function AreaDetailsPage({ area, onBack }: {
                         {comment.reactions?.map((r, ri) => (
                           <button 
                             key={ri} 
-                            className="flex items-center gap-1.5 px-1.5 h-4.5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[9.5px] text-[var(--tokyo-text-strong)] font-medium hover:bg-white/5 transition-all cursor-pointer"
+                            className="flex h-4 items-center gap-1 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] px-1 text-[8.5px] leading-none text-[var(--tokyo-text-strong)] font-medium hover:bg-white/5 transition-all cursor-pointer"
                           >
                             <span>{r.emoji}</span>
                             <span className="text-[var(--tokyo-text-faint)]">{r.count}</span>
                           </button>
                         ))}
-                        <button className="text-[var(--tokyo-text-muted)] text-[10.5px] font-medium hover:text-white transition-colors ml-1 cursor-pointer">
+                        <button className="text-[var(--tokyo-text-muted)] text-[9px] leading-none font-medium hover:text-white transition-colors ml-0.5 cursor-pointer">
                           Reply
                         </button>
                       </div>

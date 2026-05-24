@@ -105,8 +105,33 @@ const createEmptyWorkspace = (): PersistedWorkspace => ({
   viewSettings: {},
 });
 
+const uniqueById = <T extends { id: string }>(items: T[] = []): T[] => {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (!item?.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
+
 const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWorkspace => {
-  const nextWorkspace = { ...createEmptyWorkspace(), ...workspace };
+  const rawWorkspace = { ...createEmptyWorkspace(), ...workspace };
+  const nextWorkspace = {
+    ...rawWorkspace,
+    tasks: uniqueById(rawWorkspace.tasks),
+    projects: uniqueById(rawWorkspace.projects),
+    goals: uniqueById(rawWorkspace.goals),
+    areas: uniqueById(rawWorkspace.areas),
+    habits: uniqueById(rawWorkspace.habits),
+    events: uniqueById(rawWorkspace.events),
+    journal: uniqueById(rawWorkspace.journal),
+    moods: uniqueById(rawWorkspace.moods),
+    ideas: uniqueById(rawWorkspace.ideas),
+    notes: uniqueById(rawWorkspace.notes),
+    customPages: uniqueById(rawWorkspace.customPages),
+    sidebarItems: uniqueById(rawWorkspace.sidebarItems),
+    trash: uniqueById(rawWorkspace.trash),
+  };
   const customPageById = new Map(nextWorkspace.customPages.map(page => [page.id, page]));
   const existingSidebarIds = new Set(nextWorkspace.sidebarItems.map(item => item.id));
   const syncedSidebarItems = nextWorkspace.sidebarItems.map(item => {
@@ -120,7 +145,7 @@ const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWo
 
   return {
     ...nextWorkspace,
-    sidebarItems: [...syncedSidebarItems, ...missingCustomItems],
+    sidebarItems: uniqueById([...syncedSidebarItems, ...missingCustomItems]),
   };
 };
 
@@ -313,7 +338,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTask = (task: Task) => {
-    setTasks([...tasks, task]);
+    setTasks(currentTasks => uniqueById([...currentTasks, task]));
   };
 
   const deleteTask = (taskId: string) => {
@@ -325,15 +350,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addHabit = (habit: Habit) => {
-    setHabits([...habits, habit]);
+    setHabits(currentHabits => uniqueById([...currentHabits, habit]));
   };
 
   const addMood = (mood: Mood) => {
-    setMoods([...moods, mood]);
+    setMoods(currentMoods => uniqueById([...currentMoods, mood]));
   };
 
   const addGoal = (goal: Goal) => {
-    setGoals([...goals, goal]);
+    setGoals(currentGoals => uniqueById([...currentGoals, goal]));
   };
 
   const updateGoal = (updatedGoal: Goal) => {
@@ -371,7 +396,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addProject = (project: Project) => {
-    setProjects([...projects, project]);
+    setProjects(currentProjects => uniqueById([...currentProjects, project]));
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
@@ -410,7 +435,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addArea = (area: Area) => {
-    setAreas([...areas, area]);
+    setAreas(currentAreas => uniqueById([...currentAreas, area]));
   };
 
   const updateArea = (id: string, updates: Partial<Area>) => {
@@ -449,15 +474,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addJournalEntry = (entry: JournalEntry) => {
-    setJournal([...journal, entry]);
+    setJournal(currentJournal => uniqueById([...currentJournal, entry]));
   };
 
   const addIdea = (idea: Idea) => {
-    setIdeas([...ideas, idea]);
+    setIdeas(currentIdeas => uniqueById([...currentIdeas, idea]));
   };
 
   const addNote = (note: Note) => {
-    setNotes([...notes, note]);
+    setNotes(currentNotes => uniqueById([...currentNotes, note]));
   };
 
   const updateNote = (updatedNote: Note) => {
@@ -493,8 +518,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addCustomPage = (page: CustomPage) => {
-    setCustomPages([...customPages, page]);
-    setSidebarItems([...sidebarItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom' }]);
+    setCustomPages(currentPages => uniqueById([...currentPages, page]));
+    setSidebarItems(currentItems => uniqueById([...currentItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom' }]));
   };
 
   const updateCustomPage = (updatedPage: CustomPage) => {
@@ -539,20 +564,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     switch (item.type) {
       case 'page':
-        setCustomPages([...customPages, item.data]);
-        setSidebarItems([...sidebarItems, { id: item.data.id, label: item.data.title, icon: item.data.icon, type: 'custom' }]);
+        setCustomPages(currentPages => uniqueById([...currentPages, item.data]));
+        setSidebarItems(currentItems => uniqueById([...currentItems, { id: item.data.id, label: item.data.title, icon: item.data.icon, type: 'custom' }]));
         break;
       case 'note':
-        setNotes([...notes, item.data]);
+        setNotes(currentNotes => uniqueById([...currentNotes, item.data]));
         break;
       case 'project':
-        setProjects([...projects, item.data]);
+        setProjects(currentProjects => uniqueById([...currentProjects, item.data]));
         break;
       case 'goal':
-        setGoals([...goals, item.data]);
+        setGoals(currentGoals => uniqueById([...currentGoals, item.data]));
         break;
       case 'area':
-        setAreas([...areas, item.data]);
+        setAreas(currentAreas => uniqueById([...currentAreas, item.data]));
         break;
     }
 
@@ -666,7 +691,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addFolder = (folder: SidebarItem) => {
-    setSidebarItems([...sidebarItems, folder]);
+    setSidebarItems(currentItems => uniqueById([...currentItems, folder]));
   };
 
   const toggleFolderExpansion = (id: string) => {

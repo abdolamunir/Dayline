@@ -3,28 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { Sidebar, ViewType } from './components/Sidebar';
 import { ContextPanel } from './components/ContextPanel';
-import { CommandPalette } from './components/CommandPalette';
-import { LandingPage } from './components/LandingPage';
 import { AppProvider, useAppStore } from './store';
-import { Dashboard } from './views/Dashboard';
-import { Tasks } from './views/Tasks';
-import { Projects } from './views/Projects';
-import { Areas } from './views/Areas';
-import { Habits } from './views/Habits';
-import { Ideas } from './views/Ideas';
-import { Notes } from './views/Notes';
-import { Goals } from './views/Goals';
-import { Journal } from './views/Journal';
-import { Moods } from './views/Moods';
-import { CustomPageView } from './views/CustomPageView';
-import { Upcoming } from './views/Upcoming';
-import { Trash } from './views/Trash';
-import { Inbox } from './views/Inbox';
-import { Today } from './views/Today';
-import { Someday } from './views/Someday';
 import {
   Cancel01Icon as X,
   CheckmarkCircle02Icon as CheckCircle,
@@ -34,18 +16,43 @@ import {
   Search01Icon as SearchIcon,
   UserGroupIcon as Users,
 } from 'hugeicons-react';
-import { format } from 'date-fns';
 
 const LAST_VIEW_STORAGE_KEY = 'dayline:last-view';
+
+const CommandPalette = lazy(() => import('./components/CommandPalette').then(module => ({ default: module.CommandPalette })));
+const LandingPage = lazy(() => import('./components/LandingPage').then(module => ({ default: module.LandingPage })));
+const Dashboard = lazy(() => import('./views/Dashboard').then(module => ({ default: module.Dashboard })));
+const Tasks = lazy(() => import('./views/Tasks').then(module => ({ default: module.Tasks })));
+const Projects = lazy(() => import('./views/Projects').then(module => ({ default: module.Projects })));
+const Areas = lazy(() => import('./views/Areas').then(module => ({ default: module.Areas })));
+const Habits = lazy(() => import('./views/Habits').then(module => ({ default: module.Habits })));
+const Ideas = lazy(() => import('./views/Ideas').then(module => ({ default: module.Ideas })));
+const Notes = lazy(() => import('./views/Notes').then(module => ({ default: module.Notes })));
+const Goals = lazy(() => import('./views/Goals').then(module => ({ default: module.Goals })));
+const Journal = lazy(() => import('./views/Journal').then(module => ({ default: module.Journal })));
+const Moods = lazy(() => import('./views/Moods').then(module => ({ default: module.Moods })));
+const CustomPageView = lazy(() => import('./views/CustomPageView').then(module => ({ default: module.CustomPageView })));
+const Upcoming = lazy(() => import('./views/Upcoming').then(module => ({ default: module.Upcoming })));
+const Trash = lazy(() => import('./views/Trash').then(module => ({ default: module.Trash })));
+const Inbox = lazy(() => import('./views/Inbox').then(module => ({ default: module.Inbox })));
+const Today = lazy(() => import('./views/Today').then(module => ({ default: module.Today })));
+const Someday = lazy(() => import('./views/Someday').then(module => ({ default: module.Someday })));
 
 const readLastView = (): ViewType => {
   if (typeof window === 'undefined') return 'inbox';
   return window.localStorage.getItem(LAST_VIEW_STORAGE_KEY) || 'inbox';
 };
 
+function ViewLoadingFallback() {
+  return (
+    <div className="grid h-full min-h-[320px] place-items-center text-[var(--tokyo-text-muted)]">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-[rgba(214,204,219,0.14)] border-t-[var(--tokyo-yellow)]" />
+    </div>
+  );
+}
+
 function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>(() => readLastView());
-  const [viewKey, setViewKey] = useState(0);
   const [isContextOpen, setIsContextOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commandPaletteInitialValue, setCommandPaletteInitialValue] = useState('');
@@ -59,7 +66,6 @@ function AppContent() {
 
   const changeView = useCallback((view: ViewType) => {
     setCurrentView(view);
-    setViewKey(prev => prev + 1);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LAST_VIEW_STORAGE_KEY, view);
     }
@@ -72,50 +78,63 @@ function AppContent() {
     changeView('inbox');
   }, [changeView, currentView, customPages, loading, user]);
 
+  useEffect(() => {
+    if (loading || !user) return;
+
+    const handleCommandKey = (event: KeyboardEvent) => {
+      if (event.key !== 'k' || (!event.metaKey && !event.ctrlKey)) return;
+      event.preventDefault();
+      setCommandPaletteInitialValue('');
+      setCommandPaletteMode('default');
+      setIsCommandPaletteOpen(isOpen => !isOpen);
+    };
+
+    document.addEventListener('keydown', handleCommandKey);
+    return () => document.removeEventListener('keydown', handleCommandKey);
+  }, [loading, user]);
+
   const openCommandPalette = (initialValue?: string | React.MouseEvent, mode: 'default' | 'create' = 'default') => {
     setCommandPaletteInitialValue(typeof initialValue === 'string' ? initialValue : '');
     setCommandPaletteMode(mode);
     setIsCommandPaletteOpen(true);
   };
 
-  const renderView = () => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-
+  const renderedView = useMemo(() => {
     if (currentView.startsWith('page-')) {
       const page = customPages.find(p => p.id === currentView);
       if (page) {
-        return <CustomPageView key={`page-${page.id}-${viewKey}`} page={page} onViewChange={changeView} />;
+        return <CustomPageView key={page.id} page={page} onViewChange={changeView} />;
       }
     }
 
     if (currentView.startsWith('goal-details:')) {
       const id = currentView.split(':')[1];
-      return <Goals key={`goal-details-${id}-${viewKey}`} onViewChange={changeView} selectedGoalId={id} />;
+      return <Goals key={`goal-details-${id}`} onViewChange={changeView} selectedGoalId={id} />;
     }
 
     if (currentView.startsWith('note-details:')) {
       const id = currentView.split(':')[1];
-      return <Notes key={`note-details-${id}-${viewKey}`} onViewChange={changeView} selectedNoteId={id} />;
+      return <Notes key={`note-details-${id}`} onViewChange={changeView} selectedNoteId={id} />;
     }
 
     switch (currentView) {
-      case 'dashboard': return <Dashboard key={`dashboard-${viewKey}`} />;
-      case 'tasks': return <Tasks key={`tasks-${viewKey}`} />;
-      case 'projects': return <Projects key={`projects-${viewKey}`} />;
-      case 'areas': return <Areas key={`areas-${viewKey}`} />;
-      case 'habits': return <Habits key={`habits-${viewKey}`} />;
-      case 'notes': return <Notes key={`notes-${viewKey}`} />;
-      case 'goals': return <Goals key={`goals-list-${viewKey}`} onViewChange={changeView} />;
-      case 'ideas': return <Ideas key={`ideas-${viewKey}`} />;
-      case 'journal': return <Journal key={`journal-${viewKey}`} />;
-      case 'moods': return <Moods key={`moods-${viewKey}`} />;
-      case 'trash': return <Trash key={`trash-${viewKey}`} />;
-      case 'inbox': return <Inbox key={`inbox-${viewKey}`} />;
-      case 'today': return <Today key={`today-${viewKey}`} />;
-      case 'upcoming': return <Upcoming key={`upcoming-${viewKey}`} />;
-      case 'someday': return <Someday key={`someday-${viewKey}`} />;
+      case 'dashboard': return <Dashboard />;
+      case 'tasks': return <Tasks />;
+      case 'projects': return <Projects />;
+      case 'areas': return <Areas />;
+      case 'habits': return <Habits />;
+      case 'notes': return <Notes />;
+      case 'goals': return <Goals onViewChange={changeView} />;
+      case 'ideas': return <Ideas />;
+      case 'journal': return <Journal />;
+      case 'moods': return <Moods />;
+      case 'trash': return <Trash />;
+      case 'inbox': return <Inbox />;
+      case 'today': return <Today />;
+      case 'upcoming': return <Upcoming />;
+      case 'someday': return <Someday />;
       case 'logbook':
-        return <Tasks key={`logbook-${viewKey}`} title="Logbook" description="Completed tasks." hideFilters customFilter={(t) => t.status === 'done'} />;
+        return <Tasks title="Logbook" description="Completed tasks." hideFilters customFilter={(t) => t.status === 'done'} />;
       default: 
         return (
           <div className="flex items-center justify-center h-full text-[var(--tokyo-text-faint)]">
@@ -123,7 +142,7 @@ function AppContent() {
           </div>
         );
     }
-  };
+  }, [changeView, currentView, customPages]);
 
   const currentPageLabel = currentView.startsWith('page-')
     ? customPages.find(p => p.id === currentView)?.title || 'Page'
@@ -163,7 +182,11 @@ function AppContent() {
   }
 
   if (!user) {
-    return <LandingPage />;
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <LandingPage />
+      </Suspense>
+    );
   }
 
   return (
@@ -196,7 +219,9 @@ function AppContent() {
         </div>
 
         <div className="flex-1">
-          {renderView()}
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {renderedView}
+          </Suspense>
         </div>
       </main>
 
@@ -210,13 +235,17 @@ function AppContent() {
         </div>
       </ContextPanel>
 
-      <CommandPalette 
-        open={isCommandPaletteOpen} 
-        setOpen={setIsCommandPaletteOpen} 
-        onViewChange={changeView} 
-        initialValue={commandPaletteInitialValue}
-        mode={commandPaletteMode}
-      />
+      {isCommandPaletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette 
+            open={isCommandPaletteOpen} 
+            setOpen={setIsCommandPaletteOpen} 
+            onViewChange={changeView} 
+            initialValue={commandPaletteInitialValue}
+            mode={commandPaletteMode}
+          />
+        </Suspense>
+      )}
 
       {isInviteOpen && (
         <div className="fixed inset-0 z-[260] flex items-center justify-center bg-black/55 p-4 backdrop-blur-md">

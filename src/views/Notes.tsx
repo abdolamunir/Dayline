@@ -828,13 +828,13 @@ function NoteDetailsPage({ note, onBack }: {
         {/* Content Area */}
         <div className="inner-detail-panel-content flex-1 w-full pt-4">
           {activeTab === 'To-Dos' && (
-            <div className="space-y-2">
+            <div className="inner-todo-list">
               {noteTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 px-1.5 py-1.5 group hover:bg-white/[0.03] rounded-md transition-all">
+                <div key={task.id} className="inner-todo-row group hover:bg-white/[0.03] rounded-md transition-all">
                   <button
                     onClick={() => updateTask({ ...task, status: task.status === 'done' ? 'todo' : 'done' })}
                     className={cn(
-                      "w-[18px] h-[18px] shrink-0 rounded-[4px] border-[2px] flex items-center justify-center transition-all cursor-pointer",
+                      "inner-todo-checkbox shrink-0 rounded-[4px] border-[2px] flex items-center justify-center transition-all cursor-pointer",
                       task.status === 'done'
                         ? "bg-[var(--tokyo-yellow)] border-[var(--tokyo-yellow)]"
                         : "border-[var(--tokyo-yellow)] bg-transparent hover:bg-[var(--tokyo-yellow)]/10"
@@ -858,7 +858,7 @@ function NoteDetailsPage({ note, onBack }: {
                     }}
                     placeholder="Task description..."
                     className={cn(
-                      "bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",
+                      "inner-todo-input bg-transparent border-none outline-none flex-1 text-sm transition-all placeholder:text-white/10 outline-none focus:outline-none focus:ring-transparent shadow-none",
                       task.status === 'done' ? "text-[var(--tokyo-text-faint)] line-through" : "text-[var(--tokyo-text)]"
                     )}
                   />
@@ -922,15 +922,15 @@ function NoteDetailsPage({ note, onBack }: {
                     <div className="flex-1 space-y-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-xs">{comment.name}</span>
-                          <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-[10px]">•</span>
-                          <span className="text-[var(--tokyo-text-faint)] text-[10px]">{comment.time}</span>
+                          <span className="text-[var(--tokyo-text-strong)] font-semibold text-sm">{comment.name}</span>
+                          <span className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors text-xs">•</span>
+                          <span className="text-[var(--tokyo-text-faint)] text-xs">{comment.time}</span>
                         </div>
                         <button className="text-white/10 group-hover:text-[var(--tokyo-text-faint)] transition-colors cursor-pointer">
                           <MoreHorizontal className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <p className="text-[var(--tokyo-text)] text-xs leading-relaxed break-words">
+                      <p className="text-[var(--tokyo-text)] text-sm leading-relaxed break-words">
                         {renderCommentText(comment.text)}
                       </p>
                       <div className="flex items-center gap-2 pt-1 flex-wrap">
@@ -940,13 +940,13 @@ function NoteDetailsPage({ note, onBack }: {
                         {comment.reactions?.map((reaction, ri) => (
                           <button 
                             key={ri} 
-                            className="flex items-center gap-1.5 px-1.5 h-4.5 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] text-[9.5px] text-[var(--tokyo-text-strong)] font-medium hover:bg-white/5 transition-all cursor-pointer"
+                            className="flex h-4 items-center gap-1 rounded bg-[var(--tokyo-hover)] border border-[var(--tokyo-border)] px-1 text-[8.5px] leading-none text-[var(--tokyo-text-strong)] font-medium hover:bg-white/5 transition-all cursor-pointer"
                           >
                             <span>{reaction.emoji}</span>
                             <span className="text-[var(--tokyo-text-faint)]">{reaction.count}</span>
                           </button>
                         ))}
-                        <button className="text-[var(--tokyo-text-muted)] text-[10.5px] font-medium hover:text-white transition-colors ml-1 cursor-pointer">
+                        <button className="text-[var(--tokyo-text-muted)] text-[9px] leading-none font-medium hover:text-white transition-colors ml-0.5 cursor-pointer">
                           Reply
                         </button>
                       </div>
