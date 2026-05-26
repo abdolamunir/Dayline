@@ -255,6 +255,34 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setColumnContextMenu(null);
   };
 
+  const deleteColumn = (columnId: string) => {
+    if (columnId === 'title') return;
+
+    const isBuiltInColumn = builtInColumnIds.has(columnId);
+    const nextColumns = isBuiltInColumn
+      ? allColumns.map(column => column.id === columnId ? { ...column, hidden: true } : column)
+      : page.columns.filter(column => column.id !== columnId);
+    const nextProperties = isBuiltInColumn
+      ? page.properties
+      : page.properties.filter(property => property.id !== columnId);
+    const nextItems = isBuiltInColumn
+      ? page.items
+      : page.items.map(item => {
+          const { [columnId]: _removedValue, ...properties } = item.properties || {};
+          return { ...item, properties };
+        });
+
+    onUpdatePage({
+      ...page,
+      columns: nextColumns,
+      properties: nextProperties,
+      items: nextItems,
+      sortConfigs: (page.sortConfigs || []).filter(sortConfig => sortConfig.columnId !== columnId),
+    });
+    setSortConfigs(currentSorts => currentSorts.filter(sortConfig => sortConfig.columnId !== columnId));
+    setColumnContextMenu(null);
+  };
+
   const showColumn = (columnId: string) => {
     onUpdatePage({
       ...page,
@@ -1583,6 +1611,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 Hide column
+              </button>
+              <button
+                type="button"
+                disabled={columnContextMenu.id === 'title'}
+                onClick={() => deleteColumn(columnContextMenu.id)}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-pink)] transition-colors hover:bg-[rgba(255,77,125,0.12)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete column
               </button>
               {allColumns.some(column => column.hidden) && (
                 <div className="mt-1 border-t border-[var(--tokyo-border)] pt-1">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, HelpCircleIcon as HelpCircle, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy } from 'hugeicons-react';
+import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, HelpCircleIcon as HelpCircle, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy, Megaphone01Icon as Megaphone, GiftIcon as Gift, InformationCircleIcon as InfoCircle, Camera01Icon as Camera } from 'hugeicons-react';
 import { cn } from '../utils/cn';
 import { useAppStore } from '../store';
 import { IconPicker, ALL_ICONS } from './IconPicker';
@@ -22,6 +22,13 @@ interface SidebarProps {
 const iconMap: Record<string, React.ElementType> = {
   ...ALL_ICONS,
   Calendar: CalendarIcon,
+};
+
+type ProfileOverrides = {
+  name: string;
+  username: string;
+  email: string;
+  photoURL: string;
 };
 
 export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleSidebar }: SidebarProps) {
@@ -45,11 +52,17 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [productUpdatesEnabled, setProductUpdatesEnabled] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isNewItemMenuOpen, setIsNewItemMenuOpen] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [profileOverrides, setProfileOverrides] = useState<ProfileOverrides | null>(null);
+  const [profileDraft, setProfileDraft] = useState<ProfileOverrides>({ name: '', username: '', email: '', photoURL: '' });
   const editInputRef = useRef<HTMLInputElement>(null);
+  const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const newItemMenuRef = useRef<HTMLDivElement>(null);
   const hiddenSidebarRowStylesRef = useRef(new Map<HTMLElement, { display: string, pointerEvents: string }>());
@@ -57,6 +70,18 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [lastSelectedSidebarItemId, setLastSelectedSidebarItemId] = useState<string | null>(null);
   const [draggingSidebarItemIds, setDraggingSidebarItemIds] = useState<string[]>([]);
   const [primaryDraggingSidebarItemId, setPrimaryDraggingSidebarItemId] = useState<string | null>(null);
+
+  const profileStorageKey = user?.uid ? `dayline:user-profile:v1:${user.uid}` : null;
+  const defaultProfile = React.useMemo<ProfileOverrides>(() => ({
+    name: user?.displayName || user?.email?.split('@')[0] || 'User',
+    username: user?.email?.split('@')[0] || '',
+    email: user?.email || '',
+    photoURL: user?.photoURL || '',
+  }), [user?.displayName, user?.email, user?.photoURL]);
+  const activeProfile = profileOverrides || defaultProfile;
+  const activeProfilePhoto = activeProfile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeProfile.name || activeProfile.email || 'User')}&background=0D8ABC&color=fff`;
+  const activeProfileName = activeProfile.name || activeProfile.email || 'User';
+  const activeProfileEmail = activeProfile.email || user?.email || '';
 
   const restoreHiddenSidebarRows = () => {
     hiddenSidebarRowStylesRef.current.forEach((styles, element) => {
@@ -94,6 +119,34 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!profileStorageKey) {
+      setProfileOverrides(null);
+      setProfileDraft(defaultProfile);
+      return;
+    }
+
+    try {
+      const savedProfile = window.localStorage.getItem(profileStorageKey);
+      if (!savedProfile) {
+        setProfileOverrides(null);
+        setProfileDraft(defaultProfile);
+        return;
+      }
+
+      const parsedProfile = JSON.parse(savedProfile) as Partial<ProfileOverrides>;
+      const nextProfile = {
+        ...defaultProfile,
+        ...parsedProfile,
+      };
+      setProfileOverrides(nextProfile);
+      setProfileDraft(nextProfile);
+    } catch {
+      setProfileOverrides(null);
+      setProfileDraft(defaultProfile);
+    }
+  }, [defaultProfile, profileStorageKey]);
 
   useEffect(() => {
     if (selectedSidebarItemIds.length === 0) return;
@@ -198,6 +251,64 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       setIsAuthBusy(false);
     }
   };
+
+  const openProfileEditor = () => {
+    setProfileDraft(activeProfile);
+    setIsProfileEditorOpen(true);
+    setIsProfileOpen(false);
+  };
+
+  const openSettings = () => {
+    setProfileDraft(activeProfile);
+    setIsSettingsOpen(true);
+    setIsProfileOpen(false);
+  };
+
+  const handleProfilePhotoFile = (file?: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfileDraft((current) => ({
+        ...current,
+        photoURL: typeof reader.result === 'string' ? reader.result : current.photoURL,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = () => {
+    const nextProfile = {
+      name: profileDraft.name.trim() || defaultProfile.name,
+      username: profileDraft.username.trim(),
+      email: profileDraft.email.trim() || defaultProfile.email,
+      photoURL: profileDraft.photoURL,
+    };
+
+    setProfileOverrides(nextProfile);
+    if (profileStorageKey) {
+      window.localStorage.setItem(profileStorageKey, JSON.stringify(nextProfile));
+    }
+    setIsProfileEditorOpen(false);
+    setIsSettingsOpen(false);
+  };
+
+  const renderAboutMenuItems = () => (
+    <>
+      <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+        <Megaphone className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+        Send us feedback
+      </button>
+      <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+        <Gift className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+        What's new
+      </button>
+      <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+        <InfoCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+        Version
+      </button>
+    </>
+  );
 
   const handleNewDatabasePage = () => {
     const newId = `page-${Date.now()}`;
@@ -517,6 +628,342 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
         />
       )}
 
+      {isProfileEditorOpen && (
+        <div
+          className="fixed inset-0 z-[220] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm"
+          onMouseDown={() => setIsProfileEditorOpen(false)}
+        >
+          <div
+            className="dayline-dialog w-full max-w-3xl overflow-hidden rounded-2xl border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-bg)] shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="px-8 py-8 sm:px-10 sm:py-10">
+              <h2 className="text-[32px] font-bold leading-tight text-[var(--tokyo-text-strong)]">
+                Edit Profile
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--tokyo-text-muted)]">
+                Update your name, username, email, and display picture for {activeProfileEmail || 'this account'}.
+              </p>
+
+              <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--tokyo-text)]">Name</span>
+                    <input
+                      value={profileDraft.name}
+                      onChange={(e) => setProfileDraft((current) => ({ ...current, name: e.target.value }))}
+                      className="h-11 w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 text-sm text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      placeholder="Your name"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--tokyo-text)]">Username</span>
+                    <input
+                      value={profileDraft.username}
+                      onChange={(e) => setProfileDraft((current) => ({ ...current, username: e.target.value }))}
+                      className="h-11 w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 text-sm text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      placeholder="username"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[var(--tokyo-text)]">Email</span>
+                    <input
+                      type="email"
+                      value={profileDraft.email}
+                      onChange={(e) => setProfileDraft((current) => ({ ...current, email: e.target.value }))}
+                      className="h-11 w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 text-sm text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      placeholder="you@example.com"
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <span className="mb-2 block text-sm font-semibold text-[var(--tokyo-text)]">Display Picture</span>
+                  <button
+                    type="button"
+                    onClick={() => profilePhotoInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleProfilePhotoFile(e.dataTransfer.files?.[0]);
+                    }}
+                    className="flex min-h-[280px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--tokyo-text-faint)] bg-[var(--tokyo-panel)] px-4 py-10 text-center text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-yellow)] hover:bg-[var(--tokyo-hover)]"
+                  >
+                    <img
+                      src={profileDraft.photoURL || activeProfilePhoto}
+                      alt={profileDraft.name || activeProfileName}
+                      className="h-20 w-20 rounded-full border border-[var(--tokyo-border-strong)] object-cover"
+                    />
+                    <span className="mt-8 flex items-center gap-2 text-sm font-medium">
+                      <Upload className="h-4 w-4" />
+                      Drag & drop a photo here
+                    </span>
+                    <span className="mt-3 rounded-md border border-[var(--tokyo-border-strong)] px-2.5 py-1 text-xs text-[var(--tokyo-text)]">
+                      or select file
+                    </span>
+                  </button>
+                  <input
+                    ref={profilePhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleProfilePhotoFile(e.target.files?.[0])}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-[var(--tokyo-border)] px-8 py-5 sm:px-10">
+              <button
+                onClick={() => setIsProfileEditorOpen(false)}
+                className="rounded-lg bg-[var(--tokyo-panel-2)] px-5 py-2.5 text-sm font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-panel-3)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                className="rounded-lg bg-[var(--tokyo-yellow-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--tokyo-text-strong)] transition-colors hover:bg-[var(--tokyo-yellow)]"
+              >
+                Save Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSettingsOpen && (
+        <div
+          className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm"
+          onMouseDown={() => setIsSettingsOpen(false)}
+        >
+          <div
+            className="dayline-dialog flex h-[min(86vh,760px)] w-full max-w-6xl overflow-hidden rounded-2xl border border-[var(--tokyo-border-strong)] bg-[#070709] shadow-2xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <aside className="hidden w-64 shrink-0 border-r border-[var(--tokyo-border-strong)] bg-[#141416] px-3 py-6 md:block">
+              <div className="mb-9 flex items-center gap-3 px-3 text-[var(--tokyo-text-strong)]">
+                <Settings className="h-5 w-5" />
+                <span className="text-base font-bold">Settings</span>
+              </div>
+
+              <div className="space-y-7">
+                <section>
+                  <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-wide text-[var(--tokyo-text-faint)]">Space</p>
+                  {[
+                    { label: 'Members', icon: Users },
+                    { label: 'Space Settings', icon: Folder },
+                    { label: 'Usage', icon: Activity },
+                    { label: 'Billing', icon: Wallet },
+                    { label: 'Integrations', icon: Plug },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button key={item.label} className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.04] hover:text-[var(--tokyo-text-strong)]">
+                        <Icon className="h-4.5 w-4.5" />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </section>
+
+                <section>
+                  <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-wide text-[var(--tokyo-text-faint)]">Personal</p>
+                  {[
+                    { label: 'Account', icon: User, active: true },
+                    { label: 'Appearance', icon: Moon },
+                    { label: 'Notifications', icon: Bell },
+                    { label: 'Keyboard Shortcuts', icon: Keyboard },
+                    { label: 'API Keys', icon: Lock },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={() => {
+                          if (item.label === 'Keyboard Shortcuts') {
+                            setIsShortcutsOpen(true);
+                            setIsSettingsOpen(false);
+                          }
+                        }}
+                        className={cn(
+                          "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors",
+                          item.active
+                            ? "bg-white/[0.07] text-[var(--tokyo-text-strong)] shadow-[inset_0_0_0_1px_rgba(218,204,216,0.05)]"
+                            : "text-[var(--tokyo-text-muted)] hover:bg-white/[0.04] hover:text-[var(--tokyo-text-strong)]"
+                        )}
+                      >
+                        <Icon className="h-4.5 w-4.5" />
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </section>
+
+                <section>
+                  <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-wide text-[var(--tokyo-text-faint)]">App</p>
+                  <button className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.04] hover:text-[var(--tokyo-text-strong)]">
+                    <Stethoscope className="h-4.5 w-4.5" />
+                    Experimental
+                  </button>
+                </section>
+              </div>
+            </aside>
+
+            <section className="flex min-w-0 flex-1 flex-col bg-[#050506]">
+              <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--tokyo-border)] px-6 md:px-8">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="text-[var(--tokyo-text-faint)]">Settings</span>
+                  <ChevronRight className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
+                  <span className="text-[var(--tokyo-text-strong)]">Account</span>
+                </div>
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--tokyo-text-strong)]"
+                  title="Close settings"
+                >
+                  <Plus className="h-5 w-5 rotate-45" />
+                </button>
+              </header>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-8 md:px-20">
+                <div className="max-w-4xl">
+                  <h2 className="text-2xl font-bold text-[var(--tokyo-text-strong)]">Account</h2>
+
+                  <div className="mt-9 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--tokyo-text-strong)]">Profile photo</h3>
+                      <p className="mt-1 text-sm font-semibold leading-5 text-[var(--tokyo-text-muted)]">
+                        JPG, PNG or GIF. Max 5MB. Drag and drop to upload.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-5">
+                      <img
+                        src={profileDraft.photoURL || activeProfilePhoto}
+                        alt={profileDraft.name || activeProfileName}
+                        className="h-16 w-16 rounded-xl border border-[var(--tokyo-border)] object-cover"
+                      />
+                      <button
+                        onClick={() => profilePhotoInputRef.current?.click()}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          handleProfilePhotoFile(event.dataTransfer.files?.[0]);
+                        }}
+                        className="inline-flex h-12 items-center gap-3 rounded-xl border border-[var(--tokyo-border-strong)] bg-white/[0.12] px-5 text-sm font-bold text-[var(--tokyo-text-strong)] transition-colors hover:bg-white/[0.16]"
+                      >
+                        <Camera className="h-5 w-5" />
+                        Change Photo
+                      </button>
+                      <input
+                        ref={profilePhotoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(event) => handleProfilePhotoFile(event.target.files?.[0])}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-8 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                    <label className="text-sm font-bold text-[var(--tokyo-text-strong)]" htmlFor="settings-profile-name">Name</label>
+                    <input
+                      id="settings-profile-name"
+                      value={profileDraft.name}
+                      onChange={(event) => setProfileDraft((current) => ({ ...current, name: event.target.value }))}
+                      className="h-14 rounded-xl border border-transparent bg-white/[0.13] px-4 text-sm font-bold text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      placeholder="Click to edit"
+                    />
+                  </div>
+
+                  <div className="mt-5 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                    <label className="text-sm font-bold text-[var(--tokyo-text-strong)]" htmlFor="settings-profile-email">Email</label>
+                    <input
+                      id="settings-profile-email"
+                      type="email"
+                      value={profileDraft.email}
+                      onChange={(event) => setProfileDraft((current) => ({ ...current, email: event.target.value }))}
+                      className="h-14 rounded-xl border border-transparent bg-white/[0.09] px-4 text-sm font-bold text-[var(--tokyo-text-muted)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      placeholder="Email"
+                    />
+                  </div>
+
+                  <div className="my-8 h-px bg-[var(--tokyo-border)]" />
+
+                  <p className="mb-5 text-xs font-bold uppercase tracking-wide text-[var(--tokyo-text-muted)]">Communications</p>
+                  <div className="grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--tokyo-text-strong)]">Product updates</h3>
+                      <p className="mt-1 text-sm font-semibold text-[var(--tokyo-text-muted)]">Occasional tips and feature announcements</p>
+                    </div>
+                    <button
+                      onClick={() => setProductUpdatesEnabled((enabled) => !enabled)}
+                      className="flex h-14 items-center justify-between rounded-xl bg-white/[0.09] px-4 text-sm font-bold text-[var(--tokyo-text-muted)]"
+                    >
+                      {productUpdatesEnabled ? 'Enabled' : 'Disabled'}
+                      <span className={cn(
+                        "relative h-7 w-12 rounded-full transition-colors",
+                        productUpdatesEnabled ? "bg-[var(--tokyo-yellow-dim)]" : "bg-white/[0.18]"
+                      )}>
+                        <span className={cn(
+                          "absolute top-1 h-5 w-5 rounded-full bg-[#050506] transition-transform",
+                          productUpdatesEnabled ? "translate-x-6" : "translate-x-1"
+                        )} />
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="my-8 h-px bg-[var(--tokyo-border)]" />
+
+                  <p className="mb-5 text-xs font-bold uppercase tracking-wide text-[var(--tokyo-text-muted)]">Account Actions</p>
+                  <div className="space-y-6">
+                    <div className="grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                      <div>
+                        <h3 className="text-sm font-bold text-[var(--tokyo-text-strong)]">Sign out</h3>
+                        <p className="mt-1 text-sm font-semibold text-[var(--tokyo-text-muted)]">Log out of your account</p>
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        disabled={isAuthBusy}
+                        className="inline-flex h-11 w-fit items-center gap-3 rounded-lg px-4 text-sm font-bold text-[var(--tokyo-pink)] transition-colors hover:bg-[rgba(255,77,125,0.12)] disabled:opacity-50"
+                      >
+                        <LogOut className="h-5 w-5" />
+                        Sign out
+                      </button>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-[280px_minmax(0,1fr)] md:items-center">
+                      <div>
+                        <h3 className="text-sm font-bold text-[var(--tokyo-text-strong)]">Reset onboarding</h3>
+                        <p className="mt-1 text-sm font-semibold text-[var(--tokyo-text-muted)]">Replay welcome overlays and onboarding</p>
+                      </div>
+                      <button className="inline-flex h-11 w-fit items-center gap-3 rounded-lg px-4 text-sm font-bold text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.06]">
+                        <History className="h-5 w-5" />
+                        Reset onboarding
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--tokyo-border)] px-6 py-4 md:px-8">
+                <button
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="rounded-lg bg-[var(--tokyo-panel-2)] px-5 py-2.5 text-sm font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-panel-3)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveProfile}
+                  className="rounded-lg bg-[var(--tokyo-yellow-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--tokyo-text-strong)] transition-colors hover:bg-[var(--tokyo-yellow)]"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
       <div className={cn(
         "fixed md:relative z-50 bg-[var(--tokyo-sidebar)] border-r border-[var(--tokyo-border)] h-screen flex flex-col text-[var(--tokyo-text)] select-none transition-[width,transform] duration-100 ease-out overflow-hidden",
         isCollapsed ? "w-16" : "w-64",
@@ -540,17 +987,17 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         )}
                       >
                         <img 
-                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email || 'User')}&background=0D8ABC&color=fff`} 
-                          alt={user?.displayName || user?.email || 'User'} 
+                          src={activeProfilePhoto} 
+                          alt={activeProfileName} 
                           className="w-8 h-8 rounded-full object-cover border border-[var(--tokyo-border-strong)] shrink-0"
                           referrerPolicy="no-referrer"
                         />
                         <div className="flex flex-col min-w-0 flex-1 text-left gap-0.5">
                           <span className="text-[14px] font-semibold text-[var(--tokyo-text-strong)] truncate leading-tight">
-                            {user?.displayName || (user ? user.email : isAuthBusy ? 'Signing in...' : 'Sign In')}
+                            {user ? activeProfileName : isAuthBusy ? 'Signing in...' : 'Sign In'}
                           </span>
                           <span className="text-[12px] text-[var(--tokyo-text-faint)] truncate leading-tight">
-                            {user?.email || 'Click to login with Google'}
+                            {activeProfileEmail || 'Click to login with Google'}
                           </span>
                         </div>
                           {user && <ChevronDown className={cn("w-3.5 h-3.5 text-[var(--tokyo-text-faint)] transition-transform shrink-0", isProfileOpen && "rotate-180")} />}
@@ -571,11 +1018,11 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
                               <p className="dayline-dialog-heading text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
                             </div>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                            <button onClick={openProfileEditor} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
                               <User className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Profile
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                            <button onClick={openSettings} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
                               <Settings className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Settings
                             </button>
@@ -594,6 +1041,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                               <HelpCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Help
                             </button>
+                            {renderAboutMenuItems()}
                             <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
                               onClick={handleLogout}
@@ -650,8 +1098,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         className="w-8 h-8 rounded-full overflow-hidden border border-[var(--tokyo-border-strong)] hover:border-white/30 transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-70"
                       >
                         <img 
-                          src={user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || user?.email || 'User')}&background=0D8ABC&color=fff`} 
-                          alt={user?.displayName || user?.email || 'User'} 
+                          src={activeProfilePhoto} 
+                          alt={activeProfileName} 
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
@@ -665,11 +1113,11 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
                               <p className="dayline-dialog-heading text-xs font-medium text-[var(--tokyo-text-faint)]">Account</p>
                             </div>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                            <button onClick={openProfileEditor} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
                               <User className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Profile
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+                            <button onClick={openSettings} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
                               <Settings className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Settings
                             </button>
@@ -688,6 +1136,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                               <HelpCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Help
                             </button>
+                            {renderAboutMenuItems()}
                             <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
                               onClick={handleLogout}

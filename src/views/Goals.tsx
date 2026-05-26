@@ -643,6 +643,31 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     setColumnContextMenu(null);
   };
 
+  const deleteGoalColumn = (columnId: string) => {
+    if (columnId === 'title') return;
+
+    if (goalBuiltInColumnIds.has(columnId)) {
+      hideGoalColumn(columnId);
+      return;
+    }
+
+    const nextColumns = allGoalColumns.filter(column => column.id !== columnId);
+    setColumns(nextColumns);
+    setSortConfigs(currentSorts => currentSorts.filter(sortConfig => sortConfig.columnId !== columnId));
+    updateViewSettings('goals', {
+      columns: nextColumns,
+      sortConfigs: sortConfigs.filter(sortConfig => sortConfig.columnId !== columnId),
+    });
+    goals.forEach(goal => {
+      if (!goal.customProperties?.some(property => property.id === columnId)) return;
+      updateGoal({
+        ...goal,
+        customProperties: goal.customProperties.filter(property => property.id !== columnId),
+      });
+    });
+    setColumnContextMenu(null);
+  };
+
   const showGoalColumn = (columnId: string) => {
     const nextColumns = allGoalColumns.map(column => column.id === columnId ? { ...column, hidden: false } : column);
     setColumns(nextColumns);
@@ -1884,6 +1909,15 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               >
                 Hide column
               </button>
+              <button
+                type="button"
+                disabled={columnContextMenu.id === 'title'}
+                onClick={() => deleteGoalColumn(columnContextMenu.id)}
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left font-medium text-[var(--tokyo-pink)] transition-colors hover:bg-[rgba(255,77,125,0.12)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete column
+              </button>
               {allGoalColumns.some(column => column.hidden) && (
                 <div className="mt-1 border-t border-[var(--tokyo-border)] pt-1">
                   <div className="px-2.5 py-1 text-[11px] font-medium text-[var(--tokyo-text-faint)]">Hidden columns</div>
@@ -2500,6 +2534,32 @@ function GoalDetailsPage({ goal, onBack }: {
     const col = columns.find((c: any) => c.id === id);
     return { label: col?.label || defaultLabel, icon: col?.icon || defaultIcon, hidden: col?.hidden };
   };
+  const inferPropertyTypeFromColumn = (column: any): PropertyType => {
+    const label = String(column?.label || '').toLowerCase();
+    const icon = String(column?.icon || '').toLowerCase();
+    if (label.includes('people') || label.includes('person') || icon.includes('user')) return 'person';
+    if (label.includes('date') || icon.includes('calendar')) return 'date';
+    if (icon.includes('hash') || label.includes('number')) return 'number';
+    if (icon.includes('layers') || label.includes('select')) return 'select';
+    return 'text';
+  };
+  const detailSystemPropertyIds = new Set(['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas']);
+  const goalDetailCustomProperties = [
+    ...(goal.customProperties || []).filter((property) => {
+      const column = columns.find((candidate: any) => candidate.id === property.id);
+      return !column?.hidden;
+    }),
+    ...columns
+      .filter((column: any) => !detailSystemPropertyIds.has(column.id) && !column.hidden)
+      .filter((column: any) => !(goal.customProperties || []).some(property => property.id === column.id))
+      .map((column: any) => ({
+        id: column.id,
+        name: column.label || column.id,
+        type: inferPropertyTypeFromColumn(column),
+        value: getDefaultPropertyValue(inferPropertyTypeFromColumn(column)),
+        icon: column.icon,
+      })),
+  ];
 
   const handleRenameProperty = (id: string, isSystem: boolean, newName: string) => {
     if (!newName.trim()) return;
@@ -2603,6 +2663,25 @@ function GoalDetailsPage({ goal, onBack }: {
   };
 
   const handleUpdateProperty = (propId: string, value: any) => {
+    const existingProperty = goal.customProperties?.find(p => p.id === propId);
+    if (!existingProperty) {
+      const column = columns.find((candidate: any) => candidate.id === propId);
+      const type = inferPropertyTypeFromColumn(column);
+      handleUpdate({
+        customProperties: [
+          ...(goal.customProperties || []),
+          {
+            id: propId,
+            name: column?.label || propId,
+            type,
+            value,
+            icon: column?.icon || getPropertyTypeIcon(type),
+          },
+        ],
+      });
+      return;
+    }
+
     handleUpdate({
       customProperties: goal.customProperties?.map(p => p.id === propId ? { ...p, value } : p)
     });
@@ -3022,12 +3101,16 @@ setPropertyContextMenu({ x: e.clientX, y: e.clientY, id: 'creator', isSystem: tr
           )}
 
           {/* Custom Properties */}
-          {goal.customProperties?.map(prop => {
+          {goalDetailCustomProperties.map(prop => {
             const PropIcon = {
               text: Text,
               number: Hash,
               select: Layers,
-              date: CalendarIcon
+              date: CalendarIcon,
+              person: Users,
+              files: Attachment,
+              url: Link,
+              email: AtSign
             }[prop.type] || Text;
 
             return (
