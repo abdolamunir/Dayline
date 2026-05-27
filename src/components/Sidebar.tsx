@@ -2223,7 +2223,7 @@ function SidebarItem({
             : isActive || isSelected || showBulkDragSelection
             ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
             : isNestedItem
-            ? "text-[var(--tokyo-text-muted)]/72 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-muted)]"
+            ? "text-[var(--tokyo-text-muted)]/88 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
             : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
           isFolder && "font-semibold",
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
@@ -2310,7 +2310,7 @@ function SidebarItem({
             >
               <Icon className={cn(
                 "w-4 h-4 shrink-0 stroke-[1.5]",
-                isActive || isSelected ? "opacity-100" : isNestedItem ? "opacity-55" : "opacity-70"
+                isActive || isSelected ? "opacity-100" : isNestedItem ? "opacity-72" : "opacity-70"
               )} />
             </button>
           )}
