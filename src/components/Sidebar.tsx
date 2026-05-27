@@ -552,6 +552,29 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
   };
 
+  const getDraggedSidebarIds = (e: React.DragEvent) => {
+    try {
+      const parsed = JSON.parse(e.dataTransfer.getData('application/dayline-sidebar-items') || '[]');
+      if (Array.isArray(parsed)) return parsed.filter(id => typeof id === 'string');
+    } catch {
+      // Ignore malformed drag payloads and fall back to the plain text id.
+    }
+    const plainId = e.dataTransfer.getData('text/plain');
+    return plainId ? [plainId] : [];
+  };
+
+  const isPageLikeSidebarDrag = (e: React.DragEvent) => getDraggedSidebarIds(e).some(id => {
+    const item = sidebarItems.find(candidate => candidate.id === id);
+    if (item) return item.type !== 'folder' && item.type !== 'trash';
+    return (
+      notes.some(note => note.id === id) ||
+      projects.some(project => project.id === id) ||
+      goals.some(goal => goal.id === id) ||
+      areas.some(area => area.id === id) ||
+      customPages.some(page => page.id === id)
+    );
+  });
+
   const handleDragStart = (e: React.DragEvent, id: string, parentId?: string) => {
     const draggedIds = selectedSidebarItemIds.includes(id) ? selectedSidebarItemIds : [id];
     hideNonHeldSelectedSidebarRows(draggedIds, id);
@@ -603,7 +626,14 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const handleDragOver = (e: React.DragEvent, id?: string) => {
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
+    const isPageLikeDrag = isPageLikeSidebarDrag(e);
+    e.dataTransfer.dropEffect = isPageLikeDrag && !id ? 'none' : 'move';
+
+    if (isPageLikeDrag && !id) {
+      setDragOverId(null);
+      setDropPosition(null);
+      return;
+    }
     
     if (id) {
       setDragOverId(id);
@@ -614,11 +644,22 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       const item = sidebarItems.find(i => i.id === id);
       const isSmartFolder = item?.id === 'favourites' || item?.id === 'shared';
       if (item?.type === 'folder' && !isSmartFolder) {
-        if (y < height * 0.25) setDropPosition('top');
+        if (isPageLikeDrag) {
+          if (y >= height * 0.25 && y <= height * 0.75) {
+            e.dataTransfer.dropEffect = 'move';
+            setDropPosition('middle');
+          } else {
+            e.dataTransfer.dropEffect = 'none';
+            setDropPosition(null);
+          }
+        } else if (y < height * 0.25) setDropPosition('top');
         else if (y > height * 0.75) setDropPosition('bottom');
         else setDropPosition('middle');
       } else {
-        if (y < height / 2) setDropPosition('top');
+        if (isPageLikeDrag && !item?.parentId) {
+          e.dataTransfer.dropEffect = 'none';
+          setDropPosition(null);
+        } else if (y < height / 2) setDropPosition('top');
         else setDropPosition('bottom');
       }
     }
@@ -727,14 +768,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
 
     // Normal sidebar item reordering/moving logic
-    const draggedIds = (() => {
-      try {
-        const parsed = JSON.parse(e.dataTransfer.getData('application/dayline-sidebar-items') || '[]');
-        return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : [];
-      } catch {
-        return [];
-      }
-    })();
+    const draggedIds = getDraggedSidebarIds(e);
     const idsToMove = (draggedIds.length ? draggedIds : [draggedId])
       .filter((id, index, ids) => id && ids.indexOf(id) === index);
 
@@ -774,16 +808,22 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
     if (draggedItems.length === 0) return;
 
+    const includesPageLikeItem = draggedItems.some(item => item.type !== 'folder' && item.type !== 'trash');
+    const targetItem = newItems.find(i => i.id === targetId);
+    const isDroppingIntoCategory = targetItem?.type === 'folder' && currentDropPosition === 'middle';
+    const isDroppingInsideCategory = Boolean(targetItem?.parentId);
+    if (includesPageLikeItem && !isDroppingIntoCategory && !isDroppingInsideCategory) {
+      return;
+    }
+
     if (sourceParent === 'favourites') {
       draggedItems.forEach(item => {
         item.isFavorite = false;
       });
     }
 
-    const targetItem = newItems.find(i => i.id === targetId);
-
     if (targetItem) {
-      if (targetItem.type === 'folder' && currentDropPosition === 'middle') {
+      if (isDroppingIntoCategory) {
         // Move into folder
         draggedItems.forEach(item => {
           item.parentId = targetId;
@@ -2269,7 +2309,7 @@ function SidebarItem({
         onPointerDown={(e) => handleSidebarItemPointerDown(e, item.id, isFolder)}
         className={cn(
           "dayline-sidebar-row flex items-center rounded-md group relative select-none isolate overflow-visible",
-          isNestedItem ? "py-1" : "py-1.5",
+          "py-[5px]",
           isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
           isCollapsed ? "justify-center" : isFolder ? "px-3 gap-1.5" : "px-3 gap-2",
@@ -2280,7 +2320,7 @@ function SidebarItem({
             : isNestedItem
             ? "text-[var(--tokyo-text-muted)]/88 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
             : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
-          isFolder && "font-semibold",
+          "text-sm font-medium",
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
         )}
         title={isCollapsed ? item.label : undefined}
@@ -2393,7 +2433,7 @@ function SidebarItem({
             />
           ) : (
             <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
-              <span className="text-sm font-medium truncate">{item.label}</span>
+              <span className="truncate text-sm font-medium leading-5">{item.label}</span>
               {isFolder && item.id !== 'favourites' && item.id !== 'shared' && (
                 <div className="relative ml-2 shrink-0">
                   <button
