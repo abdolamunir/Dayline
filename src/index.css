@@ -251,6 +251,10 @@ button {
   border-left: 1px solid var(--tokyo-border);
 }
 
+.inner-detail-properties > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.125rem !important;
+}
+
 @media (min-width: 768px) {
   .dayline-main-surface:has(.inner-detail-layout) {
     height: 100vh;

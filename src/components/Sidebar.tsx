@@ -81,6 +81,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [lastSelectedSidebarItemId, setLastSelectedSidebarItemId] = useState<string | null>(null);
   const [draggingSidebarItemIds, setDraggingSidebarItemIds] = useState<string[]>([]);
   const [primaryDraggingSidebarItemId, setPrimaryDraggingSidebarItemId] = useState<string | null>(null);
+  const fixedSidebarItemIds = new Set(['favourites', 'shared', 'private']);
 
   const profileStorageKey = user?.uid ? `dayline:user-profile:v1:${user.uid}` : null;
   const defaultProfile = React.useMemo<ProfileOverrides>(() => ({
@@ -412,6 +413,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       label: 'New Category',
       icon: 'Folder',
       type: 'folder',
+      parentId: 'private',
       isExpanded: true
     });
     setEditingId(newId);
@@ -485,6 +487,25 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
   };
 
+  const setSidebarItemFavorite = (id: string, isFavorite: boolean) => {
+    reorderSidebarItems(sidebarItems.map(item => (
+      item.id === id ? { ...item, isFavorite } : item
+    )));
+  };
+
+  const setPageFavorite = (id: string, isFavorite: boolean) => {
+    const page = customPages.find(candidate => candidate.id === id);
+    if (page) {
+      updateCustomPage({ ...page, isFavorite });
+      return;
+    }
+
+    const item = sidebarItems.find(candidate => candidate.id === id);
+    if (item && item.type !== 'folder' && item.type !== 'trash') {
+      setSidebarItemFavorite(id, isFavorite);
+    }
+  };
+
   const handleDragStart = (e: React.DragEvent, id: string, parentId?: string) => {
     const draggedIds = selectedSidebarItemIds.includes(id) ? selectedSidebarItemIds : [id];
     hideNonHeldSelectedSidebarRows(draggedIds, id);
@@ -545,7 +566,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       const height = rect.height;
       
       const item = sidebarItems.find(i => i.id === id);
-      if (item?.type === 'folder') {
+      const isSmartFolder = item?.id === 'favourites' || item?.id === 'shared';
+      if (item?.type === 'folder' && !isSmartFolder) {
         if (y < height * 0.25) setDropPosition('top');
         else if (y > height * 0.75) setDropPosition('bottom');
         else setDropPosition('middle');
@@ -606,7 +628,17 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const draggedArea = areas.find(a => a.id === draggedId);
     const draggedCustomPage = customPages.find(p => p.id === draggedId);
 
-    const isTargetFavourites = targetId === 'favourites' || (targetId && sidebarItems.find(i => i.id === targetId)?.parentId === 'favourites');
+    if (
+      (targetId === 'shared' && currentDropPosition === 'middle') ||
+      (targetId && sidebarItems.find(i => i.id === targetId)?.parentId === 'shared')
+    ) {
+      return;
+    }
+
+    const isTargetFavourites = (
+      (targetId === 'favourites' && currentDropPosition === 'middle') ||
+      (targetId && sidebarItems.find(i => i.id === targetId)?.parentId === 'favourites' && currentDropPosition === 'middle')
+    );
 
     if (isTargetFavourites) {
       // Dragged into Favourites!
@@ -615,6 +647,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       if (draggedGoal) updateGoal({ ...draggedGoal, isFavorite: true });
       if (draggedArea) updateArea(draggedArea.id, { isFavorite: true });
       if (draggedCustomPage) updateCustomPage({ ...draggedCustomPage, isFavorite: true });
+      if (!draggedNote && !draggedProject && !draggedGoal && !draggedArea && !draggedCustomPage) {
+        const draggedSidebarItem = sidebarItems.find(item => item.id === draggedId);
+        if (draggedSidebarItem && draggedSidebarItem.type !== 'folder' && draggedSidebarItem.type !== 'trash') {
+          setSidebarItemFavorite(draggedId, true);
+        }
+      }
       return;
     }
 
@@ -626,6 +664,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       if (draggedArea) updateArea(draggedArea.id, { isFavorite: false });
       if (draggedCustomPage) {
         updateCustomPage({ ...draggedCustomPage, isFavorite: false });
+      }
+      if (!draggedNote && !draggedProject && !draggedGoal && !draggedArea && !draggedCustomPage) {
+        const draggedSidebarItem = sidebarItems.find(item => item.id === draggedId);
+        if (draggedSidebarItem) {
+          setSidebarItemFavorite(draggedId, false);
+        }
       }
     }
 
@@ -1181,8 +1225,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     >
                       <span className="text-sm font-medium flex-1 text-left">Quick actions</span>
                       <div className="flex items-center gap-0.5 px-1 py-0.5 rounded border border-[var(--tokyo-border-strong)] bg-transparent">
-                        <span className="text-xs font-sans">⌘</span>
-                        <span className="text-xs font-sans">K</span>
+                        <span className="text-sm leading-none font-sans">⌘</span>
+                        <span className="text-xs leading-none font-sans">K</span>
                       </div>
                     </button>
                   </div>
@@ -1307,7 +1351,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Logbook</span>}
                   </button>
               </div>
-                <div className="h-px bg-[var(--tokyo-border)] my-4 mx-4" />
+                <div className="h-px bg-[var(--tokyo-border)] my-2.5 mx-7" />
             </div>
 
             {/* Main Section */}
@@ -1617,6 +1661,11 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             updateCustomPage({ ...p, isFavorite: false, items: nextItems });
                           }
                         });
+                        if (sidebarItems.some(item => item.isFavorite)) {
+                          reorderSidebarItems(sidebarItems.map(item => (
+                            item.isFavorite ? { ...item, isFavorite: false } : item
+                          )));
+                        }
                         setContextMenu(null);
                       }}
                     >
@@ -1634,6 +1683,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         const goal = goals.find(g => g.id === contextMenu.id);
                         const area = areas.find(a => a.id === contextMenu.id);
                         const customPage = customPages.find(p => p.id === contextMenu.id);
+                        const sidebarItem = sidebarItems.find(i => i.id === contextMenu.id);
                         
                         let pageItem: any = null;
                         customPages.forEach(p => {
@@ -1643,7 +1693,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                           }
                         });
 
-                        const currentLabel = note?.title || project?.name || goal?.title || area?.name || customPage?.title || pageItem?.title || '';
+                        const currentLabel = note?.title || project?.name || goal?.title || area?.name || customPage?.title || pageItem?.title || sidebarItem?.label || '';
                         setEditValue(currentLabel);
                         setEditingId(contextMenu.id);
                         setEditingParentId(contextMenu.parentId || 'favourites');
@@ -1680,6 +1730,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         if (goal) updateGoal({ ...goal, isFavorite: false });
                         if (area) updateArea(area.id, { isFavorite: false });
                         if (customPage) updateCustomPage({ ...customPage, isFavorite: false });
+                        if (!note && !project && !goal && !area && !customPage) {
+                          const sidebarItem = sidebarItems.find(i => i.id === contextMenu.id);
+                          if (sidebarItem) {
+                            setSidebarItemFavorite(sidebarItem.id, false);
+                          }
+                        }
 
                         // Also handle custom page items
                         customPages.forEach(p => {
@@ -1696,7 +1752,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       }}
                     >
                       <Star className="w-3.5 h-3.5 shrink-0" color="#e9ca35" fill="#e9ca35" strokeWidth={0} />
-                      Unpin
+                      Remove Favourite
                     </button>
                   </>
                 ) : (
@@ -1716,18 +1772,20 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       <Edit2 className="w-3.5 h-3.5" />
                       Rename
                     </button>
-                    <button 
-                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
-                      onClick={() => {
-                        if (contextMenu.id !== 'favourites') {
-                          duplicateSidebarItem(contextMenu.id);
-                        }
-                        setContextMenu(null);
-                      }}
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      Duplicate
-                    </button>
+                    {!fixedSidebarItemIds.has(contextMenu.id) && (
+                      <button 
+                        className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (contextMenu.id !== 'favourites') {
+                            duplicateSidebarItem(contextMenu.id);
+                          }
+                          setContextMenu(null);
+                        }}
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Duplicate
+                      </button>
+                    )}
                     {sidebarItems.find(i => i.id === contextMenu.id)?.type !== 'folder' && contextMenu.id !== 'favourites' && (
                       <button 
                         className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
@@ -1745,11 +1803,34 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         Change Icon
                       </button>
                     )}
-                    <div className="h-px bg-[var(--tokyo-border)] my-1" />
-                    <button 
-                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
-                      onClick={() => {
-                        if (contextMenu.id === 'favourites') {
+                    {(() => {
+                      const item = sidebarItems.find(i => i.id === contextMenu.id);
+                      const page = customPages.find(p => p.id === contextMenu.id);
+                      const isFavorite = page?.isFavorite || item?.isFavorite || false;
+                      return item?.type !== 'folder' && item?.type !== 'trash' && contextMenu.id !== 'favourites' ? (
+                        <button 
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          onClick={() => {
+                            setPageFavorite(contextMenu.id, !isFavorite);
+                            setContextMenu(null);
+                          }}
+                        >
+                          {isFavorite ? (
+                            <Star className="w-3.5 h-3.5 shrink-0" color="#e9ca35" fill="#e9ca35" strokeWidth={0} />
+                          ) : (
+                            <Star className="w-3.5 h-3.5 shrink-0 text-[var(--tokyo-text-faint)]" />
+                          )}
+                          {isFavorite ? 'Remove Favourite' : 'Add to Favourites'}
+                        </button>
+                      ) : null;
+                    })()}
+                    {!fixedSidebarItemIds.has(contextMenu.id) && (
+                      <>
+                        <div className="h-px bg-[var(--tokyo-border)] my-1" />
+                        <button 
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (contextMenu.id === 'favourites') {
                           // Unfavorite everything!
                           notes.forEach(n => { if (n.isFavorite) updateNote({ ...n, isFavorite: false }); });
                           projects.forEach(p => { if (p.isFavorite) updateProject(p.id, { isFavorite: false }); });
@@ -1768,6 +1849,11 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                               updateCustomPage({ ...p, isFavorite: false, items: nextItems });
                             }
                           });
+                          if (sidebarItems.some(item => item.isFavorite)) {
+                            reorderSidebarItems(sidebarItems.map(item => (
+                              item.isFavorite ? { ...item, isFavorite: false } : item
+                            )));
+                          }
                         } else {
                           deleteSidebarItem(contextMenu.id);
                           if (currentView === contextMenu.id) {
@@ -1775,11 +1861,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                           }
                         }
                         setContextMenu(null);
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Delete
-                    </button>
+                          }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </>
                 )
               ) : null}
@@ -1952,6 +2040,11 @@ function SidebarItem({
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [createMenuPos, setCreateMenuPos] = useState<{ top: number; left: number } | null>(null);
   const store = useAppStore();
+  const isSharedItem = (candidate: any) => (
+    Boolean(candidate?.isShared) ||
+    (Array.isArray(candidate?.sharedWith) && candidate.sharedWith.length > 0)
+  );
+
   const children = item.id === 'favourites' 
     ? (() => {
         const favoritedAreas = (store.areas || []).filter(a => a.isFavorite).map(area => ({
@@ -1999,6 +2092,20 @@ function SidebarItem({
           view: `page-${page.id}`,
         }));
 
+        const favoritedSidebarItems = (store.sidebarItems || [])
+          .filter(sidebarItem => (
+            sidebarItem.isFavorite &&
+            sidebarItem.id !== 'favourites' &&
+            sidebarItem.type !== 'folder' &&
+            sidebarItem.type !== 'trash' &&
+            !(store.customPages || []).some(page => page.id === sidebarItem.id)
+          ))
+          .map(sidebarItem => ({
+            ...sidebarItem,
+            parentId: 'favourites',
+            view: sidebarItem.id,
+          }));
+
         const favoritedPageItems: any[] = [];
         (store.customPages || []).forEach(page => {
           if (page.items) {
@@ -2024,9 +2131,43 @@ function SidebarItem({
           ...favoritedGoals,
           ...favoritedNotes,
           ...favoritedCustomPages,
+          ...favoritedSidebarItems,
           ...favoritedPageItems,
         ];
       })()
+    : item.id === 'shared'
+      ? (() => {
+          const sharedCustomPages = (store.customPages || [])
+            .filter(page => isSharedItem(page))
+            .map(page => ({
+              id: page.id,
+              parentId: 'shared',
+              label: page.title || 'Untitled Page',
+              icon: page.icon || (page.kind === 'database' ? 'Database' : 'FileText'),
+              type: 'custom',
+              view: `page-${page.id}`,
+            }));
+
+          const sharedSidebarItems = (store.sidebarItems || [])
+            .filter(sidebarItem => (
+              isSharedItem(sidebarItem) &&
+              sidebarItem.id !== 'favourites' &&
+              sidebarItem.id !== 'shared' &&
+              sidebarItem.type !== 'folder' &&
+              sidebarItem.type !== 'trash' &&
+              !(store.customPages || []).some(page => page.id === sidebarItem.id)
+            ))
+            .map(sidebarItem => ({
+              ...sidebarItem,
+              parentId: 'shared',
+              view: sidebarItem.id,
+            }));
+
+          return [
+            ...sharedCustomPages,
+            ...sharedSidebarItems,
+          ];
+        })()
     : sidebarItems.filter((i: any) => i.parentId === item.id);
   const isDraggingOver = dragOverId === item.id;
   const isSelected = selectedSidebarItemIds?.includes(item.id);
@@ -2081,6 +2222,8 @@ function SidebarItem({
             ? "bg-transparent text-white z-20"
             : isActive || isSelected || showBulkDragSelection
             ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
+            : isNestedItem
+            ? "text-[var(--tokyo-text-muted)]/72 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-muted)]"
             : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
           isFolder && "font-semibold",
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
@@ -2167,7 +2310,7 @@ function SidebarItem({
             >
               <Icon className={cn(
                 "w-4 h-4 shrink-0 stroke-[1.5]",
-                isActive || isSelected ? "opacity-100" : "opacity-70"
+                isActive || isSelected ? "opacity-100" : isNestedItem ? "opacity-55" : "opacity-70"
               )} />
             </button>
           )}
@@ -2191,7 +2334,7 @@ function SidebarItem({
           ) : (
             <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
               <span className="text-sm font-medium truncate">{item.label}</span>
-              {isFolder && item.id !== 'favourites' && (
+              {isFolder && item.id !== 'favourites' && item.id !== 'shared' && (
                 <div className="relative ml-2 shrink-0">
                   <button
                     type="button"

@@ -301,7 +301,7 @@ function GoalReorderRow({
 }
 
 export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: string) => void, selectedGoalId?: string }) {
-  const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, updateSidebarItem, deleteSidebarItem, user, viewSettings, updateViewSettings } = useAppStore();
+  const { goals, areas, updateGoal, reorderGoals, addGoal, deleteGoal, duplicateGoal, tasks, addTask, updateTask, sidebarItems, reorderSidebarItems, updateSidebarItem, deleteSidebarItem, user, viewSettings, updateViewSettings } = useAppStore();
   const savedGoalSettings = viewSettings.goals || {};
   const [localSelectedGoalId, setLocalSelectedGoalId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -395,7 +395,6 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionValue, setDescriptionValue] = useState(savedGoalSettings.description || 'Track and manage your long-term objectives.');
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority' | 'area';
@@ -419,7 +418,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
   const effectiveSelectedGoalId = selectedGoalId || localSelectedGoalId;
   const selectedGoal = effectiveSelectedGoalId ? goals.find(g => g.id === effectiveSelectedGoalId) : null;
-  const currentPageTitle = sidebarItems.find(i => i.id === 'goals')?.label || 'Goals';
+  const currentSidebarItem = sidebarItems.find(i => i.id === 'goals');
+  const currentPageTitle = currentSidebarItem?.label || 'Goals';
+  const isFavorite = Boolean(currentSidebarItem?.isFavorite);
 
   useEffect(() => {
     const settings = viewSettings.goals;
@@ -575,6 +576,12 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       updateSidebarItem(item.id, titleValue.trim(), item.icon);
     }
     setIsEditingTitle(false);
+  };
+
+  const handleTogglePageFavorite = () => {
+    reorderSidebarItems(sidebarItems.map(item => (
+      item.id === 'goals' ? { ...item, isFavorite: !item.isFavorite } : item
+    )));
   };
 
   const handleUpdateDescription = () => {
@@ -1150,7 +1157,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
             <Link className="h-[18px] w-[18px]" />
           </button>
           <button
-            onClick={() => setIsFavorite((favorite) => !favorite)}
+            onClick={handleTogglePageFavorite}
             className={cn(
               "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
               isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
@@ -2415,7 +2422,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               ) : (
                 <Star className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)]" />
               )}
-              {goals.find(g => g.id === goalContextMenu.id)?.isFavorite ? 'Remove from Favourites' : 'Add to Favourites'}
+              {goals.find(g => g.id === goalContextMenu.id)?.isFavorite ? 'Remove Favourite' : 'Add to Favourites'}
             </button>
             <div className="h-px bg-[var(--tokyo-border)] my-1" />
             <button 

@@ -6,14 +6,16 @@ import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 const initialSidebarItems: SidebarItem[] = [
   { id: 'favourites', label: 'Favourites', icon: 'Folder', type: 'folder', isExpanded: true },
-  { id: 'notes', label: 'Notes', icon: 'Pencil', type: 'system' },
-  { id: 'projects', label: 'Projects', icon: 'Folder', type: 'system' },
-  { id: 'goals', label: 'Goals', icon: 'Target', type: 'system' },
-  { id: 'areas', label: 'Areas', icon: 'Layers', type: 'system' },
-  { id: 'habits', label: 'Habits', icon: 'Dumbbell', type: 'system' },
-  { id: 'ideas', label: 'Ideas', icon: 'Smile', type: 'system' },
-  { id: 'journal', label: 'Journal', icon: 'Book', type: 'system' },
-  { id: 'moods', label: 'Moods', icon: 'Activity', type: 'system' },
+  { id: 'shared', label: 'Shared', icon: 'Users', type: 'folder', isExpanded: true },
+  { id: 'private', label: 'Private', icon: 'Lock', type: 'folder', isExpanded: true },
+  { id: 'notes', label: 'Notes', icon: 'Pencil', type: 'system', parentId: 'private' },
+  { id: 'projects', label: 'Projects', icon: 'Folder', type: 'system', parentId: 'private' },
+  { id: 'goals', label: 'Goals', icon: 'Target', type: 'system', parentId: 'private' },
+  { id: 'areas', label: 'Areas', icon: 'Layers', type: 'system', parentId: 'private' },
+  { id: 'habits', label: 'Habits', icon: 'Dumbbell', type: 'system', parentId: 'private' },
+  { id: 'ideas', label: 'Ideas', icon: 'Smile', type: 'system', parentId: 'private' },
+  { id: 'journal', label: 'Journal', icon: 'Book', type: 'system', parentId: 'private' },
+  { id: 'moods', label: 'Moods', icon: 'Activity', type: 'system', parentId: 'private' },
 ];
 
 interface AppState {
@@ -115,6 +117,9 @@ const uniqueById = <T extends { id: string }>(items: T[] = []): T[] => {
   });
 };
 
+const smartSidebarIds = new Set(['favourites', 'shared']);
+const fixedSidebarIds = new Set([...smartSidebarIds, 'private']);
+
 const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWorkspace => {
   const rawWorkspace = { ...createEmptyWorkspace(), ...workspace };
   const nextWorkspace = {
@@ -135,11 +140,41 @@ const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWo
   };
   const customPageById = new Map(nextWorkspace.customPages.map(page => [page.id, page]));
   const existingSidebarIds = new Set(nextWorkspace.sidebarItems.map(item => item.id));
+  const favoriteSidebarChildIds = new Set(
+    nextWorkspace.sidebarItems
+      .filter(item => item.parentId === 'favourites')
+      .map(item => item.id)
+  );
+  const sharedSidebarChildIds = new Set(
+    nextWorkspace.sidebarItems
+      .filter(item => item.parentId === 'shared')
+      .map(item => item.id)
+  );
+
+  if (favoriteSidebarChildIds.size > 0 || sharedSidebarChildIds.size > 0) {
+    nextWorkspace.customPages = nextWorkspace.customPages.map(page => (
+      favoriteSidebarChildIds.has(page.id) || sharedSidebarChildIds.has(page.id)
+        ? {
+            ...page,
+            isFavorite: favoriteSidebarChildIds.has(page.id) ? true : page.isFavorite,
+            isShared: sharedSidebarChildIds.has(page.id) ? true : page.isShared,
+          }
+        : page
+    ));
+  }
   
   let syncedSidebarItems = nextWorkspace.sidebarItems.map(item => {
     let nextItem = { ...item };
     if (nextItem.parentId === 'favourites') {
+      nextItem.isFavorite = true;
       nextItem.parentId = undefined;
+    }
+    if (nextItem.parentId === 'shared') {
+      nextItem.isShared = true;
+      nextItem.parentId = undefined;
+    }
+    if (!nextItem.parentId && !fixedSidebarIds.has(nextItem.id) && nextItem.type !== 'trash') {
+      nextItem.parentId = 'private';
     }
     if (nextItem.type !== 'custom') return nextItem;
     const page = customPageById.get(nextItem.id);
@@ -153,9 +188,37 @@ const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWo
     ];
   }
 
+  if (!existingSidebarIds.has('shared')) {
+    const favouritesIndex = syncedSidebarItems.findIndex(item => item.id === 'favourites');
+    const sharedItem = { id: 'shared', label: 'Shared', icon: 'Users', type: 'folder' as const, isExpanded: true };
+    if (favouritesIndex >= 0) {
+      syncedSidebarItems = [
+        ...syncedSidebarItems.slice(0, favouritesIndex + 1),
+        sharedItem,
+        ...syncedSidebarItems.slice(favouritesIndex + 1),
+      ];
+    } else {
+      syncedSidebarItems = [sharedItem, ...syncedSidebarItems];
+    }
+  }
+
+  if (!existingSidebarIds.has('private')) {
+    const sharedIndex = syncedSidebarItems.findIndex(item => item.id === 'shared');
+    const privateItem = { id: 'private', label: 'Private', icon: 'Lock', type: 'folder' as const, isExpanded: true };
+    if (sharedIndex >= 0) {
+      syncedSidebarItems = [
+        ...syncedSidebarItems.slice(0, sharedIndex + 1),
+        privateItem,
+        ...syncedSidebarItems.slice(sharedIndex + 1),
+      ];
+    } else {
+      syncedSidebarItems = [privateItem, ...syncedSidebarItems];
+    }
+  }
+
   const missingCustomItems = nextWorkspace.customPages
     .filter(page => !existingSidebarIds.has(page.id))
-    .map(page => ({ id: page.id, label: page.title, icon: page.icon, type: 'custom' as const }));
+    .map(page => ({ id: page.id, label: page.title, icon: page.icon, type: 'custom' as const, parentId: 'private' }));
 
   return {
     ...nextWorkspace,
@@ -532,8 +595,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addCustomPage = (page: CustomPage, parentId?: string) => {
+    const nextParentId = parentId || 'private';
     setCustomPages(currentPages => uniqueById([...currentPages, page]));
-    setSidebarItems(currentItems => uniqueById([...currentItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom', parentId }]));
+    setSidebarItems(currentItems => uniqueById([...currentItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom', parentId: nextParentId }]));
   };
 
   const updateCustomPage = (updatedPage: CustomPage) => {
@@ -579,7 +643,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     switch (item.type) {
       case 'page':
         setCustomPages(currentPages => uniqueById([...currentPages, item.data]));
-        setSidebarItems(currentItems => uniqueById([...currentItems, { id: item.data.id, label: item.data.title, icon: item.data.icon, type: 'custom' }]));
+        setSidebarItems(currentItems => uniqueById([...currentItems, { id: item.data.id, label: item.data.title, icon: item.data.icon, type: 'custom', parentId: 'private' }]));
         break;
       case 'note':
         setNotes(currentNotes => uniqueById([...currentNotes, item.data]));
@@ -607,7 +671,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteSidebarItem = (id: string) => {
-    if (id === 'favourites') return;
+    if (fixedSidebarIds.has(id)) return;
     const item = sidebarItems.find(i => i.id === id);
     if (item) {
       if (item.type === 'custom') {
@@ -624,7 +688,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const duplicateSidebarItem = (id: string) => {
-    if (id === 'favourites') return;
+    if (fixedSidebarIds.has(id)) return;
     const item = sidebarItems.find(i => i.id === id);
     if (!item) {
       return;
@@ -707,7 +771,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addFolder = (folder: SidebarItem) => {
-    setSidebarItems(currentItems => uniqueById([...currentItems, folder]));
+    const nextFolder = fixedSidebarIds.has(folder.id) || folder.parentId
+      ? folder
+      : { ...folder, parentId: 'private' };
+    setSidebarItems(currentItems => uniqueById([...currentItems, nextFolder]));
   };
 
   const toggleFolderExpansion = (id: string) => {

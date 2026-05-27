@@ -1944,7 +1944,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 ) : (
                   <Star className="h-4 w-4 shrink-0 text-[var(--tokyo-text-faint)]" />
                 )}
-                {page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite ? 'Remove from Favourites' : 'Add to Favourites'}
+                {page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite ? 'Remove Favourite' : 'Add to Favourites'}
               </button>
               <div className="my-1 h-px bg-[var(--tokyo-border)]" />
               <button

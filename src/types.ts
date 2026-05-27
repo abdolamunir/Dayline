@@ -46,6 +46,8 @@ export interface Note {
   customProperties?: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
   icon?: string;
   isFavorite?: boolean;
+  isShared?: boolean;
+  sharedWith?: string[];
 }
 
 export type TaskStatus = 'todo' | 'doing' | 'done';
@@ -95,6 +97,8 @@ export interface Goal {
   customProperties?: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
   icon?: string;
   isFavorite?: boolean;
+  isShared?: boolean;
+  sharedWith?: string[];
 }
 
 export interface Project {
@@ -116,6 +120,8 @@ export interface Project {
   alert?: string;
   repeat?: string;
   isFavorite?: boolean;
+  isShared?: boolean;
+  sharedWith?: string[];
 }
 
 export interface Area {
@@ -135,6 +141,8 @@ export interface Area {
   alert?: string;
   repeat?: string;
   isFavorite?: boolean;
+  isShared?: boolean;
+  sharedWith?: string[];
 }
 
 export interface Event {
@@ -191,6 +199,8 @@ export interface CustomPage {
   properties: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
   content: string;
   isFavorite?: boolean;
+  isShared?: boolean;
+  sharedWith?: string[];
 }
 
 export interface TrashItem {
@@ -207,4 +217,7 @@ export interface SidebarItem {
   type: 'system' | 'custom' | 'trash' | 'folder';
   parentId?: string;
   isExpanded?: boolean;
+  isFavorite?: boolean;
+  isShared?: boolean;
+  sharedWith?: string[];
 }
