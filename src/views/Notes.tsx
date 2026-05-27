@@ -89,7 +89,7 @@ const DEFAULT_NOTE_COLUMNS = [
 ];
 
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
-  const { notes, updateNote, addNote, reorderNotes, replaceNotes, areas, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
+  const { notes, updateNote, addNote, reorderNotes, replaceNotes, areas, viewSettings, updateViewSettings, reorderSidebarItems, sidebarItems } = useAppStore();
   const savedNoteSettings = viewSettings.notes || {};
   const [localSelectedNoteId, setLocalSelectedNoteId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -185,6 +185,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
     description: savedNoteSettings.description || 'Documents, outlines, and reference material.',
     icon: sidebarItem?.icon || savedNoteSettings.icon || 'Pencil',
     kind: 'database' as const,
+    isFavorite: Boolean(sidebarItem?.isFavorite),
     activeTab,
     tabs,
     columns,
@@ -230,7 +231,16 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
           sortConfigs: updatedPage.sortConfigs || [],
           templateVersion: GOALS_TEMPLATE_VERSION,
         });
-        updateSidebarItem('notes', updatedPage.title, updatedPage.icon);
+        reorderSidebarItems(sidebarItems.map(item => (
+          item.id === 'notes'
+            ? {
+              ...item,
+              label: updatedPage.title,
+              icon: updatedPage.icon || item.icon,
+              isFavorite: Boolean(updatedPage.isFavorite),
+            }
+            : item
+        )));
         if (updatedPage.activeTab) setActiveTab(updatedPage.activeTab);
 
         const nextNotes = updatedPage.items.map(item => {

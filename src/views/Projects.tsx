@@ -96,7 +96,7 @@ const DEFAULT_PROJECT_COLUMNS = [
 ];
 
 export function Projects({ onViewChange, selectedProjectId }: { onViewChange?: (view: string) => void, selectedProjectId?: string }) {
-  const { projects, updateProject, replaceProjects, goals, areas, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
+  const { projects, updateProject, replaceProjects, goals, areas, viewSettings, updateViewSettings, reorderSidebarItems, sidebarItems } = useAppStore();
   const savedProjectSettings = viewSettings.projects || {};
   const [localSelectedProjectId, setLocalSelectedProjectId] = useState<string | null>(null);
 
@@ -166,6 +166,7 @@ export function Projects({ onViewChange, selectedProjectId }: { onViewChange?: (
     description: savedProjectSettings.description || 'Containers for your tasks.',
     icon: sidebarItem?.icon || savedProjectSettings.icon || 'FolderKanban',
     kind: 'database' as const,
+    isFavorite: Boolean(sidebarItem?.isFavorite),
     activeTab: shouldUseSavedTemplate ? savedProjectSettings.activeTab : 'planning',
     tabs,
     columns,
@@ -208,7 +209,16 @@ export function Projects({ onViewChange, selectedProjectId }: { onViewChange?: (
           sortConfigs: updatedPage.sortConfigs || [],
           templateVersion: GOALS_TEMPLATE_VERSION,
         });
-        updateSidebarItem('projects', updatedPage.title, updatedPage.icon);
+        reorderSidebarItems(sidebarItems.map(item => (
+          item.id === 'projects'
+            ? {
+              ...item,
+              label: updatedPage.title,
+              icon: updatedPage.icon || item.icon,
+              isFavorite: Boolean(updatedPage.isFavorite),
+            }
+            : item
+        )));
         replaceProjects(updatedPage.items.map(item => {
           const existingProject = projects.find(project => project.id === item.id);
           const customProperties = updatedPage.properties

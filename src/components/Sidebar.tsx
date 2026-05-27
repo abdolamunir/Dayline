@@ -31,6 +31,20 @@ type ProfileOverrides = {
   photoURL: string;
 };
 
+const SIDEBAR_WIDTH_STORAGE_KEY = 'dayline:sidebar-width';
+const DEFAULT_SIDEBAR_WIDTH = 256;
+const MIN_SIDEBAR_WIDTH = 220;
+const MAX_SIDEBAR_WIDTH = 420;
+
+const clampSidebarWidth = (width: number) => Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
+
+const readSidebarWidth = () => {
+  if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
+
+  const storedWidth = Number.parseFloat(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY) || '');
+  return Number.isFinite(storedWidth) ? clampSidebarWidth(storedWidth) : DEFAULT_SIDEBAR_WIDTH;
+};
+
 export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleSidebar }: SidebarProps) {
   const { 
     customPages,
@@ -72,6 +86,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [authError, setAuthError] = useState('');
   const [profileOverrides, setProfileOverrides] = useState<ProfileOverrides | null>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileOverrides>({ name: '', username: '', email: '', photoURL: '' });
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,6 +110,37 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const activeProfilePhoto = activeProfile.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeProfile.name || activeProfile.email || 'User')}&background=0D8ABC&color=fff`;
   const activeProfileName = activeProfile.name || activeProfile.email || 'User';
   const activeProfileEmail = activeProfile.email || user?.email || '';
+
+  useEffect(() => {
+    if (isCollapsed) return;
+    window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth));
+  }, [isCollapsed, sidebarWidth]);
+
+  const handleSidebarResizeStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = sidebarWidth;
+    setIsResizingSidebar(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      setSidebarWidth(clampSidebarWidth(startWidth + moveEvent.clientX - startX));
+    };
+
+    const handlePointerUp = () => {
+      setIsResizingSidebar(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
 
   const restoreHiddenSidebarRows = () => {
     hiddenSidebarRowStylesRef.current.forEach((styles, element) => {
@@ -413,7 +460,6 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       label: 'New Category',
       icon: 'Folder',
       type: 'folder',
-      parentId: 'private',
       isExpanded: true
     });
     setEditingId(newId);
@@ -727,6 +773,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
 
     if (draggedItems.length === 0) return;
+
+    if (sourceParent === 'favourites') {
+      draggedItems.forEach(item => {
+        item.isFavorite = false;
+      });
+    }
 
     const targetItem = newItems.find(i => i.id === targetId);
 
@@ -1119,10 +1171,27 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       )}
 
       <div className={cn(
-        "fixed md:relative z-50 bg-[var(--tokyo-sidebar)] border-r border-[var(--tokyo-border)] h-screen flex flex-col text-[var(--tokyo-text)] select-none transition-[width,transform] duration-100 ease-out overflow-hidden",
-        isCollapsed ? "w-16" : "w-64",
+        "dayline-sidebar-surface fixed md:relative z-50 bg-[var(--tokyo-sidebar)] border-r border-[var(--tokyo-border)] h-screen flex shrink-0 flex-col text-[var(--tokyo-text)] select-none overflow-hidden",
+        isResizingSidebar ? "transition-[transform] duration-0" : "transition-[width,transform] duration-100 ease-out",
+        isCollapsed && "w-16",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-      )}>
+      )}
+        style={isCollapsed ? undefined : { width: sidebarWidth, flexBasis: sidebarWidth }}
+      >
+        {!isCollapsed && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            onPointerDown={handleSidebarResizeStart}
+            className={cn(
+              "absolute right-[-4px] top-0 z-[80] hidden h-full w-2 cursor-col-resize touch-none md:block",
+              "before:absolute before:left-1/2 before:top-0 before:h-full before:w-[3px] before:-translate-x-1/2 before:bg-transparent before:transition-colors",
+              "hover:before:bg-[var(--tokyo-yellow)]",
+              isResizingSidebar && "before:bg-[var(--tokyo-yellow)]"
+            )}
+          />
+        )}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto no-scrollbar pb-8" ref={containerRef}>
             <div className="relative z-20 bg-[var(--tokyo-sidebar)] shrink-0">
@@ -1221,7 +1290,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="flex items-center">
                     <button 
                       onClick={() => onOpenCommandPalette()}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 bg-transparent border border-[var(--tokyo-border)] rounded-lg text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] transition-colors cursor-pointer group"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 bg-transparent border border-[var(--tokyo-border)] rounded-lg text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] active:bg-[var(--tokyo-hover)] cursor-pointer group"
                     >
                       <span className="text-sm font-medium flex-1 text-left">Quick actions</span>
                       <div className="flex items-center gap-0.5 px-1 py-0.5 rounded border border-[var(--tokyo-border-strong)] bg-transparent">
@@ -1308,7 +1377,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div>
                     <button 
                       onClick={() => onOpenCommandPalette()}
-                      className="w-full flex items-center justify-center bg-transparent border border-[var(--tokyo-border)] hover:bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text)] rounded-md py-1.5 transition-colors cursor-pointer"
+                      className="w-full flex items-center justify-center bg-transparent border border-[var(--tokyo-border)] hover:bg-[var(--tokyo-hover)] active:bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text)] rounded-md py-1.5 cursor-pointer"
                       title="Quick actions"
                     >
                       <Search className="w-4 h-4 shrink-0" />
@@ -1316,7 +1385,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   </div>
                 </div>
               )}              <div className="px-4 mt-1 space-y-0.5">
-                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'inbox' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'inbox' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Inbox className="w-4 h-4 text-[#45aaff] shrink-0" />
                     {!isCollapsed && (
                       <>
@@ -1326,7 +1395,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'today' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'today' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Star className="w-4 h-4 text-[var(--tokyo-yellow)] shrink-0" />
                     {!isCollapsed && (
                       <>
@@ -1336,17 +1405,17 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'upcoming' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'upcoming' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <CalendarIcon className="w-4 h-4 text-[var(--tokyo-pink)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Upcoming</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'someday' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'someday' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Clock className="w-4 h-4 text-[var(--tokyo-purple)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Someday</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'logbook' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'logbook' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <BookCheck className="w-4 h-4 text-[var(--tokyo-green)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Logbook</span>}
                   </button>
@@ -1412,8 +1481,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                 <>
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
-                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer group"
+                      onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white cursor-pointer group"
                     >
                       <Plus className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)] group-hover:text-white" />
                       <span className="text-sm font-medium flex-1 text-left text-[var(--tokyo-text)] group-hover:text-white">New Item</span>
@@ -1454,7 +1523,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <button 
                     onClick={() => onViewChange('trash')}
                     className={cn(
-                      "w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors cursor-pointer group",
+                      "w-full flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer group",
                       currentView === 'trash'
                         ? "bg-[rgba(224,107,138,0.14)] text-[var(--tokyo-pink)]"
                         : "text-[var(--tokyo-pink)] hover:bg-[rgba(224,107,138,0.1)]"
@@ -1469,7 +1538,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="p-2 text-[var(--tokyo-text-faint)] hover:text-white transition-colors cursor-pointer" 
+                      className="p-2 text-[var(--tokyo-text-faint)] hover:text-white cursor-pointer" 
                       title="New Item"
                     >
                       <Plus className="w-4 h-4" />
@@ -1513,7 +1582,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <button
                     onClick={() => onViewChange('trash')}
                     className={cn(
-                      "p-2 rounded-md transition-colors cursor-pointer",
+                      "p-2 rounded-md cursor-pointer",
                       currentView === 'trash'
                         ? "bg-[rgba(224,107,138,0.14)] text-[var(--tokyo-pink)]"
                         : "text-[var(--tokyo-pink)] hover:bg-[rgba(224,107,138,0.1)]"
@@ -2183,27 +2252,13 @@ function SidebarItem({
   }
 
   return (
-    <motion.div
-      animate={{
-        height: isMergedIntoDragStack ? 0 : 'auto',
-        opacity: isMergedIntoDragStack ? 0 : 1,
-        marginTop: isMergedIntoDragStack ? 0 : undefined,
-        marginBottom: isMergedIntoDragStack ? 0 : undefined,
-      }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
-      style={{ pointerEvents: isMergedIntoDragStack ? 'none' : undefined }}
+    <div
       className={cn(
         "space-y-0.5 relative",
         isMergedIntoDragStack ? "!mt-0 overflow-hidden" : "overflow-visible"
       )}
     >
-      <motion.div 
-        animate={{
-          y: isMergedIntoDragStack ? -8 : 0,
-          scale: isDragStackAnchor ? 1.02 : isMergedIntoDragStack ? 0.94 : 1,
-          x: isDragStackAnchor ? 4 : 0,
-        }}
-        transition={{ duration: 0.1, ease: 'easeOut' }}
+      <div
         data-sidebar-item-id={item.id}
         draggable
         onDragStart={(e) => onDragStart(e, item.id, item.parentId)}
@@ -2213,7 +2268,7 @@ function SidebarItem({
         onDrop={(e) => onDrop(e, item.id)}
         onPointerDown={(e) => handleSidebarItemPointerDown(e, item.id, isFolder)}
         className={cn(
-          "flex items-center rounded-md transition-[background-color,color,box-shadow,border-color,width] duration-100 ease-out group relative select-none isolate overflow-visible",
+          "dayline-sidebar-row flex items-center rounded-md group relative select-none isolate overflow-visible",
           isNestedItem ? "py-1" : "py-1.5",
           isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
@@ -2231,6 +2286,11 @@ function SidebarItem({
         title={isCollapsed ? item.label : undefined}
         onContextMenu={(e) => handleContextMenu(e, item.id, 'item', item.parentId)}
         onClick={(e) => {
+          if (isFolder) {
+            toggleFolderExpansion(item.id);
+            return;
+          }
+
           handleSidebarItemClick(e, item.id, isFolder, item);
         }}
       >
@@ -2410,15 +2470,15 @@ function SidebarItem({
             </div>
           )
         )}
-      </motion.div>
+      </div>
 
       <AnimatePresence>
         {isFolder && item.isExpanded && !isCollapsed && children.length > 0 && (
           <motion.div
-            initial={false}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.06, ease: 'easeOut' }}
+            initial={{ height: 0, opacity: 0, y: -2 }}
+            animate={{ height: 'auto', opacity: 1, y: 0 }}
+            exit={{ height: 0, opacity: 0, y: -2 }}
+            transition={{ duration: 0.1, ease: [0.2, 0, 0, 1] }}
             className="ml-6 mt-0.5 space-y-0.5 overflow-hidden pl-1 pr-1"
           >
             {children.map((child: any) => {
@@ -2466,6 +2526,6 @@ function SidebarItem({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

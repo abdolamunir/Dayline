@@ -173,7 +173,7 @@ const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWo
       nextItem.isShared = true;
       nextItem.parentId = undefined;
     }
-    if (!nextItem.parentId && !fixedSidebarIds.has(nextItem.id) && nextItem.type !== 'trash') {
+    if (!nextItem.parentId && !fixedSidebarIds.has(nextItem.id) && nextItem.type !== 'trash' && nextItem.type !== 'folder') {
       nextItem.parentId = 'private';
     }
     if (nextItem.type !== 'custom') return nextItem;
@@ -597,12 +597,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addCustomPage = (page: CustomPage, parentId?: string) => {
     const nextParentId = parentId || 'private';
     setCustomPages(currentPages => uniqueById([...currentPages, page]));
-    setSidebarItems(currentItems => uniqueById([...currentItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom', parentId: nextParentId }]));
+    setSidebarItems(currentItems => uniqueById([
+      ...currentItems,
+      {
+        id: page.id,
+        label: page.title,
+        icon: page.icon,
+        type: 'custom',
+        parentId: nextParentId,
+        isFavorite: page.isFavorite,
+        isShared: page.isShared,
+        sharedWith: page.sharedWith,
+      },
+    ]));
   };
 
   const updateCustomPage = (updatedPage: CustomPage) => {
     setCustomPages(customPages.map(p => p.id === updatedPage.id ? updatedPage : p));
-    setSidebarItems(sidebarItems.map(item => item.id === updatedPage.id ? { ...item, label: updatedPage.title, icon: updatedPage.icon } : item));
+    setSidebarItems(sidebarItems.map(item => item.id === updatedPage.id ? {
+      ...item,
+      label: updatedPage.title,
+      icon: updatedPage.icon,
+      isFavorite: updatedPage.isFavorite,
+      isShared: updatedPage.isShared,
+      sharedWith: updatedPage.sharedWith,
+    } : item));
   };
 
   const moveToTrash = (type: TrashItem['type'], id: string) => {
@@ -771,10 +790,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addFolder = (folder: SidebarItem) => {
-    const nextFolder = fixedSidebarIds.has(folder.id) || folder.parentId
-      ? folder
-      : { ...folder, parentId: 'private' };
-    setSidebarItems(currentItems => uniqueById([...currentItems, nextFolder]));
+    setSidebarItems(currentItems => uniqueById([...currentItems, folder]));
   };
 
   const toggleFolderExpansion = (id: string) => {

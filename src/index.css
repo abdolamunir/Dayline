@@ -90,6 +90,28 @@ button {
   cursor: pointer;
 }
 
+.dayline-sidebar-surface button,
+.dayline-sidebar-row,
+.dayline-sidebar-surface .sidebar-context-menu button {
+  transition-property: background-color, border-color, color, opacity, box-shadow;
+  transition-duration: 70ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dayline-sidebar-surface .animate-in {
+  animation-duration: 80ms !important;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1) !important;
+}
+
+.dayline-sidebar-row {
+  will-change: background-color, color;
+}
+
+.dayline-sidebar-row:active,
+.dayline-sidebar-surface button:active {
+  transition-duration: 35ms;
+}
+
 .bg-\[var\(--tokyo-yellow-dim\)\],
 .bg-\[var\(--tokyo-yellow-dim\)\] span,
 .bg-\[var\(--tokyo-yellow-dim\)\] kbd {

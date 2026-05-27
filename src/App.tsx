@@ -19,7 +19,8 @@ import {
 
 const LAST_VIEW_STORAGE_KEY = 'dayline:last-view';
 
-const CommandPalette = lazy(() => import('./components/CommandPalette').then(module => ({ default: module.CommandPalette })));
+const loadCommandPalette = () => import('./components/CommandPalette');
+const CommandPalette = lazy(() => loadCommandPalette().then(module => ({ default: module.CommandPalette })));
 const LandingPage = lazy(() => import('./components/LandingPage').then(module => ({ default: module.LandingPage })));
 const Dashboard = lazy(() => import('./views/Dashboard').then(module => ({ default: module.Dashboard })));
 const Tasks = lazy(() => import('./views/Tasks').then(module => ({ default: module.Tasks })));
@@ -84,6 +85,7 @@ function AppContent() {
 
   useEffect(() => {
     if (loading || !user) return;
+    loadCommandPalette();
 
     const handleCommandKey = (event: KeyboardEvent) => {
       if (event.key !== 'k' || (!event.metaKey && !event.ctrlKey)) return;

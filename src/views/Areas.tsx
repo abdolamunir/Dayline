@@ -95,7 +95,7 @@ const DEFAULT_AREA_COLUMNS = [
 ];
 
 export function Areas({ onViewChange, selectedAreaId }: { onViewChange?: (view: string) => void, selectedAreaId?: string }) {
-  const { areas, replaceAreas, projects, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
+  const { areas, replaceAreas, projects, viewSettings, updateViewSettings, reorderSidebarItems, sidebarItems } = useAppStore();
   const savedAreaSettings = viewSettings.areas || {};
   const [localSelectedAreaId, setLocalSelectedAreaId] = useState<string | null>(null);
 
@@ -156,6 +156,7 @@ export function Areas({ onViewChange, selectedAreaId }: { onViewChange?: (view: 
     description: savedAreaSettings.description || 'Life categories and continuous responsibilities.',
     icon: sidebarItem?.icon || savedAreaSettings.icon || 'Layers',
     kind: 'database' as const,
+    isFavorite: Boolean(sidebarItem?.isFavorite),
     activeTab: shouldUseSavedTemplate ? savedAreaSettings.activeTab : 'active',
     tabs,
     columns,
@@ -196,7 +197,16 @@ export function Areas({ onViewChange, selectedAreaId }: { onViewChange?: (view: 
           sortConfigs: updatedPage.sortConfigs || [],
           templateVersion: GOALS_TEMPLATE_VERSION,
         });
-        updateSidebarItem('areas', updatedPage.title, updatedPage.icon);
+        reorderSidebarItems(sidebarItems.map(item => (
+          item.id === 'areas'
+            ? {
+              ...item,
+              label: updatedPage.title,
+              icon: updatedPage.icon || item.icon,
+              isFavorite: Boolean(updatedPage.isFavorite),
+            }
+            : item
+        )));
         replaceAreas(updatedPage.items.map(item => {
           const existingArea = areas.find(area => area.id === item.id);
           const customProperties = updatedPage.properties
