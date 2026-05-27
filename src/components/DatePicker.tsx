@@ -71,7 +71,7 @@ export function DatePicker({ selectedDate, initialConfig, onSelect, onClose }: D
   };
 
   return (
-    <div className="dayline-date-picker flex flex-col w-72 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="dayline-date-picker flex flex-col w-72 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--tokyo-border)]">
         <div className="text-sm font-bold text-[var(--tokyo-text-strong)]">

@@ -1023,7 +1023,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       {isProfileOpen && (
                           <div 
                             className={cn(
-                              "dayline-dialog absolute top-full left-0 mt-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200"
+                              "dayline-dialog absolute top-full left-0 mt-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-100"
                             )}
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -1119,7 +1119,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
                       {isProfileOpen && (
                           <div 
-                            className="dayline-dialog absolute top-0 left-full ml-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200"
+                            className="dayline-dialog absolute top-0 left-full ml-2 w-56 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-1 duration-100"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="px-3 py-2 border-b border-[var(--tokyo-border)] mb-1">
@@ -1163,13 +1163,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </div>
                   </div>
 
-                  <button 
-                    onClick={() => onOpenCommandPalette()}
-                    className="w-full flex items-center justify-center bg-transparent border border-[var(--tokyo-border)] hover:bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text)] rounded-md py-1.5 transition-colors cursor-pointer"
-                    title="Quick actions"
-                  >
-                    <Search className="w-4 h-4 shrink-0" />
-                  </button>
+                  <div>
+                    <button 
+                      onClick={() => onOpenCommandPalette()}
+                      className="w-full flex items-center justify-center bg-transparent border border-[var(--tokyo-border)] hover:bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)] hover:text-[var(--tokyo-text)] rounded-md py-1.5 transition-colors cursor-pointer"
+                      title="Quick actions"
+                    >
+                      <Search className="w-4 h-4 shrink-0" />
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1276,7 +1278,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </button>
                     
                     {isNewItemMenuOpen && (
-                      <div className="sidebar-context-menu absolute bottom-full left-0 mb-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <div className="sidebar-context-menu absolute bottom-full left-0 mb-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-100">
                         <button 
                           onClick={() => {
                             handleNewDatabasePage();
@@ -1332,7 +1334,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </button>
                     
                     {isNewItemMenuOpen && (
-                      <div className="sidebar-context-menu absolute bottom-0 left-full ml-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
+                      <div className="sidebar-context-menu absolute bottom-0 left-full ml-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-1 duration-100">
                         <button 
                           onClick={() => {
                             handleNewDatabasePage();
@@ -1387,7 +1389,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
     {/* Shortcuts Modal */}
     {isShortcutsOpen && (
-      <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-100">
         <div 
           className="fixed inset-0" 
           onClick={() => setIsShortcutsOpen(false)}
@@ -1658,7 +1660,7 @@ function SidebarItem({
         marginTop: isMergedIntoDragStack ? 0 : undefined,
         marginBottom: isMergedIntoDragStack ? 0 : undefined,
       }}
-      transition={{ type: 'spring', stiffness: 620, damping: 38, mass: 0.48 }}
+      transition={{ duration: 0.1, ease: 'easeOut' }}
       style={{ pointerEvents: isMergedIntoDragStack ? 'none' : undefined }}
       className={cn(
         "space-y-0.5 relative",
@@ -1672,7 +1674,7 @@ function SidebarItem({
           scale: isDragStackAnchor ? 1.02 : isMergedIntoDragStack ? 0.94 : 1,
           x: isDragStackAnchor ? 4 : 0,
         }}
-        transition={{ type: 'spring', stiffness: 520, damping: 34, mass: 0.55 }}
+        transition={{ duration: 0.1, ease: 'easeOut' }}
         data-sidebar-item-id={item.id}
         draggable
         onDragStart={(e) => onDragStart(e, item.id)}
@@ -1712,7 +1714,7 @@ function SidebarItem({
                 rotate: isDragging ? 3 : 0,
                 opacity: isDragging ? 1 : 0,
               }}
-              transition={{ type: 'spring', stiffness: 620, damping: 32, mass: 0.45 }}
+              transition={{ duration: 0.08, ease: 'easeOut' }}
             />
             <motion.div
               aria-hidden="true"
@@ -1724,7 +1726,7 @@ function SidebarItem({
                 rotate: isDragging ? 1.6 : 0,
                 opacity: isDragging ? 1 : 0,
               }}
-              transition={{ type: 'spring', stiffness: 620, damping: 34, mass: 0.45 }}
+              transition={{ duration: 0.08, ease: 'easeOut' }}
             />
             <motion.div
               aria-hidden="true"
@@ -1866,7 +1868,7 @@ function SidebarItem({
                 <motion.span
                   initial={{ scale: 0.75, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 700, damping: 24 }}
+                  transition={{ duration: 0.08, ease: 'easeOut' }}
                   className="ml-2 inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#FFE08A] px-1.5 text-[11px] font-bold text-[#2A1E05] shadow-sm"
                 >
                   {dragStackCount}
@@ -1883,7 +1885,7 @@ function SidebarItem({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.1, ease: 'easeOut' }}
             className="ml-4 border-l border-[var(--tokyo-border)] pl-2 space-y-0.5 overflow-hidden"
           >
             {children.map((child: any) => {

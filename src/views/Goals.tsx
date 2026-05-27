@@ -259,7 +259,7 @@ function GoalReorderRow({
       as="tr"
       layout="position"
       drag
-      dragElastic={0.04}
+      dragElastic={0}
       dragMomentum={false}
       initial={false}
       animate={{
@@ -274,10 +274,10 @@ function GoalReorderRow({
         rotate: -2,
       }}
       transition={{
-        layout: { type: 'spring', stiffness: 520, damping: 34, mass: 0.55 },
-        scale: { type: 'spring', stiffness: 720, damping: 34, mass: 0.42 },
-        x: { type: 'spring', stiffness: 720, damping: 34, mass: 0.42 },
-        rotate: { type: 'spring', stiffness: 680, damping: 34, mass: 0.4 },
+        layout: { duration: 0.1, ease: "easeOut" },
+        scale: { duration: 0.08, ease: "easeOut" },
+        x: { duration: 0.08, ease: "easeOut" },
+        rotate: { duration: 0.08, ease: "easeOut" },
       }}
       style={{ transformOrigin: "left center" }}
       onDragStart={onDragStart}
@@ -1253,7 +1253,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                 data-tab-id={tab.id}
                 layout="position"
                 drag="x"
-                dragElastic={0.04}
+                dragElastic={0}
                 dragMomentum={false}
                 dragConstraints={{ top: 0, bottom: 0 }}
                 onDragStart={() => {

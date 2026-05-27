@@ -86,7 +86,7 @@ export function IconPicker({ currentIcon, onSelect, onClose, onRemove }: IconPic
   };
 
   return (
-    <div className="flex flex-col w-64 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="flex flex-col w-64 bg-[var(--tokyo-panel)] border border-[var(--tokyo-border-strong)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--tokyo-border)]">
         <div className="text-xs font-medium text-[var(--tokyo-text-muted)]">
