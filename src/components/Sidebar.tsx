@@ -1271,10 +1271,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer group"
                     >
-                      <Plus className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)]" />
-                      <span className="text-sm font-medium flex-1 text-left">New Item</span>
+                      <Plus className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)] group-hover:text-white" />
+                      <span className="text-sm font-medium flex-1 text-left text-[var(--tokyo-text)] group-hover:text-white">New Item</span>
                     </button>
                     
                     {isNewItemMenuOpen && (
@@ -1646,6 +1646,7 @@ function SidebarItem({
   const isMergedIntoDragStack = draggingSidebarItemIds?.length > 1 && isDragging && !isDragStackAnchor;
   const dragStackCount = isDragStackAnchor ? draggingSidebarItemIds.length : 0;
   const showBulkDragSelection = isSelected && draggingSidebarItemIds?.length > 0;
+  const isNestedItem = Boolean(item.parentId);
 
   if (isMergedIntoDragStack) {
     return null;
@@ -1653,7 +1654,6 @@ function SidebarItem({
 
   return (
     <motion.div
-      layout
       animate={{
         height: isMergedIntoDragStack ? 0 : 'auto',
         opacity: isMergedIntoDragStack ? 0 : 1,
@@ -1668,7 +1668,6 @@ function SidebarItem({
       )}
     >
       <motion.div 
-        layout
         animate={{
           y: isMergedIntoDragStack ? -8 : 0,
           scale: isDragStackAnchor ? 1.02 : isMergedIntoDragStack ? 0.94 : 1,
@@ -1684,7 +1683,8 @@ function SidebarItem({
         onDrop={(e) => onDrop(e, item.id)}
         onPointerDown={(e) => handleSidebarItemPointerDown(e, item.id, isFolder)}
         className={cn(
-          "flex items-center rounded-md py-1.5 transition-[background-color,color,box-shadow,border-color,width] duration-150 group relative select-none isolate overflow-visible",
+          "flex items-center rounded-md transition-[background-color,color,box-shadow,border-color,width] duration-100 ease-out group relative select-none isolate overflow-visible",
+          isNestedItem ? "py-1" : "py-1.5",
           isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
           isCollapsed ? "justify-center" : isFolder ? "px-3 gap-1.5" : "px-3 gap-3",
@@ -1882,11 +1882,11 @@ function SidebarItem({
       <AnimatePresence>
         {isFolder && item.isExpanded && !isCollapsed && children.length > 0 && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.1, ease: 'easeOut' }}
-            className="ml-4 border-l border-[var(--tokyo-border)] pl-2 space-y-0.5 overflow-hidden"
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.06, ease: 'easeOut' }}
+            className="ml-6 mt-0.5 space-y-0.5 overflow-hidden pl-1 pr-1"
           >
             {children.map((child: any) => {
               const ChildIcon = iconMap[child.icon] || File;

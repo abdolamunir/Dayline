@@ -202,7 +202,7 @@ button {
 
 .inner-detail-layout {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(350px, 400px); /* Increased right sidebar width for better proportions */
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 380px);
   gap: 0 !important;
   width: 100% !important;
   max-width: none !important; /* stretch layout edge-to-edge so vertical/horizontal lines hit boundaries */
@@ -326,7 +326,7 @@ button {
   max-width: none !important;
   width: 100%;
   margin: 0 !important;
-  padding: 2.25rem 1.5rem 1rem 1.5rem !important; /* Reduced horizontal padding to 1.5rem for more width and breathing room */
+  padding: 2.25rem 1.25rem 1rem !important;
 }
 
 .inner-detail-properties .inner-date-value {
@@ -346,13 +346,13 @@ button {
 
 .inner-detail-tabs {
   margin: 0 !important;
-  padding: 0 1.5rem !important; /* Reduced horizontal padding matching properties */
+  padding: 0 1.25rem 0 1.875rem !important;
 }
 
 .inner-detail-panel-content {
   min-width: 0;
   width: 100%;
-  padding: 1.25rem 1.5rem 4rem !important; /* Reduced horizontal padding matching properties */
+  padding: 1.25rem 1.25rem 4rem 1.875rem !important;
   overflow-y: auto;
   flex: 1;
   scrollbar-width: none;
