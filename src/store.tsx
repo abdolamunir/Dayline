@@ -64,7 +64,7 @@ interface AppState {
   deleteNote: (noteId: string) => void;
   reorderNotes: (notes: Note[]) => void;
   replaceNotes: (notes: Note[]) => void;
-  addCustomPage: (page: CustomPage) => void;
+  addCustomPage: (page: CustomPage, parentId?: string) => void;
   updateCustomPage: (page: CustomPage) => void;
   moveToTrash: (type: TrashItem['type'], id: string) => void;
   restoreFromTrash: (id: string) => void;
@@ -517,9 +517,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNotes(nextNotes);
   };
 
-  const addCustomPage = (page: CustomPage) => {
+  const addCustomPage = (page: CustomPage, parentId?: string) => {
     setCustomPages(currentPages => uniqueById([...currentPages, page]));
-    setSidebarItems(currentItems => uniqueById([...currentItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom' }]));
+    setSidebarItems(currentItems => uniqueById([...currentItems, { id: page.id, label: page.title, icon: page.icon, type: 'custom', parentId }]));
   };
 
   const updateCustomPage = (updatedPage: CustomPage) => {

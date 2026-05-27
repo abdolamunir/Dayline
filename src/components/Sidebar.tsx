@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { flushSync } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, HelpCircleIcon as HelpCircle, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy, Megaphone01Icon as Megaphone, GiftIcon as Gift, InformationCircleIcon as InfoCircle, Camera01Icon as Camera } from 'hugeicons-react';
 import { cn } from '../utils/cn';
@@ -310,7 +310,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     </>
   );
 
-  const handleNewDatabasePage = () => {
+  const handleNewDatabasePage = (parentId?: string) => {
     const newId = `page-${Date.now()}`;
     addCustomPage({
       id: newId,
@@ -337,11 +337,17 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       items: [],
       properties: [],
       content: ''
-    });
+    }, parentId);
+    if (parentId) {
+      const parent = sidebarItems.find(item => item.id === parentId);
+      if (parent && !parent.isExpanded) {
+        toggleFolderExpansion(parentId);
+      }
+    }
     onViewChange(newId);
   };
 
-  const handleNewDocumentPage = () => {
+  const handleNewDocumentPage = (parentId?: string) => {
     const newId = `page-${Date.now()}`;
     addCustomPage({
       id: newId,
@@ -353,7 +359,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       items: [],
       properties: [],
       content: ''
-    });
+    }, parentId);
+    if (parentId) {
+      const parent = sidebarItems.find(item => item.id === parentId);
+      if (parent && !parent.isExpanded) {
+        toggleFolderExpansion(parentId);
+      }
+    }
     onViewChange(newId);
   };
 
@@ -361,13 +373,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const newId = `folder-${Date.now()}`;
     addFolder({
       id: newId,
-      label: 'New Folder',
+      label: 'New Category',
       icon: 'Folder',
       type: 'folder',
       isExpanded: true
     });
     setEditingId(newId);
-    setEditValue('New Folder');
+    setEditValue('New Category');
     setIsNewItemMenuOpen(false);
   };
 
@@ -737,10 +749,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
           onMouseDown={() => setIsSettingsOpen(false)}
         >
           <div
-            className="dayline-dialog flex h-[min(86vh,760px)] w-full max-w-6xl overflow-hidden rounded-2xl border border-[var(--tokyo-border-strong)] bg-[#070709] shadow-2xl"
+            className="dayline-dialog flex h-[min(86vh,760px)] w-full max-w-6xl overflow-hidden rounded-2xl border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-bg)] shadow-2xl"
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <aside className="hidden w-64 shrink-0 border-r border-[var(--tokyo-border-strong)] bg-[#141416] px-3 py-6 md:block">
+            <aside className="hidden w-64 shrink-0 border-r border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 py-6 md:block">
               <div className="mb-9 flex items-center gap-3 px-3 text-[var(--tokyo-text-strong)]">
                 <Settings className="h-5 w-5" />
                 <span className="text-base font-bold">Settings</span>
@@ -758,7 +770,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
-                      <button key={item.label} className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.04] hover:text-[var(--tokyo-text-strong)]">
+                      <button key={item.label} className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
                         <Icon className="h-4.5 w-4.5" />
                         {item.label}
                       </button>
@@ -788,8 +800,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         className={cn(
                           "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors",
                           item.active
-                            ? "bg-white/[0.07] text-[var(--tokyo-text-strong)] shadow-[inset_0_0_0_1px_rgba(218,204,216,0.05)]"
-                            : "text-[var(--tokyo-text-muted)] hover:bg-white/[0.04] hover:text-[var(--tokyo-text-strong)]"
+                            ? "bg-[var(--tokyo-panel-2)] text-[var(--tokyo-text-strong)] shadow-[inset_0_0_0_1px_var(--tokyo-border)]"
+                            : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
                         )}
                       >
                         <Icon className="h-4.5 w-4.5" />
@@ -801,7 +813,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
                 <section>
                   <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-wide text-[var(--tokyo-text-faint)]">App</p>
-                  <button className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.04] hover:text-[var(--tokyo-text-strong)]">
+                  <button className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]">
                     <Stethoscope className="h-4.5 w-4.5" />
                     Experimental
                   </button>
@@ -809,7 +821,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
               </div>
             </aside>
 
-            <section className="flex min-w-0 flex-1 flex-col bg-[#050506]">
+            <section className="flex min-w-0 flex-1 flex-col bg-[var(--tokyo-bg)]">
               <header className="flex h-16 shrink-0 items-center justify-between border-b border-[var(--tokyo-border)] px-6 md:px-8">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <span className="text-[var(--tokyo-text-faint)]">Settings</span>
@@ -818,7 +830,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                 </div>
                 <button
                   onClick={() => setIsSettingsOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--tokyo-text-strong)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]"
                   title="Close settings"
                 >
                   <Plus className="h-5 w-5 rotate-45" />
@@ -849,7 +861,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                           event.preventDefault();
                           handleProfilePhotoFile(event.dataTransfer.files?.[0]);
                         }}
-                        className="inline-flex h-12 items-center gap-3 rounded-xl border border-[var(--tokyo-border-strong)] bg-white/[0.12] px-5 text-sm font-bold text-[var(--tokyo-text-strong)] transition-colors hover:bg-white/[0.16]"
+                        className="inline-flex h-11 items-center gap-3 rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-4 text-sm font-semibold text-[var(--tokyo-text-strong)] transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]"
                       >
                         <Camera className="h-5 w-5" />
                         Change Photo
@@ -870,7 +882,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       id="settings-profile-name"
                       value={profileDraft.name}
                       onChange={(event) => setProfileDraft((current) => ({ ...current, name: event.target.value }))}
-                      className="h-14 rounded-xl border border-transparent bg-white/[0.13] px-4 text-sm font-bold text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      className="h-11 rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 text-sm text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
                       placeholder="Click to edit"
                     />
                   </div>
@@ -882,7 +894,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                       type="email"
                       value={profileDraft.email}
                       onChange={(event) => setProfileDraft((current) => ({ ...current, email: event.target.value }))}
-                      className="h-14 rounded-xl border border-transparent bg-white/[0.09] px-4 text-sm font-bold text-[var(--tokyo-text-muted)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                      className="h-11 rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 text-sm text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
                       placeholder="Email"
                     />
                   </div>
@@ -897,15 +909,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </div>
                     <button
                       onClick={() => setProductUpdatesEnabled((enabled) => !enabled)}
-                      className="flex h-14 items-center justify-between rounded-xl bg-white/[0.09] px-4 text-sm font-bold text-[var(--tokyo-text-muted)]"
+                      className="flex h-11 items-center justify-between rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] px-3 text-sm font-semibold text-[var(--tokyo-text-muted)] transition-colors hover:border-[var(--tokyo-border-strong)]"
                     >
                       {productUpdatesEnabled ? 'Enabled' : 'Disabled'}
                       <span className={cn(
                         "relative h-7 w-12 rounded-full transition-colors",
-                        productUpdatesEnabled ? "bg-[var(--tokyo-yellow-dim)]" : "bg-white/[0.18]"
+                        productUpdatesEnabled ? "bg-[var(--tokyo-yellow-dim)]" : "bg-[var(--tokyo-panel-3)]"
                       )}>
                         <span className={cn(
-                          "absolute top-1 h-5 w-5 rounded-full bg-[#050506] transition-transform",
+                          "absolute top-1 h-5 w-5 rounded-full bg-[var(--tokyo-bg)] transition-transform",
                           productUpdatesEnabled ? "translate-x-6" : "translate-x-1"
                         )} />
                       </span>
@@ -936,7 +948,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         <h3 className="text-sm font-bold text-[var(--tokyo-text-strong)]">Reset onboarding</h3>
                         <p className="mt-1 text-sm font-semibold text-[var(--tokyo-text-muted)]">Replay welcome overlays and onboarding</p>
                       </div>
-                      <button className="inline-flex h-11 w-fit items-center gap-3 rounded-lg px-4 text-sm font-bold text-[var(--tokyo-text-muted)] transition-colors hover:bg-white/[0.06]">
+                      <button className="inline-flex h-11 w-fit items-center gap-3 rounded-lg px-4 text-sm font-bold text-[var(--tokyo-text-muted)] transition-colors hover:bg-[var(--tokyo-hover)]">
                         <History className="h-5 w-5" />
                         Reset onboarding
                       </button>
@@ -1243,6 +1255,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     selectedSidebarItemIds={selectedSidebarItemIds}
                     draggingSidebarItemIds={draggingSidebarItemIds}
                     primaryDraggingSidebarItemId={primaryDraggingSidebarItemId}
+                    onCreateDatabaseInFolder={handleNewDatabasePage}
+                    onCreateDocumentInFolder={handleNewDocumentPage}
                   />
                 );
               })}
@@ -1262,15 +1276,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </button>
                     
                     {isNewItemMenuOpen && (
-                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <div className="sidebar-context-menu absolute bottom-full left-0 mb-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1 z-[160] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
                         <button 
                           onClick={() => {
                             handleNewDatabasePage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Database className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+                          <Database className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
                           New Database
                         </button>
                         <button 
@@ -1278,17 +1292,17 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             handleNewDocumentPage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <FileText className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+                          <FileText className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
                           New Document
                         </button>
                         <button 
                           onClick={handleNewFolder}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Folder className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                          New Folder
+                          <Layers className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
+                          New Category
                         </button>
                       </div>
                     )}
@@ -1318,15 +1332,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </button>
                     
                     {isNewItemMenuOpen && (
-                      <div className="absolute bottom-0 left-full ml-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-xl py-1.5 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
+                      <div className="sidebar-context-menu absolute bottom-0 left-full ml-2 w-48 bg-[var(--tokyo-panel-2)] border border-[var(--tokyo-border-strong)] shadow-2xl rounded-lg py-1 z-[160] overflow-hidden animate-in fade-in slide-in-from-left-2 duration-200">
                         <button 
                           onClick={() => {
                             handleNewDatabasePage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Database className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+                          <Database className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
                           New Database
                         </button>
                         <button 
@@ -1334,9 +1348,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             handleNewDocumentPage();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <FileText className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
+                          <FileText className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
                           New Document
                         </button>
                         <button 
@@ -1344,10 +1358,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                             handleNewFolder();
                             setIsNewItemMenuOpen(false);
                           }}
-                          className="w-full flex items-center gap-3 px-3 py-1.5 text-[12px] leading-5 text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
-                          <Folder className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                          New Folder
+                          <Layers className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
+                          New Category
                         </button>
                       </div>
                     )}
@@ -1492,20 +1506,22 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                 <Copy className="w-3.5 h-3.5" />
                 Duplicate
               </button>
-              <button 
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
-                onClick={() => {
-                  const item = sidebarItems.find(i => i.id === contextMenu.id);
-                  if (item) {
-                    setIconPickerId(item.id);
-                    setIconPickerPos({ x: contextMenu.x, y: contextMenu.y });
-                  }
-                  setContextMenu(null);
-                }}
-              >
-                <Smile className="w-3.5 h-3.5" />
-                Change Icon
-              </button>
+              {sidebarItems.find(i => i.id === contextMenu.id)?.type !== 'folder' && (
+                <button 
+                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                  onClick={() => {
+                    const item = sidebarItems.find(i => i.id === contextMenu.id);
+                    if (item) {
+                      setIconPickerId(item.id);
+                      setIconPickerPos({ x: contextMenu.x, y: contextMenu.y });
+                    }
+                    setContextMenu(null);
+                  }}
+                >
+                  <Smile className="w-3.5 h-3.5" />
+                  Change Icon
+                </button>
+              )}
               <div className="h-px bg-[var(--tokyo-border)] my-1" />
               <button 
                 className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
@@ -1613,9 +1629,13 @@ function SidebarItem({
   currentView,
   selectedSidebarItemIds,
   draggingSidebarItemIds,
-  primaryDraggingSidebarItemId
+  primaryDraggingSidebarItemId,
+  onCreateDatabaseInFolder,
+  onCreateDocumentInFolder
 }: any) {
   const isFolder = item.type === 'folder';
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [createMenuPos, setCreateMenuPos] = useState<{ top: number; left: number } | null>(null);
   const children = sidebarItems.filter((i: any) => i.parentId === item.id);
   const isDraggingOver = dragOverId === item.id;
   const isSelected = selectedSidebarItemIds?.includes(item.id);
@@ -1665,7 +1685,7 @@ function SidebarItem({
           "flex items-center rounded-md py-1.5 transition-[background-color,color,box-shadow,border-color,width] duration-150 group relative select-none isolate overflow-visible",
           isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
-          isCollapsed ? "justify-center" : "px-3 gap-3",
+          isCollapsed ? "justify-center" : isFolder ? "px-3 gap-1.5" : "px-3 gap-3",
           isDragStackAnchor
             ? "bg-transparent text-white z-20"
             : isActive || isSelected || showBulkDragSelection
@@ -1724,21 +1744,41 @@ function SidebarItem({
           <div className="pointer-events-none absolute -bottom-1 left-2 right-2 z-50 h-[2px] rounded-full bg-[var(--tokyo-yellow)] shadow-[0_0_12px_rgba(233,202,53,0.5)]" />
         )}
         <div className="flex items-center relative z-30">
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              setIconPickerId(item.id);
-              setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-            }}
-            className={cn("rounded p-0.5 transition-colors cursor-pointer", !isSelected && "hover:bg-[var(--tokyo-hover)]")}
-          >
-            <Icon className={cn(
-              "w-4 h-4 shrink-0 stroke-[1.5]",
-              isActive || isSelected ? "opacity-100" : "opacity-70"
-            )} />
-          </button>
+          {isFolder ? (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFolderExpansion(item.id);
+              }}
+              className="rounded p-0.5 cursor-pointer"
+              title={item.isExpanded ? 'Collapse category' : 'Expand category'}
+            >
+              <motion.span
+                animate={{ rotate: item.isExpanded ? 90 : 0 }}
+                transition={{ duration: 0.08 }}
+                className="flex items-center justify-center"
+              >
+                <ChevronRight className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
+              </motion.span>
+            </button>
+          ) : (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setIconPickerId(item.id);
+                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+              }}
+              className={cn("rounded p-0.5 transition-colors cursor-pointer", !isSelected && "hover:bg-[var(--tokyo-hover)]")}
+            >
+              <Icon className={cn(
+                "w-4 h-4 shrink-0 stroke-[1.5]",
+                isActive || isSelected ? "opacity-100" : "opacity-70"
+              )} />
+            </button>
+          )}
         </div>
         {!isCollapsed && (
           editingId === item.id ? (
@@ -1759,6 +1799,69 @@ function SidebarItem({
           ) : (
             <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
               <span className="text-sm font-medium truncate">{item.label}</span>
+              {isFolder && (
+                <div className="relative ml-2 shrink-0">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const menuWidth = 168;
+                      setCreateMenuPos({
+                        top: Math.min(rect.bottom + 6, window.innerHeight - 96),
+                        left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
+                      });
+                      setIsCreateMenuOpen(open => !open);
+                    }}
+                    className="flex h-5 w-5 items-center justify-center rounded text-[var(--tokyo-text-faint)] opacity-0 transition-[opacity,background-color,color] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] group-hover:opacity-100"
+                    title="Create in category"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  {isCreateMenuOpen && createMenuPos && createPortal(
+                    <>
+                      <div
+                        className="fixed inset-0 z-[240]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsCreateMenuOpen(false);
+                        }}
+                      />
+                      <div
+                        className="sidebar-context-menu fixed z-[250] w-[168px] overflow-hidden rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] py-1 shadow-2xl"
+                        style={{ top: createMenuPos.top, left: createMenuPos.left }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onCreateDatabaseInFolder(item.id);
+                            setIsCreateMenuOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+                        >
+                          <Database className="h-3.5 w-3.5 text-[var(--tokyo-text-faint)]" />
+                          New Database
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onCreateDocumentInFolder(item.id);
+                            setIsCreateMenuOpen(false);
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-[var(--tokyo-text-faint)]" />
+                          New Document
+                        </button>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              )}
               {dragStackCount > 0 && (
                 <motion.span
                   initial={{ scale: 0.75, opacity: 0 }}
@@ -1768,15 +1871,6 @@ function SidebarItem({
                 >
                   {dragStackCount}
                 </motion.span>
-              )}
-              {isFolder && (
-                <motion.div
-                  animate={{ rotate: item.isExpanded ? 90 : 0 }}
-                  transition={{ duration: 0.08 }}
-                  className="shrink-0 ml-2"
-                >
-                  <ChevronRight className="w-3 h-3 text-[var(--tokyo-text-faint)]" />
-                </motion.div>
               )}
             </div>
           )
@@ -1827,6 +1921,8 @@ function SidebarItem({
                   selectedSidebarItemIds={selectedSidebarItemIds}
                   draggingSidebarItemIds={draggingSidebarItemIds}
                   primaryDraggingSidebarItemId={primaryDraggingSidebarItemId}
+                  onCreateDatabaseInFolder={onCreateDatabaseInFolder}
+                  onCreateDocumentInFolder={onCreateDocumentInFolder}
                 />
               );
             })}
