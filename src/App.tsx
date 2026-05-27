@@ -104,6 +104,16 @@ function AppContent() {
   };
 
   const renderedView = useMemo(() => {
+    if (currentView.startsWith('page-item:')) {
+      const parts = currentView.split(':');
+      const pageId = parts[1];
+      const itemId = parts[2];
+      const page = customPages.find(p => p.id === pageId);
+      if (page) {
+        return <CustomPageView key={`page-item-${pageId}-${itemId}`} page={page} onViewChange={changeView} initialSelectedItemId={itemId} />;
+      }
+    }
+
     if (currentView.startsWith('page-')) {
       const page = customPages.find(p => p.id === currentView);
       if (page) {
@@ -121,11 +131,21 @@ function AppContent() {
       return <Notes key={`note-details-${id}`} onViewChange={changeView} selectedNoteId={id} />;
     }
 
+    if (currentView.startsWith('project-details:')) {
+      const id = currentView.split(':')[1];
+      return <Projects key={`project-details-${id}`} onViewChange={changeView} selectedProjectId={id} />;
+    }
+
+    if (currentView.startsWith('area-details:')) {
+      const id = currentView.split(':')[1];
+      return <Areas key={`area-details-${id}`} onViewChange={changeView} selectedAreaId={id} />;
+    }
+
     switch (currentView) {
       case 'dashboard': return <Dashboard />;
       case 'tasks': return <Tasks />;
-      case 'projects': return <Projects key={`projects-${viewRefreshKey}`} />;
-      case 'areas': return <Areas key={`areas-${viewRefreshKey}`} />;
+      case 'projects': return <Projects key={`projects-${viewRefreshKey}`} onViewChange={changeView} />;
+      case 'areas': return <Areas key={`areas-${viewRefreshKey}`} onViewChange={changeView} />;
       case 'habits': return <Habits />;
       case 'notes': return <Notes key={`notes-${viewRefreshKey}`} />;
       case 'goals': return <Goals onViewChange={changeView} />;
@@ -148,13 +168,19 @@ function AppContent() {
     }
   }, [changeView, currentView, customPages, viewRefreshKey]);
 
-  const currentPageLabel = currentView.startsWith('page-')
-    ? customPages.find(p => p.id === currentView)?.title || 'Page'
-    : currentView.startsWith('goal-details:')
-      ? 'Goal'
-      : currentView.startsWith('note-details:')
-        ? 'Note'
-        : currentView.replace('-', ' ');
+  const currentPageLabel = currentView.startsWith('page-item:')
+    ? 'Item'
+    : currentView.startsWith('page-')
+      ? customPages.find(p => p.id === currentView)?.title || 'Page'
+      : currentView.startsWith('goal-details:')
+        ? 'Goal'
+        : currentView.startsWith('note-details:')
+          ? 'Note'
+          : currentView.startsWith('project-details:')
+            ? 'Project'
+            : currentView.startsWith('area-details:')
+              ? 'Area'
+              : currentView.replace('-', ' ');
 
   const buildInviteLink = (scope: 'workspace' | 'page') => {
     if (typeof window === 'undefined') return '';

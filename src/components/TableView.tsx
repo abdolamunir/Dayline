@@ -150,7 +150,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [sortConfigs, setSortConfigs] = useState<TableSortConfig[]>(page.sortConfigs || []);
   const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [sortPickerOpen, setSortPickerOpen] = useState<string | null>(null);
@@ -944,15 +943,15 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           >
             <Link className="h-[18px] w-[18px]" />
           </button>
-          <button
-            onClick={() => setIsFavorite((favorite) => !favorite)}
+           <button
+            onClick={() => onUpdatePage({ ...page, isFavorite: !page.isFavorite })}
             className={cn(
               "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-              isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+              page.isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
             )}
             title="Favorite"
           >
-            <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+            <Star className={cn("h-[18px] w-[18px]", page.isFavorite && "fill-[var(--tokyo-yellow)]")} />
           </button>
           <div className="relative">
             <button
@@ -1925,6 +1924,23 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               >
                 <Smile className="h-4 w-4 text-[var(--tokyo-text-faint)]" />
                 Change Icon
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const item = page.items.find(candidate => candidate.id === itemContextMenu.id);
+                  if (item) {
+                    const nextItems = page.items.map(candidate => 
+                      candidate.id === item.id ? { ...candidate, isFavorite: !candidate.isFavorite } : candidate
+                    );
+                    onUpdatePage({ ...page, items: nextItems });
+                  }
+                  setItemContextMenu(null);
+                }}
+                className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              >
+                <Star className={cn("h-4 w-4 text-[var(--tokyo-text-faint)]", page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite && "text-[var(--tokyo-yellow)] fill-[var(--tokyo-yellow)]")} />
+                {page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite ? 'Remove from Favourites' : 'Add to Favourites'}
               </button>
               <div className="my-1 h-px bg-[var(--tokyo-border)]" />
               <button

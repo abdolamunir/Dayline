@@ -34,6 +34,10 @@ type ProfileOverrides = {
 export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMobileMenuOpen, setIsMobileMenuOpen, isCollapsed, onToggleSidebar }: SidebarProps) {
   const { 
     customPages,
+    notes,
+    projects,
+    goals,
+    areas,
     sidebarItems, 
     reorderSidebarItems, 
     addCustomPage, 
@@ -44,12 +48,19 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     toggleFolderExpansion,
     moveSidebarItem,
     trash,
-    user
+    user,
+    updateNote,
+    updateProject,
+    updateGoal,
+    updateArea,
+    updateCustomPage
   } = useAppStore();
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string, type: 'item' } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, id: string, type: 'item', parentId?: string } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingParentId, setEditingParentId] = useState<string | undefined>(undefined);
   const [editValue, setEditValue] = useState('');
   const [iconPickerId, setIconPickerId] = useState<string | null>(null);
+  const [iconPickerParentId, setIconPickerParentId] = useState<string | undefined>(undefined);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
@@ -189,7 +200,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
   }, [editingId]);
 
-  const handleContextMenu = (e: React.MouseEvent, id: string, type: 'item' = 'item') => {
+  const handleContextMenu = (e: React.MouseEvent, id: string, type: 'item' = 'item', parentId?: string) => {
     e.preventDefault();
     
     const rect = e.currentTarget.getBoundingClientRect();
@@ -201,14 +212,39 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       y = rect.top - menuHeight;
     }
       
-    setContextMenu({ x, y, id, type });
+    setContextMenu({ x, y, id, type, parentId });
   };
 
   const handleRenameSubmit = (id: string) => {
-    if (editValue.trim()) {
-      updateSidebarItem(id, editValue.trim());
+    const trimmed = editValue.trim();
+    if (trimmed) {
+      const note = notes.find(n => n.id === id);
+      const project = projects.find(p => p.id === id);
+      const goal = goals.find(g => g.id === id);
+      const area = areas.find(a => a.id === id);
+      const customPage = customPages.find(p => p.id === id);
+
+      if (note) updateNote({ ...note, title: trimmed });
+      else if (project) updateProject(project.id, { name: trimmed });
+      else if (goal) updateGoal({ ...goal, title: trimmed });
+      else if (area) updateArea(area.id, { name: trimmed });
+      else if (customPage) updateCustomPage({ ...customPage, title: trimmed });
+      
+      // Also handle custom page items
+      customPages.forEach(p => {
+        if (p.items) {
+          const found = p.items.find(item => item.id === id);
+          if (found) {
+            const nextItems = p.items.map(item => item.id === id ? { ...item, title: trimmed } : item);
+            updateCustomPage({ ...p, items: nextItems });
+          }
+        }
+      });
+
+      updateSidebarItem(id, trimmed);
     }
     setEditingId(null);
+    setEditingParentId(undefined);
   };
 
   const handleProfileClick = async () => {
@@ -409,7 +445,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     document.body.style.cursor = '';
   };
 
-  const handleSidebarItemClick = (e: React.MouseEvent, id: string, isFolder: boolean) => {
+  const handleSidebarItemClick = (e: React.MouseEvent, id: string, isFolder: boolean, clickedItem?: any) => {
     if (editingId === id) return;
 
     if (e.shiftKey && isMultiSelectableSidebarItem(id)) {
@@ -444,11 +480,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     if (isFolder) {
       toggleFolderExpansion(id);
     } else {
-      onViewChange(id);
+      const view = clickedItem?.view || id;
+      onViewChange(view);
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, id: string) => {
+  const handleDragStart = (e: React.DragEvent, id: string, parentId?: string) => {
     const draggedIds = selectedSidebarItemIds.includes(id) ? selectedSidebarItemIds : [id];
     hideNonHeldSelectedSidebarRows(draggedIds, id);
     flushSync(() => {
@@ -458,6 +495,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     document.body.style.cursor = 'pointer';
     e.dataTransfer.setData('text/plain', id);
     e.dataTransfer.setData('application/dayline-sidebar-items', JSON.stringify(draggedIds));
+    if (parentId) {
+      e.dataTransfer.setData('source-parent', parentId);
+    }
     e.dataTransfer.effectAllowed = 'move';
 
     if (draggedIds.length > 1) {
@@ -555,6 +595,48 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     document.body.style.cursor = '';
     
     const draggedId = e.dataTransfer.getData('text/plain');
+    if (!draggedId) return;
+
+    const sourceParent = e.dataTransfer.getData('source-parent');
+    
+    // Find matching dragged object in store to handle favorites
+    const draggedNote = notes.find(n => n.id === draggedId);
+    const draggedProject = projects.find(p => p.id === draggedId);
+    const draggedGoal = goals.find(g => g.id === draggedId);
+    const draggedArea = areas.find(a => a.id === draggedId);
+    const draggedCustomPage = customPages.find(p => p.id === draggedId);
+
+    const isTargetFavourites = targetId === 'favourites' || (targetId && sidebarItems.find(i => i.id === targetId)?.parentId === 'favourites');
+
+    if (isTargetFavourites) {
+      // Dragged into Favourites!
+      if (draggedNote) updateNote({ ...draggedNote, isFavorite: true });
+      if (draggedProject) updateProject(draggedProject.id, { isFavorite: true });
+      if (draggedGoal) updateGoal({ ...draggedGoal, isFavorite: true });
+      if (draggedArea) updateArea(draggedArea.id, { isFavorite: true });
+      if (draggedCustomPage) updateCustomPage({ ...draggedCustomPage, isFavorite: true });
+      return;
+    }
+
+    // Dragged out of Favourites!
+    if (sourceParent === 'favourites') {
+      if (draggedNote) updateNote({ ...draggedNote, isFavorite: false });
+      if (draggedProject) updateProject(draggedProject.id, { isFavorite: false });
+      if (draggedGoal) updateGoal({ ...draggedGoal, isFavorite: false });
+      if (draggedArea) updateArea(draggedArea.id, { isFavorite: false });
+      if (draggedCustomPage) {
+        updateCustomPage({ ...draggedCustomPage, isFavorite: false });
+      }
+    }
+
+    // If it's a virtual child note/project/goal/area that is NOT in sidebarItems, we don't do sidebar item reordering
+    const isVirtual = draggedNote || draggedProject || draggedGoal || draggedArea;
+    if (isVirtual && sourceParent !== 'favourites') {
+      // Not dragged from Favourites, and not dropped in Favourites, so do nothing for virtual elements
+      return;
+    }
+
+    // Normal sidebar item reordering/moving logic
     const draggedIds = (() => {
       try {
         const parsed = JSON.parse(e.dataTransfer.getData('application/dayline-sidebar-items') || '[]');
@@ -566,7 +648,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const idsToMove = (draggedIds.length ? draggedIds : [draggedId])
       .filter((id, index, ids) => id && ids.indexOf(id) === index);
 
-    if (!draggedId || idsToMove.length === 0 || (targetId && idsToMove.includes(targetId))) return;
+    if (idsToMove.length === 0 || (targetId && idsToMove.includes(targetId))) return;
 
     // Prevent dropping a folder into its own descendant
     const isDescendant = (parent: string, potentialChild: string): boolean => {
@@ -582,6 +664,24 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const draggedItems = sidebarItems
       .filter(item => idsToMove.includes(item.id))
       .map(item => ({ ...item }));
+
+    // If a custom page is dragged from Favourites or is just in sidebarItems,
+    // let's check if we dragged it out of Favourites (or if we dragged it in general).
+    // If it's a custom page, since it is in sidebarItems, we want to update its parentId!
+    if (draggedCustomPage && draggedItems.length === 0) {
+      const itemInSidebar = sidebarItems.find(i => i.id === draggedCustomPage.id);
+      if (itemInSidebar) {
+        draggedItems.push({ ...itemInSidebar });
+      } else {
+        draggedItems.push({
+          id: draggedCustomPage.id,
+          label: draggedCustomPage.title,
+          icon: draggedCustomPage.icon,
+          type: 'custom',
+        });
+      }
+    }
+
     if (draggedItems.length === 0) return;
 
     const targetItem = newItems.find(i => i.id === targetId);
@@ -592,11 +692,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
         draggedItems.forEach(item => {
           item.parentId = targetId;
         });
-        // Expand the folder so the user sees the item moved in
         if (!targetItem.isExpanded) {
           toggleFolderExpansion(targetId);
         }
-        // Insert after the folder
         const targetIndex = newItems.findIndex(i => i.id === targetId);
         newItems.splice(targetIndex + 1, 0, ...draggedItems);
       } else {
@@ -1173,10 +1271,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     </button>
                   </div>
                 </div>
-              )}
-
-              <div className="px-4 mt-1 space-y-0.5">
-                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'inbox' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+              )}              <div className="px-4 mt-1 space-y-0.5">
+                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'inbox' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Inbox className="w-4 h-4 text-[#45aaff] shrink-0" />
                     {!isCollapsed && (
                       <>
@@ -1186,7 +1282,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'today' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'today' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Star className="w-4 h-4 text-[var(--tokyo-yellow)] shrink-0" />
                     {!isCollapsed && (
                       <>
@@ -1196,21 +1292,21 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'upcoming' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'upcoming' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <CalendarIcon className="w-4 h-4 text-[var(--tokyo-pink)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Upcoming</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'someday' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'someday' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Clock className="w-4 h-4 text-[var(--tokyo-purple)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Someday</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-3", currentView === 'logbook' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 transition-colors cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'logbook' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <BookCheck className="w-4 h-4 text-[var(--tokyo-green)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Logbook</span>}
                   </button>
-                </div>
+              </div>
                 <div className="h-px bg-[var(--tokyo-border)] my-4 mx-4" />
             </div>
 
@@ -1231,6 +1327,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     isActive={isActive}
                     isCollapsed={isCollapsed}
                     editingId={editingId}
+                    editingParentId={editingParentId}
                     editValue={editValue}
                     setEditValue={setEditValue}
                     handleRenameSubmit={handleRenameSubmit}
@@ -1240,6 +1337,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     handleSidebarItemClick={handleSidebarItemClick}
                     handleSidebarItemPointerDown={handleSidebarItemPointerDown}
                     setIconPickerId={setIconPickerId}
+                    setIconPickerParentId={setIconPickerParentId}
                     setIconPickerPos={setIconPickerPos}
                     editInputRef={editInputRef}
                     Icon={Icon}
@@ -1270,8 +1368,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                 <>
                   <div className="relative" ref={newItemMenuRef}>
                     <button 
-                      onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
-                      className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer group"
+                       onClick={() => setIsNewItemMenuOpen(!isNewItemMenuOpen)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer group"
                     >
                       <Plus className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)] group-hover:text-white" />
                       <span className="text-sm font-medium flex-1 text-left text-[var(--tokyo-text)] group-hover:text-white">New Item</span>
@@ -1312,7 +1410,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   <button 
                     onClick={() => onViewChange('trash')}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-1.5 rounded-md transition-colors cursor-pointer group",
+                      "w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors cursor-pointer group",
                       currentView === 'trash'
                         ? "bg-[rgba(224,107,138,0.14)] text-[var(--tokyo-pink)]"
                         : "text-[var(--tokyo-pink)] hover:bg-[rgba(224,107,138,0.1)]"
@@ -1483,63 +1581,208 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
             }}
           >
               {contextMenu.type === 'item' ? (
-            <>
-              <button 
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
-                onClick={() => {
-                  const item = sidebarItems.find(i => i.id === contextMenu.id);
-                  if (item) {
-                    setEditValue(item.label);
-                    setEditingId(contextMenu.id);
-                  }
-                  setContextMenu(null);
-                }}
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-                Rename
-              </button>
-              <button 
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
-                onClick={() => {
-                  duplicateSidebarItem(contextMenu.id);
-                  setContextMenu(null);
-                }}
-              >
-                <Copy className="w-3.5 h-3.5" />
-                Duplicate
-              </button>
-              {sidebarItems.find(i => i.id === contextMenu.id)?.type !== 'folder' && (
-                <button 
-                  className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
-                  onClick={() => {
-                    const item = sidebarItems.find(i => i.id === contextMenu.id);
-                    if (item) {
-                      setIconPickerId(item.id);
-                      setIconPickerPos({ x: contextMenu.x, y: contextMenu.y });
-                    }
-                    setContextMenu(null);
-                  }}
-                >
-                  <Smile className="w-3.5 h-3.5" />
-                  Change Icon
-                </button>
-              )}
-              <div className="h-px bg-[var(--tokyo-border)] my-1" />
-              <button 
-                className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
-                onClick={() => {
-                  deleteSidebarItem(contextMenu.id);
-                  if (currentView === contextMenu.id) {
-                    onViewChange('dashboard');
-                  }
-                  setContextMenu(null);
-                }}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
-            </>
-          ) : null}
+                contextMenu.id === 'favourites' ? (
+                  <>
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                      onClick={() => {
+                        setEditValue(sidebarItems.find(i => i.id === 'favourites')?.label || 'Favourites');
+                        setEditingId('favourites');
+                        setEditingParentId(undefined);
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Rename
+                    </button>
+                    <div className="h-px bg-[var(--tokyo-border)] my-1" />
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-yellow)] hover:bg-yellow-500/10 hover:text-[var(--tokyo-yellow)] transition-colors cursor-pointer"
+                      onClick={() => {
+                        // Unfavorite everything!
+                        notes.forEach(n => { if (n.isFavorite) updateNote({ ...n, isFavorite: false }); });
+                        projects.forEach(p => { if (p.isFavorite) updateProject(p.id, { isFavorite: false }); });
+                        goals.forEach(g => { if (g.isFavorite) updateGoal({ ...g, isFavorite: false }); });
+                        areas.forEach(a => { if (a.isFavorite) updateArea(a.id, { isFavorite: false }); });
+                        customPages.forEach(p => {
+                          let changed = false;
+                          const nextItems = p.items?.map(item => {
+                            if (item.isFavorite) {
+                              changed = true;
+                              return { ...item, isFavorite: false };
+                            }
+                            return item;
+                          }) || [];
+                          if (p.isFavorite || changed) {
+                            updateCustomPage({ ...p, isFavorite: false, items: nextItems });
+                          }
+                        });
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Star className="w-3.5 h-3.5 fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" />
+                      Unpin All
+                    </button>
+                  </>
+                ) : (contextMenu.parentId === 'favourites' || (!sidebarItems.some(i => i.id === contextMenu.id) && contextMenu.id !== 'favourites')) ? (
+                  <>
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                      onClick={() => {
+                        const note = notes.find(n => n.id === contextMenu.id);
+                        const project = projects.find(p => p.id === contextMenu.id);
+                        const goal = goals.find(g => g.id === contextMenu.id);
+                        const area = areas.find(a => a.id === contextMenu.id);
+                        const customPage = customPages.find(p => p.id === contextMenu.id);
+                        
+                        let pageItem: any = null;
+                        customPages.forEach(p => {
+                          if (p.items) {
+                            const found = p.items.find(item => item.id === contextMenu.id);
+                            if (found) pageItem = found;
+                          }
+                        });
+
+                        const currentLabel = note?.title || project?.name || goal?.title || area?.name || customPage?.title || pageItem?.title || '';
+                        setEditValue(currentLabel);
+                        setEditingId(contextMenu.id);
+                        setEditingParentId(contextMenu.parentId || 'favourites');
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Rename
+                    </button>
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                      onClick={() => {
+                        setIconPickerId(contextMenu.id);
+                        setIconPickerParentId(contextMenu.parentId || 'favourites');
+                        setIconPickerPos({ x: contextMenu.x, y: contextMenu.y });
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Smile className="w-3.5 h-3.5" />
+                      Change Icon
+                    </button>
+                    <div className="h-px bg-[var(--tokyo-border)] my-1" />
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-yellow)] hover:bg-yellow-500/10 hover:text-[var(--tokyo-yellow)] transition-colors cursor-pointer"
+                      onClick={() => {
+                        const note = notes.find(n => n.id === contextMenu.id);
+                        const project = projects.find(p => p.id === contextMenu.id);
+                        const goal = goals.find(g => g.id === contextMenu.id);
+                        const area = areas.find(a => a.id === contextMenu.id);
+                        const customPage = customPages.find(p => p.id === contextMenu.id);
+
+                        if (note) updateNote({ ...note, isFavorite: false });
+                        if (project) updateProject(project.id, { isFavorite: false });
+                        if (goal) updateGoal({ ...goal, isFavorite: false });
+                        if (area) updateArea(area.id, { isFavorite: false });
+                        if (customPage) updateCustomPage({ ...customPage, isFavorite: false });
+
+                        // Also handle custom page items
+                        customPages.forEach(p => {
+                          if (p.items) {
+                            const found = p.items.find(item => item.id === contextMenu.id);
+                            if (found) {
+                              const nextItems = p.items.map(item => item.id === contextMenu.id ? { ...item, isFavorite: false } : item);
+                              updateCustomPage({ ...p, items: nextItems });
+                            }
+                          }
+                        });
+
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Star className="w-3.5 h-3.5 fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" />
+                      Unpin
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                      onClick={() => {
+                        const item = sidebarItems.find(i => i.id === contextMenu.id);
+                        if (item) {
+                          setEditValue(item.label);
+                          setEditingId(contextMenu.id);
+                          setEditingParentId(contextMenu.parentId);
+                        }
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Rename
+                    </button>
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (contextMenu.id !== 'favourites') {
+                          duplicateSidebarItem(contextMenu.id);
+                        }
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      Duplicate
+                    </button>
+                    {sidebarItems.find(i => i.id === contextMenu.id)?.type !== 'folder' && contextMenu.id !== 'favourites' && (
+                      <button 
+                        className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
+                        onClick={() => {
+                          const item = sidebarItems.find(i => i.id === contextMenu.id);
+                          if (item) {
+                            setIconPickerId(item.id);
+                            setIconPickerParentId(item.parentId);
+                            setIconPickerPos({ x: contextMenu.x, y: contextMenu.y });
+                          }
+                          setContextMenu(null);
+                        }}
+                      >
+                        <Smile className="w-3.5 h-3.5" />
+                        Change Icon
+                      </button>
+                    )}
+                    <div className="h-px bg-[var(--tokyo-border)] my-1" />
+                    <button 
+                      className="w-full flex items-center gap-2.5 px-3 py-1.5 text-[12px] leading-5 font-medium text-[var(--tokyo-pink)] hover:bg-[rgba(255,77,125,0.12)] hover:text-[var(--tokyo-pink)] transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (contextMenu.id === 'favourites') {
+                          // Unfavorite everything!
+                          notes.forEach(n => { if (n.isFavorite) updateNote({ ...n, isFavorite: false }); });
+                          projects.forEach(p => { if (p.isFavorite) updateProject(p.id, { isFavorite: false }); });
+                          goals.forEach(g => { if (g.isFavorite) updateGoal({ ...g, isFavorite: false }); });
+                          areas.forEach(a => { if (a.isFavorite) updateArea(a.id, { isFavorite: false }); });
+                          customPages.forEach(p => {
+                            let changed = false;
+                            const nextItems = p.items.map(item => {
+                              if (item.isFavorite) {
+                                changed = true;
+                                return { ...item, isFavorite: false };
+                              }
+                              return item;
+                            });
+                            if (p.isFavorite || changed) {
+                              updateCustomPage({ ...p, isFavorite: false, items: nextItems });
+                            }
+                          });
+                        } else {
+                          deleteSidebarItem(contextMenu.id);
+                          if (currentView === contextMenu.id) {
+                            onViewChange('dashboard');
+                          }
+                        }
+                        setContextMenu(null);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  </>
+                )
+              ) : null}
         </div>
         </>
       )}
@@ -1559,21 +1802,89 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
             }}
           >
             <IconPicker 
-              currentIcon={sidebarItems.find(i => i.id === iconPickerId)?.icon || 'File'}
-              onSelect={(iconName) => {
+              currentIcon={(() => {
+                const note = notes.find(n => n.id === iconPickerId);
+                const project = projects.find(p => p.id === iconPickerId);
+                const goal = goals.find(g => g.id === iconPickerId);
+                const area = areas.find(a => a.id === iconPickerId);
+                const customPage = customPages.find(p => p.id === iconPickerId);
+                
+                let pageItem: any = null;
+                customPages.forEach(p => {
+                  if (p.items) {
+                    const found = p.items.find(item => item.id === iconPickerId);
+                    if (found) pageItem = found;
+                  }
+                });
+
                 const item = sidebarItems.find(i => i.id === iconPickerId);
+                
+                return note?.icon || project?.icon || goal?.icon || area?.icon || customPage?.icon || pageItem?.icon || item?.icon || 'File';
+              })()}
+              onSelect={(iconName) => {
+                const note = notes.find(n => n.id === iconPickerId);
+                const project = projects.find(p => p.id === iconPickerId);
+                const goal = goals.find(g => g.id === iconPickerId);
+                const area = areas.find(a => a.id === iconPickerId);
+                const customPage = customPages.find(p => p.id === iconPickerId);
+                const item = sidebarItems.find(i => i.id === iconPickerId);
+
+                if (note) updateNote({ ...note, icon: iconName });
+                else if (project) updateProject(project.id, { icon: iconName });
+                else if (goal) updateGoal({ ...goal, icon: iconName });
+                else if (area) updateArea(area.id, { icon: iconName });
+                else if (customPage) updateCustomPage({ ...customPage, icon: iconName });
+                
+                // Also handle custom page items
+                customPages.forEach(p => {
+                  if (p.items) {
+                    const found = p.items.find(item => item.id === iconPickerId);
+                    if (found) {
+                      const nextItems = p.items.map(item => item.id === iconPickerId ? { ...item, icon: iconName } : item);
+                      updateCustomPage({ ...p, items: nextItems });
+                    }
+                  }
+                });
+
                 if (item) {
                   updateSidebarItem(item.id, item.label, iconName);
                 }
                 setIconPickerId(null);
+                setIconPickerParentId(undefined);
               }}
-              onClose={() => setIconPickerId(null)}
+              onClose={() => { setIconPickerId(null); setIconPickerParentId(undefined); }}
               onRemove={() => {
+                const note = notes.find(n => n.id === iconPickerId);
+                const project = projects.find(p => p.id === iconPickerId);
+                const goal = goals.find(g => g.id === iconPickerId);
+                const area = areas.find(a => a.id === iconPickerId);
                 const item = sidebarItems.find(i => i.id === iconPickerId);
+
+                if (note) updateNote({ ...note, icon: undefined });
+                else if (project) updateProject(project.id, { icon: undefined });
+                else if (goal) updateGoal({ ...goal, icon: undefined });
+                else if (area) updateArea(area.id, { icon: undefined });
+                else if (customPages.find(p => p.id === iconPickerId)) {
+                  const customPage = customPages.find(p => p.id === iconPickerId);
+                  if (customPage) updateCustomPage({ ...customPage, icon: undefined });
+                }
+                
+                // Also handle custom page items
+                customPages.forEach(p => {
+                  if (p.items) {
+                    const found = p.items.find(item => item.id === iconPickerId);
+                    if (found) {
+                      const nextItems = p.items.map(item => item.id === iconPickerId ? { ...item, icon: undefined } : item);
+                      updateCustomPage({ ...p, items: nextItems });
+                    }
+                  }
+                });
+
                 if (item) {
                   updateSidebarItem(item.id, item.label, 'File');
                 }
                 setIconPickerId(null);
+                setIconPickerParentId(undefined);
               }}
             />
           </div>
@@ -1606,6 +1917,7 @@ function SidebarItem({
   isActive,
   isCollapsed,
   editingId,
+  editingParentId,
   editValue,
   setEditValue,
   handleRenameSubmit,
@@ -1615,6 +1927,7 @@ function SidebarItem({
   handleSidebarItemClick,
   handleSidebarItemPointerDown,
   setIconPickerId,
+  setIconPickerParentId,
   setIconPickerPos,
   editInputRef,
   Icon,
@@ -1638,7 +1951,83 @@ function SidebarItem({
   const isFolder = item.type === 'folder';
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [createMenuPos, setCreateMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const children = sidebarItems.filter((i: any) => i.parentId === item.id);
+  const store = useAppStore();
+  const children = item.id === 'favourites' 
+    ? (() => {
+        const favoritedAreas = (store.areas || []).filter(a => a.isFavorite).map(area => ({
+          id: area.id,
+          parentId: 'favourites',
+          label: area.name,
+          icon: area.icon || 'Layers',
+          type: 'custom',
+          view: `area-details:${area.id}`,
+        }));
+
+        const favoritedProjects = (store.projects || []).filter(p => p.isFavorite).map(project => ({
+          id: project.id,
+          parentId: 'favourites',
+          label: project.name,
+          icon: project.icon || 'Folder',
+          type: 'custom',
+          view: `project-details:${project.id}`,
+        }));
+
+        const favoritedGoals = (store.goals || []).filter(g => g.isFavorite).map(goal => ({
+          id: goal.id,
+          parentId: 'favourites',
+          label: goal.title,
+          icon: goal.icon || 'Target',
+          type: 'custom',
+          view: `goal-details:${goal.id}`,
+        }));
+
+        const favoritedNotes = (store.notes || []).filter(n => n.isFavorite).map(note => ({
+          id: note.id,
+          parentId: 'favourites',
+          label: note.title || 'Untitled Note',
+          icon: note.icon || 'Pencil',
+          type: 'custom',
+          view: `note-details:${note.id}`,
+        }));
+
+        const favoritedCustomPages = (store.customPages || []).filter(page => page.isFavorite).map(page => ({
+          id: page.id,
+          parentId: 'favourites',
+          label: page.title || 'Untitled Page',
+          icon: page.icon || 'FileText',
+          type: 'custom',
+          view: `page-${page.id}`,
+        }));
+
+        const favoritedPageItems: any[] = [];
+        (store.customPages || []).forEach(page => {
+          if (page.items) {
+            page.items.forEach(cItem => {
+              if (cItem.isFavorite) {
+                favoritedPageItems.push({
+                  id: cItem.id,
+                  parentId: 'favourites',
+                  label: cItem.title || 'Untitled Item',
+                  icon: cItem.icon || 'FileText',
+                  type: 'custom',
+                  view: `page-item:${page.id}:${cItem.id}`,
+                  badge: page.title,
+                });
+              }
+            });
+          }
+        });
+
+        return [
+          ...favoritedAreas,
+          ...favoritedProjects,
+          ...favoritedGoals,
+          ...favoritedNotes,
+          ...favoritedCustomPages,
+          ...favoritedPageItems,
+        ];
+      })()
+    : sidebarItems.filter((i: any) => i.parentId === item.id);
   const isDraggingOver = dragOverId === item.id;
   const isSelected = selectedSidebarItemIds?.includes(item.id);
   const isDragging = draggingSidebarItemIds?.includes(item.id);
@@ -1676,7 +2065,7 @@ function SidebarItem({
         transition={{ duration: 0.1, ease: 'easeOut' }}
         data-sidebar-item-id={item.id}
         draggable
-        onDragStart={(e) => onDragStart(e, item.id)}
+        onDragStart={(e) => onDragStart(e, item.id, item.parentId)}
         onDragOver={(e) => onDragOver(e, item.id)}
         onDragLeave={(e) => onDragLeave(e)}
         onDragEnd={onDragEnd}
@@ -1687,7 +2076,7 @@ function SidebarItem({
           isNestedItem ? "py-1" : "py-1.5",
           isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
-          isCollapsed ? "justify-center" : isFolder ? "px-3 gap-1.5" : "px-3 gap-3",
+          isCollapsed ? "justify-center" : isFolder ? "px-3 gap-1.5" : "px-3 gap-2",
           isDragStackAnchor
             ? "bg-transparent text-white z-20"
             : isActive || isSelected || showBulkDragSelection
@@ -1697,9 +2086,9 @@ function SidebarItem({
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
         )}
         title={isCollapsed ? item.label : undefined}
-        onContextMenu={(e) => handleContextMenu(e, item.id)}
+        onContextMenu={(e) => handleContextMenu(e, item.id, 'item', item.parentId)}
         onClick={(e) => {
-          handleSidebarItemClick(e, item.id, isFolder);
+          handleSidebarItemClick(e, item.id, isFolder, item);
         }}
       >
         {isDragStackAnchor && (
@@ -1771,6 +2160,7 @@ function SidebarItem({
                 e.stopPropagation();
                 const rect = e.currentTarget.getBoundingClientRect();
                 setIconPickerId(item.id);
+                if (setIconPickerParentId) setIconPickerParentId(item.parentId);
                 setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
               }}
               className={cn("rounded p-0.5 transition-colors cursor-pointer", !isSelected && "hover:bg-[var(--tokyo-hover)]")}
@@ -1783,7 +2173,7 @@ function SidebarItem({
           )}
         </div>
         {!isCollapsed && (
-          editingId === item.id ? (
+          (editingId === item.id && editingParentId === item.parentId) ? (
             <input
               ref={editInputRef}
               type="text"
@@ -1801,7 +2191,7 @@ function SidebarItem({
           ) : (
             <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
               <span className="text-sm font-medium truncate">{item.label}</span>
-              {isFolder && (
+              {isFolder && item.id !== 'favourites' && (
                 <div className="relative ml-2 shrink-0">
                   <button
                     type="button"
@@ -1894,9 +2284,10 @@ function SidebarItem({
                 <SidebarItem
                   key={child.id}
                   item={child}
-                  isActive={currentView === child.id}
+                  isActive={child.view ? currentView === child.view : currentView === child.id}
                   isCollapsed={isCollapsed}
                   editingId={editingId}
+                  editingParentId={editingParentId}
                   editValue={editValue}
                   setEditValue={setEditValue}
                   handleRenameSubmit={handleRenameSubmit}
@@ -1906,6 +2297,7 @@ function SidebarItem({
                   handleSidebarItemClick={handleSidebarItemClick}
                   handleSidebarItemPointerDown={handleSidebarItemPointerDown}
                   setIconPickerId={setIconPickerId}
+                  setIconPickerParentId={setIconPickerParentId}
                   setIconPickerPos={setIconPickerPos}
                   editInputRef={editInputRef}
                   Icon={ChildIcon}

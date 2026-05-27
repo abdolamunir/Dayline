@@ -45,6 +45,7 @@ export interface Note {
   areaId?: ID;
   customProperties?: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
   icon?: string;
+  isFavorite?: boolean;
 }
 
 export type TaskStatus = 'todo' | 'doing' | 'done';
@@ -93,6 +94,7 @@ export interface Goal {
   assignee?: string;
   customProperties?: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
   icon?: string;
+  isFavorite?: boolean;
 }
 
 export interface Project {
@@ -113,6 +115,7 @@ export interface Project {
   reminder?: string;
   alert?: string;
   repeat?: string;
+  isFavorite?: boolean;
 }
 
 export interface Area {
@@ -131,6 +134,7 @@ export interface Area {
   reminder?: string;
   alert?: string;
   repeat?: string;
+  isFavorite?: boolean;
 }
 
 export interface Event {
@@ -169,6 +173,7 @@ export interface CustomPageItem {
   date?: string;
   progress: number;
   properties: Record<string, any>;
+  isFavorite?: boolean;
 }
 
 export interface CustomPage {
@@ -185,6 +190,7 @@ export interface CustomPage {
   items: CustomPageItem[];
   properties: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
   content: string;
+  isFavorite?: boolean;
 }
 
 export interface TrashItem {

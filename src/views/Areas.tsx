@@ -94,10 +94,16 @@ const DEFAULT_AREA_COLUMNS = [
   { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
-export function Areas() {
+export function Areas({ onViewChange, selectedAreaId }: { onViewChange?: (view: string) => void, selectedAreaId?: string }) {
   const { areas, replaceAreas, projects, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedAreaSettings = viewSettings.areas || {};
   const [localSelectedAreaId, setLocalSelectedAreaId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (selectedAreaId) {
+      setLocalSelectedAreaId(selectedAreaId);
+    }
+  }, [selectedAreaId]);
 
   const shouldUseSavedTemplate = savedAreaSettings.templateVersion === GOALS_TEMPLATE_VERSION;
   const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedAreaSettings.tabs ? savedAreaSettings.tabs : DEFAULT_AREA_TABS);
@@ -131,7 +137,13 @@ export function Areas() {
     return (
       <AreaDetailsPage 
         area={selectedArea} 
-        onBack={() => setLocalSelectedAreaId(null)}
+        onBack={() => {
+          if (onViewChange) {
+            onViewChange('areas');
+          } else {
+            setLocalSelectedAreaId(null);
+          }
+        }}
       />
     );
   }
@@ -155,6 +167,7 @@ export function Areas() {
       status: area.status,
       priority: area.priority || 'medium',
       progress: 0,
+      isFavorite: area.isFavorite,
       properties: {
         areas: `${area.projectIds.length} Projects`,
         assigned: area.assignee || 'Unassigned',
@@ -199,7 +212,7 @@ export function Areas() {
             ? String(item.properties.assigned)
             : existingArea?.assignee;
           return existingArea
-            ? { ...existingArea, name: item.title, icon: item.icon, status: item.status, priority: item.priority, assignee, customProperties }
+            ? { ...existingArea, name: item.title, icon: item.icon, status: item.status, priority: item.priority, assignee, isFavorite: item.isFavorite, customProperties }
             : {
               id: item.id,
               name: item.title,
@@ -210,6 +223,7 @@ export function Areas() {
               priority: item.priority,
               icon: item.icon || 'Layers',
               assignee,
+              isFavorite: item.isFavorite,
               customProperties,
             };
         }));
@@ -246,7 +260,6 @@ function AreaDetailsPage({ area, onBack }: {
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority';
@@ -479,7 +492,6 @@ function AreaDetailsPage({ area, onBack }: {
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
               <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
-                <InnerPageBreadcrumbs pageId="areas" pageLabel="Areas" itemLabel={area.name} onPageClick={onBack} />
                 <div className="flex w-full items-center gap-3">
                   <div 
                     onClick={(e) => {
@@ -509,14 +521,14 @@ function AreaDetailsPage({ area, onBack }: {
                     <Link className="h-[18px] w-[18px]" />
                   </button>
                   <button
-                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    onClick={() => handleUpdate({ isFavorite: !area.isFavorite })}
                     className={cn(
                       "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                      area.isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                     )}
                     title="Favorite"
                   >
-                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                    <Star className={cn("h-[18px] w-[18px]", area.isFavorite && "fill-[var(--tokyo-yellow)]")} />
                   </button>
                   <div className="relative">
                     <button
@@ -547,6 +559,7 @@ function AreaDetailsPage({ area, onBack }: {
                   </button>
                   </div>
                 </div>
+                <InnerPageBreadcrumbs pageId="areas" pageLabel="Areas" itemLabel={area.name} onPageClick={onBack} />
               </div>
             </div>
           </div>

@@ -95,10 +95,16 @@ const DEFAULT_PROJECT_COLUMNS = [
   { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
-export function Projects() {
+export function Projects({ onViewChange, selectedProjectId }: { onViewChange?: (view: string) => void, selectedProjectId?: string }) {
   const { projects, updateProject, replaceProjects, goals, areas, viewSettings, updateViewSettings, updateSidebarItem, sidebarItems } = useAppStore();
   const savedProjectSettings = viewSettings.projects || {};
   const [localSelectedProjectId, setLocalSelectedProjectId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (selectedProjectId) {
+      setLocalSelectedProjectId(selectedProjectId);
+    }
+  }, [selectedProjectId]);
 
   const shouldUseSavedTemplate = savedProjectSettings.templateVersion === GOALS_TEMPLATE_VERSION;
   const [tabs, setTabs] = useState(shouldUseSavedTemplate && savedProjectSettings.tabs ? savedProjectSettings.tabs : DEFAULT_PROJECT_TABS);
@@ -133,7 +139,13 @@ export function Projects() {
     return (
       <ProjectDetailsPage 
         project={selectedProject} 
-        onBack={() => setLocalSelectedProjectId(null)}
+        onBack={() => {
+          if (onViewChange) {
+            onViewChange('projects');
+          } else {
+            setLocalSelectedProjectId(null);
+          }
+        }}
       />
     );
   }
@@ -166,6 +178,7 @@ export function Projects() {
       priority: project.priority || 'medium',
       date: project.deadline || project.targetDate,
       progress: 0,
+      isFavorite: project.isFavorite,
       properties: {
         areas: getProjectAreaId(project),
         assigned: project.assignee || 'Unassigned',
@@ -213,7 +226,7 @@ export function Projects() {
           const areaValue = String(item.properties.areas || '');
           const areaId = areas.find(area => area.id === areaValue || area.name === areaValue)?.id;
           return existingProject
-            ? { ...existingProject, name: item.title, icon: item.icon, status: item.status as Project['status'], priority: item.priority, deadline: item.date, assignee, areaId, customProperties }
+            ? { ...existingProject, name: item.title, icon: item.icon, status: item.status as Project['status'], priority: item.priority, deadline: item.date, assignee, areaId, isFavorite: item.isFavorite, customProperties }
             : {
               id: item.id,
               name: item.title,
@@ -225,6 +238,7 @@ export function Projects() {
               icon: item.icon || 'FolderKanban',
               deadline: item.date,
               assignee,
+              isFavorite: item.isFavorite,
               customProperties,
             };
         }));
@@ -259,7 +273,6 @@ function ProjectDetailsPage({ project, onBack }: {
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority';
@@ -502,7 +515,6 @@ function ProjectDetailsPage({ project, onBack }: {
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
               <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
-                <InnerPageBreadcrumbs pageId="projects" pageLabel="Projects" itemLabel={project.name} onPageClick={onBack} />
                 <div className="flex w-full items-center gap-3">
                   <div 
                     onClick={(e) => {
@@ -532,14 +544,14 @@ function ProjectDetailsPage({ project, onBack }: {
                     <Link className="h-[18px] w-[18px]" />
                   </button>
                   <button
-                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    onClick={() => handleUpdate({ isFavorite: !project.isFavorite })}
                     className={cn(
                       "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                      project.isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                     )}
                     title="Favorite"
                   >
-                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                    <Star className={cn("h-[18px] w-[18px]", project.isFavorite && "fill-[var(--tokyo-yellow)]")} />
                   </button>
                   <div className="relative">
                     <button
@@ -570,6 +582,7 @@ function ProjectDetailsPage({ project, onBack }: {
                   </button>
                   </div>
                 </div>
+                <InnerPageBreadcrumbs pageId="projects" pageLabel="Projects" itemLabel={project.name} onPageClick={onBack} />
               </div>
             </div>
           </div>

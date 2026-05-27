@@ -58,11 +58,12 @@ const propertyIconMap: Record<string, React.ElementType> = {
 interface CustomPageViewProps {
   page: CustomPage;
   onViewChange?: (view: string) => void;
+  initialSelectedItemId?: string;
 }
 
-export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
+export function CustomPageView({ page, onViewChange, initialSelectedItemId }: CustomPageViewProps) {
   const { updateCustomPage } = useAppStore();
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(initialSelectedItemId || null);
   const [title, setTitle] = useState(page.title);
   const [content, setContent] = useState(page.content);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
@@ -73,6 +74,12 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
     currentDate?: Date;
   } | null>(null);
 
+  React.useEffect(() => {
+    if (initialSelectedItemId) {
+      setSelectedItemId(initialSelectedItemId);
+    }
+  }, [initialSelectedItemId]);
+
   const selectedItem = selectedItemId ? page.items.find(i => i.id === selectedItemId) : null;
 
   if (selectedItem) {
@@ -80,7 +87,13 @@ export function CustomPageView({ page, onViewChange }: CustomPageViewProps) {
       <CustomPageItemDetails 
         item={selectedItem}
         page={page}
-        onBack={() => setSelectedItemId(null)}
+        onBack={() => {
+          if (onViewChange) {
+            onViewChange(`page-${page.id}`);
+          } else {
+            setSelectedItemId(null);
+          }
+        }}
         onUpdateItem={(updatedItem) => {
           const newItems = page.items.map(i => i.id === updatedItem.id ? updatedItem : i);
           updateCustomPage({ ...page, items: newItems });
@@ -355,7 +368,6 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
       text: 'I will do it ASAP.'
     }
   ]);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number; y: number } | null>(null);
@@ -587,7 +599,6 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
               <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
-                <InnerPageBreadcrumbs pageId={page.id} pageLabel={page.title} itemLabel={item.title} onPageClick={onBack} />
                 <div className="flex w-full items-center gap-3">
                   <div 
                     onClick={(e) => {
@@ -617,14 +628,14 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                     <Link className="h-[18px] w-[18px]" />
                   </button>
                   <button
-                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    onClick={() => onUpdateItem({ ...item, isFavorite: !item.isFavorite })}
                     className={cn(
                       "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                      item.isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                     )}
                     title="Favorite"
                   >
-                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                    <Star className={cn("h-[18px] w-[18px]", item.isFavorite && "fill-[var(--tokyo-yellow)]")} />
                   </button>
                   <div className="relative">
                     <button
@@ -655,6 +666,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   </button>
                   </div>
                 </div>
+                <InnerPageBreadcrumbs pageId={page.id} pageLabel={page.title} itemLabel={item.title} onPageClick={onBack} />
               </div>
             </div>
           </div>

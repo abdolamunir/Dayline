@@ -5,6 +5,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 const initialSidebarItems: SidebarItem[] = [
+  { id: 'favourites', label: 'Favourites', icon: 'Folder', type: 'folder', isExpanded: true },
   { id: 'notes', label: 'Notes', icon: 'Pencil', type: 'system' },
   { id: 'projects', label: 'Projects', icon: 'Folder', type: 'system' },
   { id: 'goals', label: 'Goals', icon: 'Target', type: 'system' },
@@ -134,11 +135,24 @@ const normalizeWorkspace = (workspace: Partial<PersistedWorkspace>): PersistedWo
   };
   const customPageById = new Map(nextWorkspace.customPages.map(page => [page.id, page]));
   const existingSidebarIds = new Set(nextWorkspace.sidebarItems.map(item => item.id));
-  const syncedSidebarItems = nextWorkspace.sidebarItems.map(item => {
-    if (item.type !== 'custom') return item;
-    const page = customPageById.get(item.id);
-    return page ? { ...item, label: page.title, icon: page.icon } : item;
+  
+  let syncedSidebarItems = nextWorkspace.sidebarItems.map(item => {
+    let nextItem = { ...item };
+    if (nextItem.parentId === 'favourites') {
+      nextItem.parentId = undefined;
+    }
+    if (nextItem.type !== 'custom') return nextItem;
+    const page = customPageById.get(nextItem.id);
+    return page ? { ...nextItem, label: page.title, icon: page.icon } : nextItem;
   });
+
+  if (!existingSidebarIds.has('favourites')) {
+    syncedSidebarItems = [
+      { id: 'favourites', label: 'Favourites', icon: 'Folder', type: 'folder', isExpanded: true },
+      ...syncedSidebarItems
+    ];
+  }
+
   const missingCustomItems = nextWorkspace.customPages
     .filter(page => !existingSidebarIds.has(page.id))
     .map(page => ({ id: page.id, label: page.title, icon: page.icon, type: 'custom' as const }));
@@ -593,6 +607,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteSidebarItem = (id: string) => {
+    if (id === 'favourites') return;
     const item = sidebarItems.find(i => i.id === id);
     if (item) {
       if (item.type === 'custom') {
@@ -609,6 +624,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const duplicateSidebarItem = (id: string) => {
+    if (id === 'favourites') return;
     const item = sidebarItems.find(i => i.id === id);
     if (!item) {
       return;

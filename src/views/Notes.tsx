@@ -197,6 +197,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
       priority: note.priority,
       date: note.createdAt,
       progress: note.progress,
+      isFavorite: note.isFavorite,
       properties: {
         areas: getNoteAreaId(note),
         assigned: note.assignee || 'Unassigned',
@@ -249,7 +250,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
             ? String(item.properties.assigned)
             : existingNote?.assignee || '';
           return existingNote
-            ? { ...existingNote, title: item.title, icon: item.icon, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId, assignee, customProperties }
+            ? { ...existingNote, title: item.title, icon: item.icon, status: item.status, priority: item.priority, progress: item.progress, createdAt: item.date || existingNote.createdAt, areaId, assignee, isFavorite: item.isFavorite, customProperties }
             : {
               id: item.id,
               title: item.title,
@@ -262,6 +263,7 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
               assignee,
               areaId,
               icon: item.icon || 'Pencil',
+              isFavorite: item.isFavorite,
               customProperties,
             };
         });
@@ -325,7 +327,6 @@ function NoteDetailsPage({ note, onBack }: {
       text: 'I will review this today!'
     }
   ]);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
   const [iconPickerPos, setIconPickerPos] = useState<{ x: number; y: number } | null>(null);
@@ -549,7 +550,6 @@ function NoteDetailsPage({ note, onBack }: {
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
               <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
-                <InnerPageBreadcrumbs pageId="notes" pageLabel="Notes" itemLabel={note.title} onPageClick={onBack} />
                 <div className="flex w-full items-center gap-3">
                   <div
                     onClick={(e) => {
@@ -579,14 +579,14 @@ function NoteDetailsPage({ note, onBack }: {
                     <Link className="h-[18px] w-[18px]" />
                   </button>
                   <button
-                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    onClick={() => handleUpdate({ isFavorite: !note.isFavorite })}
                     className={cn(
                       "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                      note.isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                     )}
                     title="Favorite"
                   >
-                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                    <Star className={cn("h-[18px] w-[18px]", note.isFavorite && "fill-[var(--tokyo-yellow)]")} />
                   </button>
                   <div className="relative">
                     <button
@@ -617,6 +617,7 @@ function NoteDetailsPage({ note, onBack }: {
                   </button>
                   </div>
                 </div>
+                <InnerPageBreadcrumbs pageId="notes" pageLabel="Notes" itemLabel={note.title} onPageClick={onBack} />
               </div>
             </div>
           </div>

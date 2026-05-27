@@ -13,24 +13,9 @@ export function InnerPageBreadcrumbs({ pageId, pageLabel, itemLabel, onPageClick
   const { sidebarItems } = useAppStore();
   const itemById = new Map(sidebarItems.map((item) => [item.id, item]));
   const pageItem = itemById.get(pageId);
-  const parentLabels: string[] = [];
-  let parentId = pageItem?.parentId;
-
-  while (parentId) {
-    const parentItem = itemById.get(parentId);
-    if (!parentItem) break;
-    parentLabels.unshift(parentItem.label);
-    parentId = parentItem.parentId;
-  }
 
   return (
     <nav className="inner-page-breadcrumbs" aria-label="Breadcrumb">
-      {parentLabels.map((label) => (
-        <React.Fragment key={label}>
-          <span className="inner-page-breadcrumb-muted">{label}</span>
-          <ChevronRight className="inner-page-breadcrumb-separator" />
-        </React.Fragment>
-      ))}
       <button
         type="button"
         onClick={onPageClick}

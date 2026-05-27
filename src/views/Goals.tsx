@@ -2400,6 +2400,19 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               <Smile className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
               Change Icon
             </button>
+            <button 
+              onClick={() => {
+                const goal = goals.find(g => g.id === goalContextMenu.id);
+                if (goal) {
+                  updateGoal({ ...goal, isFavorite: !goal.isFavorite });
+                }
+                setGoalContextMenu(null);
+              }}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Star className={cn("w-4 h-4 text-[var(--tokyo-text-faint)]", goals.find(g => g.id === goalContextMenu.id)?.isFavorite && "text-[var(--tokyo-yellow)] fill-[var(--tokyo-yellow)]")} />
+              {goals.find(g => g.id === goalContextMenu.id)?.isFavorite ? 'Remove from Favourites' : 'Add to Favourites'}
+            </button>
             <div className="h-px bg-[var(--tokyo-border)] my-1" />
             <button 
               onClick={() => {
@@ -2473,7 +2486,6 @@ function GoalDetailsPage({ goal, onBack }: {
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
   const [propertyPickerPos, setPropertyPickerPos] = useState<{ x: number, y: number } | null>(null);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [customDropdown, setCustomDropdown] = useState<{
     id: string;
     type: 'status' | 'priority';
@@ -2761,7 +2773,6 @@ function GoalDetailsPage({ goal, onBack }: {
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
               <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
-                <InnerPageBreadcrumbs pageId="goals" pageLabel="Goals" itemLabel={goal.title} onPageClick={onBack} />
                 <div className="flex w-full items-center gap-3">
                   <div 
                     onClick={(e) => {
@@ -2791,14 +2802,14 @@ function GoalDetailsPage({ goal, onBack }: {
                     <Link className="h-[18px] w-[18px]" />
                   </button>
                   <button
-                    onClick={() => setIsFavorite((favorite) => !favorite)}
+                    onClick={() => handleUpdate({ isFavorite: !goal.isFavorite })}
                     className={cn(
                       "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--tokyo-hover)]",
-                      isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
+                      goal.isFavorite ? "text-[var(--tokyo-yellow)]" : "text-[var(--tokyo-text-faint)] hover:text-[var(--tokyo-text)]"
                     )}
                     title="Favorite"
                   >
-                    <Star className={cn("h-[18px] w-[18px]", isFavorite && "fill-[var(--tokyo-yellow)]")} />
+                    <Star className={cn("h-[18px] w-[18px]", goal.isFavorite && "fill-[var(--tokyo-yellow)]")} />
                   </button>
                   <div className="relative">
                     <button
@@ -2829,6 +2840,7 @@ function GoalDetailsPage({ goal, onBack }: {
                   </button>
                   </div>
                 </div>
+                <InnerPageBreadcrumbs pageId="goals" pageLabel="Goals" itemLabel={goal.title} onPageClick={onBack} />
               </div>
             </div>
           </div>

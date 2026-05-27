@@ -15,8 +15,8 @@
   --tokyo-panel-3: #281f30;
   --tokyo-border: rgba(218, 204, 216, 0.06);
   --tokyo-border-strong: rgba(218, 204, 216, 0.105);
-  --tokyo-text: #d8d1db;
-  --tokyo-text-strong: #f4eff5;
+  --tokyo-text: #c3bcc6;
+  --tokyo-text-strong: #ded9e0;
   --tokyo-text-muted: #ada4b4;
   --tokyo-text-faint: #6a6170;
   --tokyo-yellow: #e9ca35;
@@ -29,6 +29,23 @@
   --tokyo-purple: #c09adf;
   --tokyo-orange: var(--tokyo-yellow);
   --tokyo-editor-rule: rgba(214, 204, 219, 0.13);
+}
+
+/* Dim pure white fonts in sidebars, popovers, and details panel to reduce eye strain */
+[class*="bg-[var(--tokyo-sidebar)]"] .text-white,
+[class*="bg-[var(--tokyo-sidebar)]"] .hover\:text-white:hover,
+[class*="bg-[var(--tokyo-sidebar)]"] span.text-white,
+.inner-detail-panel-content .text-white,
+.inner-detail-panel-content .hover\:text-white:hover,
+.inner-detail-sidebar .text-white,
+.inner-detail-sidebar .hover\:text-white:hover,
+.inner-detail-tabs .text-white,
+.inner-detail-tabs .hover\:text-white:hover,
+.sidebar-context-menu .text-white,
+.sidebar-context-menu .hover\:text-white:hover,
+.dayline-dialog .text-white,
+.dayline-dialog .hover\:text-white:hover {
+  color: var(--tokyo-text-strong) !important;
 }
 
 html {
@@ -322,18 +339,20 @@ button {
 .inner-page-breadcrumb-link {
   border: 0;
   background: transparent;
-  color: var(--tokyo-text-muted);
+  color: var(--tokyo-text-faint);
   cursor: pointer;
   padding: 0;
+  font-weight: 500;
   transition: color 0.1s ease;
 }
 
 .inner-page-breadcrumb-link:hover {
-  color: var(--tokyo-text-strong);
+  color: var(--tokyo-text-muted);
 }
 
 .inner-page-breadcrumb-current {
-  color: var(--tokyo-text-faint);
+  color: var(--tokyo-text-muted);
+  font-weight: 700;
 }
 
 .inner-page-breadcrumb-separator {
