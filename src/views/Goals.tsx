@@ -2410,7 +2410,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               }}
               className="w-full flex items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
             >
-              <Star className={cn("w-4 h-4 text-[var(--tokyo-text-faint)]", goals.find(g => g.id === goalContextMenu.id)?.isFavorite && "text-[var(--tokyo-yellow)] fill-[var(--tokyo-yellow)]")} />
+              {goals.find(g => g.id === goalContextMenu.id)?.isFavorite ? (
+                <Star className="w-4 h-4 shrink-0" color="#e9ca35" fill="#e9ca35" strokeWidth={0} />
+              ) : (
+                <Star className="w-4 h-4 shrink-0 text-[var(--tokyo-text-faint)]" />
+              )}
               {goals.find(g => g.id === goalContextMenu.id)?.isFavorite ? 'Remove from Favourites' : 'Add to Favourites'}
             </button>
             <div className="h-px bg-[var(--tokyo-border)] my-1" />

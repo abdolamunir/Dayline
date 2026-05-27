@@ -1620,7 +1620,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         setContextMenu(null);
                       }}
                     >
-                      <Star className="w-3.5 h-3.5 fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" />
+                      <Star className="w-3.5 h-3.5 shrink-0" color="#e9ca35" fill="#e9ca35" strokeWidth={0} />
                       Unpin All
                     </button>
                   </>
@@ -1695,7 +1695,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                         setContextMenu(null);
                       }}
                     >
-                      <Star className="w-3.5 h-3.5 fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" />
+                      <Star className="w-3.5 h-3.5 shrink-0" color="#e9ca35" fill="#e9ca35" strokeWidth={0} />
                       Unpin
                     </button>
                   </>

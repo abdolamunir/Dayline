@@ -1939,7 +1939,11 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 }}
                 className="flex w-full cursor-pointer items-center gap-2.5 px-2.5 py-1.5 text-left text-[13px] text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
               >
-                <Star className={cn("h-4 w-4 text-[var(--tokyo-text-faint)]", page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite && "text-[var(--tokyo-yellow)] fill-[var(--tokyo-yellow)]")} />
+                {page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite ? (
+                  <Star className="h-4 w-4 shrink-0" color="#e9ca35" fill="#e9ca35" strokeWidth={0} />
+                ) : (
+                  <Star className="h-4 w-4 shrink-0 text-[var(--tokyo-text-faint)]" />
+                )}
                 {page.items.find(candidate => candidate.id === itemContextMenu.id)?.isFavorite ? 'Remove from Favourites' : 'Add to Favourites'}
               </button>
               <div className="my-1 h-px bg-[var(--tokyo-border)]" />
