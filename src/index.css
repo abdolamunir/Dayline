@@ -298,6 +298,52 @@ button {
   padding: 2.5rem 2rem 2.25rem 2.5rem !important; /* Increased bottom padding to 2.25rem for breathing room under the title */
 }
 
+.inner-page-breadcrumbs {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  gap: 0.375rem;
+  color: var(--tokyo-text-faint);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.inner-page-breadcrumb-muted,
+.inner-page-breadcrumb-current,
+.inner-page-breadcrumb-link {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inner-page-breadcrumb-link {
+  border: 0;
+  background: transparent;
+  color: var(--tokyo-text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.1s ease;
+}
+
+.inner-page-breadcrumb-link:hover {
+  color: var(--tokyo-text-strong);
+}
+
+.inner-page-breadcrumb-current {
+  color: var(--tokyo-text-faint);
+}
+
+.inner-page-breadcrumb-separator {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: 0 0 auto;
+  color: var(--tokyo-text-faint);
+  opacity: 0.72;
+}
+
 .inner-detail-document {
   width: 100% !important;
   max-width: 72rem !important; /* same as max-w-6xl for perfect left alignment */

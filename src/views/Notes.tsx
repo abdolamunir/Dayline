@@ -41,6 +41,7 @@ import { format } from 'date-fns';
 import { IconPicker, ALL_ICONS } from '../components/IconPicker';
 import { DatePicker } from '../components/DatePicker';
 import { BlockEditor } from '../components/BlockEditor';
+import { InnerPageBreadcrumbs } from '../components/InnerPageBreadcrumbs';
 import { EmptyState, PrimaryButton, SearchButton, StatusPill, ToolButton, ViewTabs, WorkspaceHeader, WorkspacePage } from '../components/ui/DatabaseSurface';
 import { TableView } from '../components/TableView';
 import { getPriorityBadgeClasses } from '../utils/badges';
@@ -547,27 +548,29 @@ function NoteDetailsPage({ note, onBack }: {
           {/* Header */}
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
-              <div className="inner-detail-titlebar-content flex items-center gap-3">
-                <div
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                    setIsIconPickerOpen(true);
-                  }}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-                >
-                  {React.createElement(ALL_ICONS[note.icon] || Pencil, { className: "w-6 h-6" })}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <input
-                    type="text"
-                    value={note.title}
-                    onChange={(e) => handleUpdate({ title: e.target.value })}
-                    className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                    placeholder="Untitled Note"
-                  />
-                </div>
-                <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+              <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
+                <InnerPageBreadcrumbs pageId="notes" pageLabel="Notes" itemLabel={note.title} onPageClick={onBack} />
+                <div className="flex w-full items-center gap-3">
+                  <div
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                      setIsIconPickerOpen(true);
+                    }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
+                  >
+                    {React.createElement(ALL_ICONS[note.icon] || Pencil, { className: "w-6 h-6" })}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input
+                      type="text"
+                      value={note.title}
+                      onChange={(e) => handleUpdate({ title: e.target.value })}
+                      className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                      placeholder="Untitled Note"
+                    />
+                  </div>
+                  <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
                   <button
                     onClick={() => void handleCopyLink()}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
@@ -612,6 +615,7 @@ function NoteDetailsPage({ note, onBack }: {
                   >
                     <X className="h-[18px] w-[18px]" />
                   </button>
+                  </div>
                 </div>
               </div>
             </div>

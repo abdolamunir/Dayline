@@ -45,6 +45,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
+import { InnerPageBreadcrumbs } from '../components/InnerPageBreadcrumbs';
 import { cn } from '../utils/cn';
 import { getPriorityBadgeClasses } from '../utils/badges';
 import { getDefaultPropertyValue, getPropertyTypeIcon, getPropertyTypeLabel, PROPERTY_TYPE_OPTIONS } from '../utils/propertyTypes';
@@ -500,27 +501,29 @@ function ProjectDetailsPage({ project, onBack }: {
           {/* Header */}
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
-              <div className="inner-detail-titlebar-content flex items-center gap-3">
-                <div 
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setIconPickerId(project.id);
-                    setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                  }}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-                >
-                  {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <input 
-                    type="text"
-                    value={project.name}
-                    onChange={(e) => handleUpdate({ name: e.target.value })}
-                    className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                    placeholder="Untitled Project"
-                  />
-                </div>
-                <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+              <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
+                <InnerPageBreadcrumbs pageId="projects" pageLabel="Projects" itemLabel={project.name} onPageClick={onBack} />
+                <div className="flex w-full items-center gap-3">
+                  <div 
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setIconPickerId(project.id);
+                      setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                    }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
+                  >
+                    {React.createElement(iconMap[project.icon || 'FolderKanban'] || FolderKanban, { className: "w-6 h-6" })}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input 
+                      type="text"
+                      value={project.name}
+                      onChange={(e) => handleUpdate({ name: e.target.value })}
+                      className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                      placeholder="Untitled Project"
+                    />
+                  </div>
+                  <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
                   <button
                     onClick={() => void handleCopyProjectLink()}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
@@ -565,6 +568,7 @@ function ProjectDetailsPage({ project, onBack }: {
                   >
                     <X className="h-[18px] w-[18px]" />
                   </button>
+                  </div>
                 </div>
               </div>
             </div>

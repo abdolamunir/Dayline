@@ -31,6 +31,7 @@ import { DatePicker } from '../components/DatePicker';
 import { format } from 'date-fns';
 import { TableView } from '../components/TableView';
 import { BlockEditor } from '../components/BlockEditor';
+import { InnerPageBreadcrumbs } from '../components/InnerPageBreadcrumbs';
 import { WorkspacePage, WorkspaceHeader, ToolButton } from '../components/ui/DatabaseSurface';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../utils/cn';
@@ -585,27 +586,29 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
           {/* Header */}
           <div className="inner-detail-header flex-shrink-0 w-full">
             <div className="inner-detail-titlebar mb-5">
-              <div className="inner-detail-titlebar-content flex items-center gap-3">
-                <div 
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-                    setIsIconPickerOpen(true);
-                  }}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
-                >
-                  {React.createElement(ALL_ICONS[item.icon] || FileIcon, { className: "w-6 h-6" })}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <input 
-                    type="text"
-                    value={item.title}
-                    onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
-                    className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
-                    placeholder="Untitled Item"
-                  />
-                </div>
-                <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
+              <div className="inner-detail-titlebar-content flex flex-col items-start gap-3">
+                <InnerPageBreadcrumbs pageId={page.id} pageLabel={page.title} itemLabel={item.title} onPageClick={onBack} />
+                <div className="flex w-full items-center gap-3">
+                  <div 
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                      setIsIconPickerOpen(true);
+                    }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)] cursor-pointer hover:bg-white/[0.05] transition-colors"
+                  >
+                    {React.createElement(ALL_ICONS[item.icon] || FileIcon, { className: "w-6 h-6" })}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input 
+                      type="text"
+                      value={item.title}
+                      onChange={(e) => onUpdateItem({ ...item, title: e.target.value })}
+                      className="block min-w-0 w-full bg-transparent !text-2xl md:!text-[28px] !font-semibold leading-tight text-[var(--tokyo-text-strong)] tracking-tight outline-none placeholder:text-white/10"
+                      placeholder="Untitled Item"
+                    />
+                  </div>
+                  <div className="relative flex shrink-0 items-center gap-1.5 text-[var(--tokyo-text-faint)]">
                   <button
                     onClick={() => void handleCopyLink()}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
@@ -650,6 +653,7 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
                   >
                     <X className="h-[18px] w-[18px]" />
                   </button>
+                  </div>
                 </div>
               </div>
             </div>
