@@ -4,7 +4,6 @@ import {
   Add01Icon as Plus, 
   Calendar01Icon as CalendarIcon, 
   DashboardSquare01Icon as LayoutGrid,
-  ArrowLeft01Icon as ChevronLeft,
   UserGroupIcon as Users,
   ZapIcon as Zap,
   CheckmarkCircle02Icon as CheckCircle,
@@ -38,7 +37,9 @@ import {
   InboxIcon as Inbox,
   File01Icon as FileIcon,
   StarIcon as Star,
-  Folder01Icon as FolderKanban
+  Folder01Icon as FolderKanban,
+  GridIcon as GridIcon,
+  Calendar02Icon as CalendarDays
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -47,7 +48,7 @@ import { getPriorityBadgeClasses } from '../utils/badges';
 import { IconPicker, ALL_ICONS } from './IconPicker';
 import { DatePicker, DateConfig } from './DatePicker';
 import { format } from 'date-fns';
-import { CustomPage, CustomPageItem } from '../types';
+import { CustomPage, CustomPageItem, DatabaseLayout } from '../types';
 import { useAppStore } from '../store';
 import { getPropertyTypeIcon } from '../utils/propertyTypes';
 
@@ -91,6 +92,14 @@ interface TableViewProps {
 
 type TableSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_TABLE_SORT: TableSortConfig = { columnId: 'title', direction: 'asc' };
+const DATABASE_LAYOUTS: Array<{ id: DatabaseLayout; label: string; icon: React.ElementType }> = [
+  { id: 'table', label: 'Table', icon: LayoutGrid },
+  { id: 'board', label: 'Board', icon: FolderKanban },
+  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'list', label: 'List', icon: List },
+  { id: 'gallery', label: 'Gallery', icon: GridIcon },
+];
 
 export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const { areas, user } = useAppStore();
@@ -153,6 +162,8 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [sortConfigs, setSortConfigs] = useState<TableSortConfig[]>(page.sortConfigs || []);
   const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [sortPickerOpen, setSortPickerOpen] = useState<string | null>(null);
+  const [databaseLayout, setDatabaseLayout] = useState<DatabaseLayout>(page.layout || 'table');
+  const [layoutPopoverPos, setLayoutPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
   const [draggingColumnOffset, setDraggingColumnOffset] = useState(0);
   const [columnDropIndicatorX, setColumnDropIndicatorX] = useState<number | null>(null);
@@ -210,6 +221,10 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   useEffect(() => {
     setSortConfigs(page.sortConfigs || []);
   }, [page.sortConfigs]);
+
+  useEffect(() => {
+    setDatabaseLayout(page.layout || 'table');
+  }, [page.layout]);
 
   useEffect(() => {
     const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;
@@ -567,6 +582,12 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     onUpdatePage({ ...page, sortConfigs: nextSorts });
   };
 
+  const setPageLayout = (nextLayout: DatabaseLayout) => {
+    setDatabaseLayout(nextLayout);
+    setLayoutPopoverPos(null);
+    onUpdatePage({ ...page, layout: nextLayout });
+  };
+
   const getSortValue = (item: CustomPageItem, columnId: string) => {
     const value = getCellValue(item, columnId);
     if (columnId === 'priority') return ['low', 'medium', 'high'].indexOf(String(value));
@@ -857,6 +878,131 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setIsShareMenuOpen(false);
   };
 
+  const renderItemCard = (item: CustomPageItem, compact = false) => (
+    <button
+      key={item.id}
+      type="button"
+      onClick={() => onItemClick(item.id)}
+      className={cn(
+        "group w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] text-left transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]",
+        compact ? "px-3 py-2.5" : "p-4"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)]">
+          {React.createElement(iconMap[item.icon || 'File'] || FileIcon, { className: "h-4 w-4" })}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{item.title}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-md bg-[rgba(198,140,255,0.14)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-purple)]">
+              {toSentenceCase(item.status)}
+            </span>
+            <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getPriorityBadgeClasses(item.priority))}>
+              {toSentenceCase(item.priority)}
+            </span>
+            {item.date && (
+              <span className="rounded-md bg-[var(--tokyo-hover)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-text-faint)]">
+                {format(new Date(item.date), 'MMM d')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+
+  const renderLayoutView = () => {
+    if (databaseLayout === 'table') {
+      return null;
+    }
+
+    if (databaseLayout === 'board') {
+      const boardTabs = page.tabs.filter(tab => tab.id !== 'all');
+      return (
+        <div className="h-full overflow-auto no-scrollbar pb-4">
+          <div className="grid min-w-[720px] grid-cols-3 gap-3 lg:grid-cols-4">
+            {boardTabs.map(tab => {
+              const tabItems = visibleItems.filter(item => item.status === tab.id);
+              const Icon = iconMap[tab.icon] || Target;
+              return (
+                <section key={tab.id} className="min-h-[360px] rounded-xl border border-[var(--tokyo-border)] bg-black/10 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2 text-[var(--tokyo-text-muted)]">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate text-sm font-bold text-[var(--tokyo-text)]">{tab.label}</span>
+                    </div>
+                    <span className="text-xs text-[var(--tokyo-text-faint)]">{tabItems.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {tabItems.map(item => renderItemCard(item, true))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (databaseLayout === 'timeline') {
+      const datedItems = visibleItems.filter(item => item.date);
+      return (
+        <div className="overflow-auto no-scrollbar pb-4">
+          <div className="flex min-w-[760px] gap-3">
+            {(datedItems.length ? datedItems : visibleItems).map(item => (
+              <div key={item.id} className="w-64 shrink-0">
+                <div className="mb-2 text-xs font-bold text-[var(--tokyo-text-faint)]">{item.date ? format(new Date(item.date), 'MMM d, yyyy') : 'No date'}</div>
+                {renderItemCard(item)}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (databaseLayout === 'calendar') {
+      return (
+        <div className="grid gap-3 overflow-auto no-scrollbar pb-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleItems.map(item => (
+            <div key={item.id} className="rounded-xl border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[var(--tokyo-text-muted)]">
+                <CalendarIcon className="h-4 w-4" />
+                {item.date ? format(new Date(item.date), 'EEEE, MMM d') : 'No date'}
+              </div>
+              {renderItemCard(item, true)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (databaseLayout === 'gallery') {
+      return (
+        <div className="grid gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleItems.map(item => (
+            <div key={item.id} className="overflow-hidden rounded-xl border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)]">
+              <div className="h-24 bg-[linear-gradient(135deg,rgba(122,162,247,0.16),rgba(233,202,53,0.10),rgba(224,107,138,0.12))]" />
+              <div className="p-3">{renderItemCard(item, true)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className={cn(
+        "overflow-auto no-scrollbar pb-4",
+        databaseLayout === 'list' ? "space-y-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      )}>
+        {visibleItems.map(item => renderItemCard(item, databaseLayout === 'list'))}
+      </div>
+    );
+  };
+
+  const activeLayout = DATABASE_LAYOUTS.find(layout => layout.id === databaseLayout) || DATABASE_LAYOUTS[0];
+  const ActiveLayoutIcon = activeLayout.icon;
+
   return (
     <div className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
@@ -1102,6 +1248,24 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
           <button className="p-2 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
           <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
           <button
+            type="button"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setSortPopoverPos(null);
+              setLayoutPopoverPos(layoutPopoverPos ? null : { x: rect.right, y: rect.bottom + 8 });
+            }}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+              layoutPopoverPos || databaseLayout !== 'table'
+                ? "bg-[var(--tokyo-hover)] text-[#1E90FF]"
+                : "hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            )}
+            title="Layout"
+            aria-label="Layout"
+          >
+            <ActiveLayoutIcon className="h-4 w-4" />
+          </button>
+          <button
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               setSortPopoverPos(sortPopoverPos ? null : { x: rect.right, y: rect.bottom + 8 });
@@ -1121,10 +1285,10 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="flex-1 overflow-visible">
-        <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
-          <div ref={tableRef} className="relative min-h-full overflow-visible" style={{ width: `${tableWidth}px` }}>
+      {databaseLayout === 'table' ? (
+        <div className="flex-1 overflow-visible">
+          <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
+            <div ref={tableRef} className="relative min-h-full overflow-visible" style={{ width: `${tableWidth}px` }}>
           <table className="text-left border-separate border-spacing-0 table-fixed" style={{ width: `${tableWidth}px` }}>
             <colgroup>
               {displayColumns.map(column => (
@@ -1576,9 +1740,14 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               />
             )}
           </AnimatePresence>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-hidden pt-2">
+          {renderLayoutView()}
+        </div>
+      )}
       </div>
 
       {/* Popovers */}
@@ -1635,6 +1804,60 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                   ))}
                 </div>
               )}
+            </motion.div>
+          </>
+        )}
+
+        {layoutPopoverPos && (
+          <>
+            <div className="fixed inset-0 z-[130]" onClick={() => setLayoutPopoverPos(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              className="fixed z-[140] w-[320px] rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-2 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(layoutPopoverPos.y, window.innerHeight - 360),
+                left: Math.max(12, Math.min(layoutPopoverPos.x - 320, window.innerWidth - 332)),
+              }}
+            >
+              <div className="flex items-center justify-between px-1 pb-2">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--tokyo-text-muted)]">
+                  <ActiveLayoutIcon className="h-4 w-4" />
+                  <span>Layout</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLayoutPopoverPos(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Close"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 border-t border-[var(--tokyo-border)] pt-2">
+                {DATABASE_LAYOUTS.map(layout => {
+                  const Icon = layout.icon;
+                  const isSelected = databaseLayout === layout.id;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      onClick={() => setPageLayout(layout.id)}
+                      className={cn(
+                        "flex h-16 items-center gap-2 rounded-lg border px-3 text-left font-medium transition-colors hover:border-[#1E90FF]/70 hover:bg-[var(--tokyo-hover)] hover:text-[#1E90FF]",
+                        isSelected
+                          ? "border-[#1E90FF] bg-[#1E90FF]/10 text-[#1E90FF]"
+                          : "border-[var(--tokyo-border)] text-[var(--tokyo-text-muted)]"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{layout.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </motion.div>
           </>
         )}

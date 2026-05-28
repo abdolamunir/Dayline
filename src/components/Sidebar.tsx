@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, HelpCircleIcon as HelpCircle, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy, Megaphone01Icon as Megaphone, GiftIcon as Gift, InformationCircleIcon as InfoCircle, Camera01Icon as Camera } from 'hugeicons-react';
+import { Home01Icon as Home, Search01Icon as Search, Notification01Icon as Bell, Settings01Icon as Settings, Add01Icon as Plus, Message02Icon as MessageSquare, Calendar01Icon as CalendarIcon, InboxIcon as Inbox, PencilEdit01Icon as Pencil, CheckmarkCircle02Icon as CheckCircle2, Target01Icon as Target, Layers01Icon as Layers, Activity01Icon as Activity, SmileIcon as Smile, StethoscopeIcon as Stethoscope, Book01Icon as Book, FeatherIcon as Feather, Folder01Icon as Folder, Dumbbell01Icon as Dumbbell, Restaurant01Icon as Utensils, ShoppingCart01Icon as ShoppingCart, Bookmark01Icon as Bookmark, Airplane01Icon as Plane, LibraryIcon as Library, ShoppingBag01Icon as ShoppingBag, PlayCircle02Icon as MonitorPlay, UserGroupIcon as Users, File01Icon as File, ArrowLeft01Icon as ChevronLeft, ArrowRight01Icon as ChevronRight, StarIcon as Star, Calendar02Icon as CalendarDays, Archive01Icon as Archive, Book02Icon as BookCheck, MoreHorizontalIcon as MoreHorizontal, Delete02Icon as Trash2, Edit02Icon as Edit2, Time02Icon as History, ArrowLeft01Icon as ArrowLeft, ArrowRight01Icon as ArrowRight, SidebarLeftIcon as PanelLeft, ArrowDown01Icon as ChevronDown, Edit01Icon as SquarePen, SidebarLeftIcon as SidebarIcon, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, Shield01Icon as Shield, Wallet01Icon as Wallet, Download01Icon as Download, Upload01Icon as Upload, UserIcon as User, Logout01Icon as LogOut, KeyboardIcon as Keyboard, CommandIcon as Command, Moon01Icon as Moon, Copy01Icon as Copy, Megaphone01Icon as Megaphone, GiftIcon as Gift, InformationCircleIcon as InfoCircle, Camera01Icon as Camera } from 'hugeicons-react';
 import { cn } from '../utils/cn';
 import { useAppStore } from '../store';
 import { IconPicker, ALL_ICONS } from './IconPicker';
@@ -35,6 +35,29 @@ const SIDEBAR_WIDTH_STORAGE_KEY = 'dayline:sidebar-width';
 const DEFAULT_SIDEBAR_WIDTH = 256;
 const MIN_SIDEBAR_WIDTH = 220;
 const MAX_SIDEBAR_WIDTH = 420;
+const APP_VERSION = '0.0.0';
+const APP_BUILD = 'Local workspace';
+
+const CHANGELOG_ITEMS = [
+  {
+    date: 'May 2026',
+    title: 'Sidebar improvements',
+    details: [
+      'Added stable category-only page dragging.',
+      'Improved Favourites, Shared, and Private sidebar behavior.',
+      'Added account menu modals for feedback, updates, and version details.',
+    ],
+  },
+  {
+    date: 'May 2026',
+    title: 'Workspace polish',
+    details: [
+      'Refined sidebar spacing and typography.',
+      'Added resizable sidebar width with persistence.',
+      'Improved profile and settings flows.',
+    ],
+  },
+];
 
 const clampSidebarWidth = (width: number) => Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
 
@@ -81,6 +104,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [productUpdatesEnabled, setProductUpdatesEnabled] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [accountModal, setAccountModal] = useState<'feedback' | 'whats-new' | 'version' | null>(null);
+  const [feedbackDraft, setFeedbackDraft] = useState('');
+  const [feedbackEmail, setFeedbackEmail] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const [isNewItemMenuOpen, setIsNewItemMenuOpen] = useState(false);
   const [isAuthBusy, setIsAuthBusy] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -97,6 +124,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const [lastSelectedSidebarItemId, setLastSelectedSidebarItemId] = useState<string | null>(null);
   const [draggingSidebarItemIds, setDraggingSidebarItemIds] = useState<string[]>([]);
   const [primaryDraggingSidebarItemId, setPrimaryDraggingSidebarItemId] = useState<string | null>(null);
+  const [activeSidebarRow, setActiveSidebarRow] = useState<{ key: string; view: string } | null>(null);
   const fixedSidebarItemIds = new Set(['favourites', 'shared', 'private']);
 
   const profileStorageKey = user?.uid ? `dayline:user-profile:v1:${user.uid}` : null;
@@ -221,6 +249,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     document.addEventListener('pointerdown', handleDeselect);
     return () => document.removeEventListener('pointerdown', handleDeselect);
   }, [selectedSidebarItemIds.length]);
+
+  useEffect(() => {
+    if (activeSidebarRow && activeSidebarRow.view !== currentView) {
+      setActiveSidebarRow(null);
+    }
+  }, [activeSidebarRow, currentView]);
 
   useEffect(() => {
     const resetDragState = () => {
@@ -348,6 +382,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     setIsProfileOpen(false);
   };
 
+  const openAccountModal = (modal: 'feedback' | 'whats-new' | 'version') => {
+    setAccountModal(modal);
+    setIsProfileOpen(false);
+    if (modal === 'feedback') {
+      setFeedbackSent(false);
+      setFeedbackEmail(activeProfileEmail);
+    }
+  };
+
   const handleProfilePhotoFile = (file?: File) => {
     if (!file || !file.type.startsWith('image/')) return;
 
@@ -379,15 +422,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
 
   const renderAboutMenuItems = () => (
     <>
-      <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+      <button onClick={() => openAccountModal('feedback')} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
         <Megaphone className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
         Send us feedback
       </button>
-      <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+      <button onClick={() => openAccountModal('whats-new')} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
         <Gift className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
         What's new
       </button>
-      <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
+      <button onClick={() => openAccountModal('version')} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
         <InfoCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
         Version
       </button>
@@ -453,22 +496,38 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     onViewChange(newId);
   };
 
-  const handleNewFolder = () => {
+  const handleNewFolder = (parentId?: string) => {
     const newId = `folder-${Date.now()}`;
     addFolder({
       id: newId,
       label: 'New Category',
       icon: 'Folder',
       type: 'folder',
+      parentId,
       isExpanded: true
     });
+    if (parentId) {
+      const parent = sidebarItems.find(item => item.id === parentId);
+      if (parent && !parent.isExpanded) {
+        toggleFolderExpansion(parentId);
+      }
+    }
     setEditingId(newId);
+    setEditingParentId(parentId);
     setEditValue('New Category');
     setIsNewItemMenuOpen(false);
   };
 
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragOverTargetKey, setDragOverTargetKey] = useState<string | null>(null);
   const [dropPosition, setDropPosition] = useState<'top' | 'bottom' | 'middle' | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; parentId?: string } | null>(null);
+  const getSidebarDropTargetKey = (id: string, parentId?: string) => `${parentId || 'root'}:${id}`;
+
+  const clearSidebarDropIndicator = () => {
+    setDragOverTargetKey(null);
+    setDropPosition(null);
+    setDropTarget(null);
+  };
 
   const isMultiSelectableSidebarItem = (id: string) => {
     const item = sidebarItems.find(sidebarItem => sidebarItem.id === id);
@@ -491,6 +550,12 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     setDraggingSidebarItemIds([]);
     setPrimaryDraggingSidebarItemId(null);
     document.body.style.cursor = '';
+  };
+
+  const getSidebarRowKey = (id: string, parentId?: string) => `${parentId || 'root'}:${id}`;
+
+  const activateSidebarRow = (id: string, parentId: string | undefined, view: string) => {
+    setActiveSidebarRow({ key: getSidebarRowKey(id, parentId), view });
   };
 
   const handleSidebarItemClick = (e: React.MouseEvent, id: string, isFolder: boolean, clickedItem?: any) => {
@@ -529,6 +594,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       toggleFolderExpansion(id);
     } else {
       const view = clickedItem?.view || id;
+      activateSidebarRow(id, clickedItem?.parentId, view);
       onViewChange(view);
     }
   };
@@ -623,44 +689,68 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     }
   };
 
-  const handleDragOver = (e: React.DragEvent, id?: string) => {
+  const showSidebarInsertionLine = (
+    id: string,
+    parentId: string | undefined,
+    position: 'top' | 'bottom',
+    nextSibling?: { id: string; parentId?: string }
+  ) => {
+    const target = position === 'bottom' && nextSibling ? nextSibling : { id, parentId };
+    const nextPosition = position === 'bottom' && nextSibling ? 'top' : position;
+
+    setDropTarget(current => (
+      current?.id === target.id && current?.parentId === target.parentId ? current : target
+    ));
+    setDragOverTargetKey(getSidebarDropTargetKey(target.id, target.parentId));
+    setDropPosition(nextPosition);
+  };
+
+  const showSidebarMiddleTarget = (id: string, parentId?: string) => {
+    setDropTarget(current => (
+      current?.id === id && current?.parentId === parentId ? current : { id, parentId }
+    ));
+    setDragOverTargetKey(getSidebarDropTargetKey(id, parentId));
+    setDropPosition('middle');
+  };
+
+  const handleDragOver = (e: React.DragEvent, id?: string, parentId?: string, nextSibling?: { id: string; parentId?: string }) => {
     e.preventDefault();
     e.stopPropagation();
     const isPageLikeDrag = isPageLikeSidebarDrag(e);
     e.dataTransfer.dropEffect = isPageLikeDrag && !id ? 'none' : 'move';
 
     if (isPageLikeDrag && !id) {
-      setDragOverId(null);
-      setDropPosition(null);
+      clearSidebarDropIndicator();
       return;
     }
     
     if (id) {
-      setDragOverId(id);
+      const storedItem = sidebarItems.find(i => i.id === id);
+      const effectiveParentId = parentId ?? storedItem?.parentId;
+      const item = storedItem ? { ...storedItem, parentId: effectiveParentId } : { id, parentId: effectiveParentId, type: 'custom' };
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const y = e.clientY - rect.top;
       const height = rect.height;
       
-      const item = sidebarItems.find(i => i.id === id);
       const isSmartFolder = item?.id === 'favourites' || item?.id === 'shared';
       if (item?.type === 'folder' && !isSmartFolder) {
         if (isPageLikeDrag) {
           if (y >= height * 0.25 && y <= height * 0.75) {
             e.dataTransfer.dropEffect = 'move';
-            setDropPosition('middle');
+            showSidebarMiddleTarget(id, effectiveParentId);
           } else {
             e.dataTransfer.dropEffect = 'none';
-            setDropPosition(null);
+            clearSidebarDropIndicator();
           }
-        } else if (y < height * 0.25) setDropPosition('top');
-        else if (y > height * 0.75) setDropPosition('bottom');
-        else setDropPosition('middle');
+        } else if (y < height * 0.25) showSidebarInsertionLine(id, effectiveParentId, 'top');
+        else if (y > height * 0.75) showSidebarInsertionLine(id, effectiveParentId, 'bottom', nextSibling);
+        else showSidebarMiddleTarget(id, effectiveParentId);
       } else {
         if (isPageLikeDrag && !item?.parentId) {
           e.dataTransfer.dropEffect = 'none';
-          setDropPosition(null);
-        } else if (y < height / 2) setDropPosition('top');
-        else setDropPosition('bottom');
+          clearSidebarDropIndicator();
+        } else if (y < height / 2) showSidebarInsertionLine(id, effectiveParentId, 'top');
+        else showSidebarInsertionLine(id, effectiveParentId, 'bottom', nextSibling);
       }
     }
   };
@@ -668,21 +758,13 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only clear if we are leaving the element, not entering a child
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-      setDragOverId(null);
-      setDropPosition(null);
-    }
+    // Keep the current indicator while moving between adjacent rows; the next
+    // dragover event will update it, and dragend/drop clear it definitively.
   };
 
   const handleDragEnd = () => {
     restoreHiddenSidebarRows();
-    setDragOverId(null);
-    setDropPosition(null);
+    clearSidebarDropIndicator();
     setDraggingSidebarItemIds([]);
     setPrimaryDraggingSidebarItemId(null);
     setSelectedSidebarItemIds([]);
@@ -694,9 +776,9 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     e.preventDefault();
     e.stopPropagation();
     const currentDropPosition = dropPosition;
+    const currentDropTargetId = dropTarget?.id || targetId;
     restoreHiddenSidebarRows();
-    setDragOverId(null);
-    setDropPosition(null);
+    clearSidebarDropIndicator();
     setDraggingSidebarItemIds([]);
     setPrimaryDraggingSidebarItemId(null);
     setSelectedSidebarItemIds([]);
@@ -716,15 +798,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const draggedCustomPage = customPages.find(p => p.id === draggedId);
 
     if (
-      (targetId === 'shared' && currentDropPosition === 'middle') ||
-      (targetId && sidebarItems.find(i => i.id === targetId)?.parentId === 'shared')
+      (currentDropTargetId === 'shared' && currentDropPosition === 'middle') ||
+      (currentDropTargetId && sidebarItems.find(i => i.id === currentDropTargetId)?.parentId === 'shared')
     ) {
       return;
     }
 
     const isTargetFavourites = (
-      (targetId === 'favourites' && currentDropPosition === 'middle') ||
-      (targetId && sidebarItems.find(i => i.id === targetId)?.parentId === 'favourites' && currentDropPosition === 'middle')
+      (currentDropTargetId === 'favourites' && currentDropPosition === 'middle') ||
+      (currentDropTargetId && sidebarItems.find(i => i.id === currentDropTargetId)?.parentId === 'favourites' && currentDropPosition === 'middle')
     );
 
     if (isTargetFavourites) {
@@ -772,7 +854,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     const idsToMove = (draggedIds.length ? draggedIds : [draggedId])
       .filter((id, index, ids) => id && ids.indexOf(id) === index);
 
-    if (idsToMove.length === 0 || (targetId && idsToMove.includes(targetId))) return;
+    if (idsToMove.length === 0 || (currentDropTargetId && idsToMove.includes(currentDropTargetId))) return;
 
     // Prevent dropping a folder into its own descendant
     const isDescendant = (parent: string, potentialChild: string): boolean => {
@@ -782,7 +864,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       return isDescendant(parent, item.parentId);
     };
 
-    if (targetId && idsToMove.some(id => isDescendant(id, targetId))) return;
+    if (currentDropTargetId && idsToMove.some(id => isDescendant(id, currentDropTargetId))) return;
 
     const newItems = sidebarItems.filter(item => !idsToMove.includes(item.id));
     const draggedItems = sidebarItems
@@ -809,7 +891,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
     if (draggedItems.length === 0) return;
 
     const includesPageLikeItem = draggedItems.some(item => item.type !== 'folder' && item.type !== 'trash');
-    const targetItem = newItems.find(i => i.id === targetId);
+    const targetItem = newItems.find(i => i.id === currentDropTargetId);
     const isDroppingIntoCategory = targetItem?.type === 'folder' && currentDropPosition === 'middle';
     const isDroppingInsideCategory = Boolean(targetItem?.parentId);
     if (includesPageLikeItem && !isDroppingIntoCategory && !isDroppingInsideCategory) {
@@ -826,19 +908,19 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
       if (isDroppingIntoCategory) {
         // Move into folder
         draggedItems.forEach(item => {
-          item.parentId = targetId;
+          item.parentId = targetItem.id;
         });
         if (!targetItem.isExpanded) {
-          toggleFolderExpansion(targetId);
+          toggleFolderExpansion(targetItem.id);
         }
-        const targetIndex = newItems.findIndex(i => i.id === targetId);
+        const targetIndex = newItems.findIndex(i => i.id === targetItem.id);
         newItems.splice(targetIndex + 1, 0, ...draggedItems);
       } else {
         // Move to same level as target
         draggedItems.forEach(item => {
           item.parentId = targetItem.parentId;
         });
-        const targetIndex = newItems.findIndex(i => i.id === targetId);
+        const targetIndex = newItems.findIndex(i => i.id === targetItem.id);
         if (currentDropPosition === 'bottom') {
           newItems.splice(targetIndex + 1, 0, ...draggedItems);
         } else {
@@ -1300,10 +1382,6 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                               <Keyboard className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Shortcuts
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
-                              <HelpCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                              Help
-                            </button>
                             {renderAboutMenuItems()}
                             <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
@@ -1395,10 +1473,6 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                               <Keyboard className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
                               Shortcuts
                             </button>
-                            <button onClick={(e) => e.preventDefault()} className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer">
-                              <HelpCircle className="w-4 h-4 text-[var(--tokyo-text-faint)]" />
-                              Help
-                            </button>
                             {renderAboutMenuItems()}
                             <div className="h-px bg-[var(--tokyo-border)] my-1.5" />
                             <button 
@@ -1425,7 +1499,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   </div>
                 </div>
               )}              <div className="px-4 mt-1 space-y-0.5">
-                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'inbox' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                <button onClick={() => onViewChange('inbox')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'inbox' ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Inbox className="w-4 h-4 text-[#45aaff] shrink-0" />
                     {!isCollapsed && (
                       <>
@@ -1435,7 +1509,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'today' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'today' ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Star className="w-4 h-4 text-[var(--tokyo-yellow)] shrink-0" />
                     {!isCollapsed && (
                       <>
@@ -1445,33 +1519,33 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     )}
                   </button>
 
-                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'upcoming' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('upcoming')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'upcoming' ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <CalendarIcon className="w-4 h-4 text-[var(--tokyo-pink)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Upcoming</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'someday' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('someday')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'someday' ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <Clock className="w-4 h-4 text-[var(--tokyo-purple)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Someday</span>}
                   </button>
 
-                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'logbook' ? "bg-[var(--tokyo-yellow-dim)] text-white" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
+                  <button onClick={() => onViewChange('logbook')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'logbook' ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
                     <BookCheck className="w-4 h-4 text-[var(--tokyo-green)] shrink-0" />
                     {!isCollapsed && <span className="text-sm font-medium flex-1 text-left">Logbook</span>}
                   </button>
               </div>
-                <div className="h-px bg-[var(--tokyo-border)] my-2.5 mx-7" />
-            </div>
+	            </div>
 
             {/* Main Section */}
-            <div 
-              className="px-4 pb-4 space-y-0.5 min-h-[50px]" 
+	            <div 
+	              className="px-4 pt-3 pb-4 space-y-0.5 min-h-[50px]" 
               onDragOver={(e) => handleDragOver(e)} 
               onDrop={(e) => handleDrop(e)}
             >
-              {sidebarItems.filter(item => !item.parentId).map((item, index) => {
+              {sidebarItems.filter(item => !item.parentId).map((item, index, rootItems) => {
                 const Icon = iconMap[item.icon] || File;
                 const isActive = currentView === item.id || (item.id === 'goals' && currentView.startsWith('goal-details:'));
+                const nextSibling = rootItems[index + 1];
                 
                 return (
                   <SidebarItem
@@ -1496,11 +1570,15 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     Icon={Icon}
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
+                    nextSibling={nextSibling ? { id: nextSibling.id, parentId: nextSibling.parentId } : undefined}
                     onDragLeave={handleDragLeave}
                     onDragEnd={handleDragEnd}
                     onDrop={handleDrop}
-                    dragOverId={dragOverId}
+                    dragOverTargetKey={dragOverTargetKey}
                     dropPosition={dropPosition}
+                    getSidebarDropTargetKey={getSidebarDropTargetKey}
+                    activeSidebarRow={activeSidebarRow}
+                    getSidebarRowKey={getSidebarRowKey}
                     toggleFolderExpansion={toggleFolderExpansion}
                     sidebarItems={sidebarItems}
                     iconMap={iconMap}
@@ -1508,9 +1586,10 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                     selectedSidebarItemIds={selectedSidebarItemIds}
                     draggingSidebarItemIds={draggingSidebarItemIds}
                     primaryDraggingSidebarItemId={primaryDraggingSidebarItemId}
-                    onCreateDatabaseInFolder={handleNewDatabasePage}
-                    onCreateDocumentInFolder={handleNewDocumentPage}
-                  />
+	                    onCreateDatabaseInFolder={handleNewDatabasePage}
+	                    onCreateDocumentInFolder={handleNewDocumentPage}
+	                    onCreateFolderInFolder={handleNewFolder}
+	                  />
                 );
               })}
             </div>
@@ -1550,8 +1629,8 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                           <FileText className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
                           New Document
                         </button>
-                        <button 
-                          onClick={handleNewFolder}
+	                        <button 
+	                          onClick={() => handleNewFolder()}
                           className="w-full flex items-center gap-2.5 px-3 py-1.5 font-medium text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)] hover:text-white transition-colors cursor-pointer"
                         >
                           <Layers className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
@@ -1703,6 +1782,140 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
             <p className="text-xs text-[var(--tokyo-text-faint)]">
               Press <kbd className="px-1.5 py-0.5 rounded bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)] font-sans mx-1">?</kbd> anywhere to show this menu
             </p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {accountModal && (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm animate-in fade-in duration-100">
+        <div
+          className="fixed inset-0"
+          onClick={() => setAccountModal(null)}
+        />
+        <div className="dayline-dialog relative flex max-h-[84vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel)] shadow-2xl">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--tokyo-border)] px-6 py-5">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-[var(--tokyo-text-strong)]">
+                {accountModal === 'feedback' && 'Send us feedback'}
+                {accountModal === 'whats-new' && "What's new"}
+                {accountModal === 'version' && 'Version'}
+              </h2>
+              <p className="mt-1 text-sm leading-5 text-[var(--tokyo-text-faint)]">
+                {accountModal === 'feedback' && 'Share bugs, requests, or anything that feels rough.'}
+                {accountModal === 'whats-new' && 'Latest Dayline changes and improvements.'}
+                {accountModal === 'version' && 'Current app build and workspace details.'}
+              </p>
+            </div>
+            <button
+              onClick={() => setAccountModal(null)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+              title="Close"
+            >
+              <Plus className="h-5 w-5 rotate-45" />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+            {accountModal === 'feedback' && (
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const savedFeedback = {
+                    message: feedbackDraft.trim(),
+                    email: feedbackEmail.trim(),
+                    createdAt: new Date().toISOString(),
+                    version: APP_VERSION,
+                  };
+                  const existing = JSON.parse(window.localStorage.getItem('dayline:feedback') || '[]');
+                  window.localStorage.setItem('dayline:feedback', JSON.stringify([savedFeedback, ...existing].slice(0, 20)));
+                  setFeedbackDraft('');
+                  setFeedbackSent(true);
+                }}
+              >
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--tokyo-text)]">Email</span>
+                  <input
+                    type="email"
+                    value={feedbackEmail}
+                    onChange={(event) => setFeedbackEmail(event.target.value)}
+                    className="h-11 w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-bg)] px-3 text-sm text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                    placeholder="you@example.com"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-[var(--tokyo-text)]">Feedback</span>
+                  <textarea
+                    value={feedbackDraft}
+                    onChange={(event) => {
+                      setFeedbackDraft(event.target.value);
+                      setFeedbackSent(false);
+                    }}
+                    className="min-h-36 w-full resize-none rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-bg)] px-3 py-3 text-sm leading-6 text-[var(--tokyo-text-strong)] outline-none transition-colors placeholder:text-[var(--tokyo-text-faint)] focus:border-[var(--tokyo-border-strong)]"
+                    placeholder="Tell us what happened or what you want improved."
+                    required
+                  />
+                </label>
+                {feedbackSent && (
+                  <p className="rounded-lg border border-[rgba(158,206,106,0.25)] bg-[rgba(158,206,106,0.08)] px-3 py-2 text-sm text-[var(--tokyo-green)]">
+                    Feedback saved locally. Thanks for the note.
+                  </p>
+                )}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAccountModal(null)}
+                    className="rounded-lg bg-[var(--tokyo-panel-2)] px-4 py-2 text-sm font-semibold text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-panel-3)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[var(--tokyo-yellow-dim)] px-4 py-2 text-sm font-semibold text-[var(--tokyo-text-strong)] transition-colors hover:bg-[var(--tokyo-yellow)]"
+                  >
+                    Send Feedback
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {accountModal === 'whats-new' && (
+              <div className="space-y-5">
+                {CHANGELOG_ITEMS.map((item) => (
+                  <section key={`${item.date}-${item.title}`} className="rounded-xl border border-[var(--tokyo-border)] bg-[var(--tokyo-bg)] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-bold text-[var(--tokyo-text-strong)]">{item.title}</h3>
+                      <span className="shrink-0 rounded-md border border-[var(--tokyo-border-strong)] px-2 py-1 text-[11px] font-semibold text-[var(--tokyo-text-faint)]">{item.date}</span>
+                    </div>
+                    <ul className="mt-3 space-y-2">
+                      {item.details.map((detail) => (
+                        <li key={detail} className="flex gap-2 text-sm leading-5 text-[var(--tokyo-text-muted)]">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--tokyo-yellow)]" />
+                          <span>{detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )}
+
+            {accountModal === 'version' && (
+              <div className="space-y-4">
+                {[
+                  ['App', 'Dayline'],
+                  ['Version', APP_VERSION],
+                  ['Build', APP_BUILD],
+                  ['Account', activeProfileEmail || 'Not signed in'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-4 rounded-xl border border-[var(--tokyo-border)] bg-[var(--tokyo-bg)] px-4 py-3">
+                    <span className="text-sm font-semibold text-[var(--tokyo-text-faint)]">{label}</span>
+                    <span className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2130,11 +2343,15 @@ function SidebarItem({
   Icon,
   onDragStart,
   onDragOver,
+  nextSibling,
   onDragLeave,
   onDragEnd,
   onDrop,
-  dragOverId,
+  dragOverTargetKey,
   dropPosition,
+  getSidebarDropTargetKey,
+  activeSidebarRow,
+  getSidebarRowKey,
   toggleFolderExpansion,
   sidebarItems,
   iconMap,
@@ -2143,7 +2360,8 @@ function SidebarItem({
   draggingSidebarItemIds,
   primaryDraggingSidebarItemId,
   onCreateDatabaseInFolder,
-  onCreateDocumentInFolder
+  onCreateDocumentInFolder,
+  onCreateFolderInFolder
 }: any) {
   const isFolder = item.type === 'folder';
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -2278,7 +2496,7 @@ function SidebarItem({
           ];
         })()
     : sidebarItems.filter((i: any) => i.parentId === item.id);
-  const isDraggingOver = dragOverId === item.id;
+  const isDraggingOver = dragOverTargetKey === getSidebarDropTargetKey(item.id, item.parentId);
   const isSelected = selectedSidebarItemIds?.includes(item.id);
   const isDragging = draggingSidebarItemIds?.includes(item.id);
   const isDragStackAnchor = item.id === primaryDraggingSidebarItemId && draggingSidebarItemIds?.length > 1 && !isFolder;
@@ -2302,25 +2520,27 @@ function SidebarItem({
         data-sidebar-item-id={item.id}
         draggable
         onDragStart={(e) => onDragStart(e, item.id, item.parentId)}
-        onDragOver={(e) => onDragOver(e, item.id)}
+        onDragOver={(e) => onDragOver(e, item.id, item.parentId, nextSibling)}
         onDragLeave={(e) => onDragLeave(e)}
         onDragEnd={onDragEnd}
         onDrop={(e) => onDrop(e, item.id)}
         onPointerDown={(e) => handleSidebarItemPointerDown(e, item.id, isFolder)}
         className={cn(
           "dayline-sidebar-row flex items-center rounded-md group relative select-none isolate overflow-visible",
-          "py-[5px]",
+	          "py-[5px]",
           isDragStackAnchor ? "w-[calc(100%-18px)]" : "w-full",
           "cursor-pointer",
           isCollapsed ? "justify-center" : isFolder ? "px-3 gap-1.5" : "px-3 gap-2",
           isDragStackAnchor
             ? "bg-transparent text-white z-20"
             : isActive || isSelected || showBulkDragSelection
-            ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]"
-            : isNestedItem
-            ? "text-[var(--tokyo-text-muted)]/88 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
-            : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
-          "text-sm font-medium",
+            ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]"
+	            : isFolder
+		            ? "text-[var(--tokyo-text-faint)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+	            : isNestedItem
+	            ? "text-[var(--tokyo-text-muted)]/88 hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+	            : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]",
+	          isFolder ? "text-[13px] font-medium" : "text-sm font-medium",
           isDraggingOver && dropPosition === 'middle' && "bg-white/20 scale-[1.02] ring-1 ring-white/30 z-10"
         )}
         title={isCollapsed ? item.label : undefined}
@@ -2377,44 +2597,41 @@ function SidebarItem({
         {isDraggingOver && dropPosition === 'bottom' && (
           <div className="pointer-events-none absolute -bottom-1 left-2 right-2 z-50 h-[2px] rounded-full bg-[var(--tokyo-yellow)] shadow-[0_0_12px_rgba(233,202,53,0.5)]" />
         )}
-        <div className="flex items-center relative z-30">
-          {isFolder ? (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFolderExpansion(item.id);
-              }}
-              className="rounded p-0.5 cursor-pointer"
-              title={item.isExpanded ? 'Collapse category' : 'Expand category'}
-            >
-              <motion.span
-                animate={{ rotate: item.isExpanded ? 90 : 0 }}
-                transition={{ duration: 0.08 }}
-                className="flex items-center justify-center"
+        {(!isFolder || isCollapsed) && (
+          <div className="flex items-center relative z-30">
+            {isFolder ? (
+              <span
+                className="p-0.5"
+                aria-hidden="true"
               >
-                <ChevronRight className="w-3.5 h-3.5 text-[var(--tokyo-text-faint)]" />
-              </motion.span>
-            </button>
-          ) : (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setIconPickerId(item.id);
-                if (setIconPickerParentId) setIconPickerParentId(item.parentId);
-                setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
-              }}
-              className={cn("rounded p-0.5 transition-colors cursor-pointer", !isSelected && "hover:bg-[var(--tokyo-hover)]")}
-            >
-              <Icon className={cn(
-                "w-4 h-4 shrink-0 stroke-[1.5]",
-                isActive || isSelected ? "opacity-100" : isNestedItem ? "opacity-72" : "opacity-70"
-              )} />
-            </button>
-          )}
-        </div>
+                <motion.span
+                  animate={{ rotate: item.isExpanded ? 90 : 0 }}
+                  transition={{ duration: 0.08 }}
+                  className="flex items-center justify-center"
+                >
+                  <ChevronRight className="w-3 h-3 text-[var(--tokyo-text-faint)] opacity-80" />
+                </motion.span>
+              </span>
+            ) : (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setIconPickerId(item.id);
+                  if (setIconPickerParentId) setIconPickerParentId(item.parentId);
+                  setIconPickerPos({ x: rect.left, y: rect.bottom + 8 });
+                }}
+                className={cn("rounded p-0.5 transition-colors cursor-pointer", !isSelected && "hover:bg-[var(--tokyo-hover)]")}
+              >
+                <Icon className={cn(
+                  "w-4 h-4 shrink-0 stroke-[1.5]",
+                  isActive || isSelected ? "opacity-100" : isNestedItem ? "opacity-72" : "opacity-70"
+                )} />
+              </button>
+            )}
+          </div>
+        )}
         {!isCollapsed && (
           (editingId === item.id && editingParentId === item.parentId) ? (
             <input
@@ -2432,9 +2649,28 @@ function SidebarItem({
               onPointerDown={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
-              <span className="truncate text-sm font-medium leading-5">{item.label}</span>
-              {isFolder && item.id !== 'favourites' && item.id !== 'shared' && (
+	            <div className="flex-1 flex items-center justify-between min-w-0 relative z-30">
+	              <div className="flex min-w-0 items-center gap-1">
+		              <span className={cn(
+		                "truncate font-medium leading-5",
+			                isFolder ? "text-[13px] text-[var(--tokyo-text-faint)] group-hover:text-[var(--tokyo-text)]" : "text-sm"
+		              )}>{item.label}</span>
+	                {isFolder && (
+		                  <span
+		                    className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--tokyo-text-faint)] opacity-80"
+		                    aria-hidden="true"
+		                  >
+		                    <motion.span
+		                      animate={{ rotate: item.isExpanded ? 90 : 0 }}
+		                      transition={{ duration: 0.08 }}
+	                      className="flex items-center justify-center"
+		                    >
+		                      <ChevronRight className="h-3 w-3" />
+		                    </motion.span>
+		                  </span>
+	                )}
+	              </div>
+	              {isFolder && item.id !== 'favourites' && item.id !== 'shared' && (
                 <div className="relative ml-2 shrink-0">
                   <button
                     type="button"
@@ -2480,18 +2716,29 @@ function SidebarItem({
                           <Database className="h-3.5 w-3.5 text-[var(--tokyo-text-faint)]" />
                           New Database
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onCreateDocumentInFolder(item.id);
-                            setIsCreateMenuOpen(false);
+	                        <button
+	                          type="button"
+	                          onClick={() => {
+	                            onCreateDocumentInFolder(item.id);
+	                            setIsCreateMenuOpen(false);
                           }}
                           className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
                         >
-                          <FileText className="h-3.5 w-3.5 text-[var(--tokyo-text-faint)]" />
-                          New Document
-                        </button>
-                      </div>
+	                          <FileText className="h-3.5 w-3.5 text-[var(--tokyo-text-faint)]" />
+	                          New Document
+	                        </button>
+	                        <button
+	                          type="button"
+	                          onClick={() => {
+	                            onCreateFolderInFolder(item.id);
+	                            setIsCreateMenuOpen(false);
+	                          }}
+	                          className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left font-medium text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-white"
+	                        >
+	                          <Folder className="h-3.5 w-3.5 text-[var(--tokyo-text-faint)]" />
+	                          New Category
+	                        </button>
+	                      </div>
                     </>,
                     document.body
                   )}
@@ -2519,15 +2766,23 @@ function SidebarItem({
             animate={{ height: 'auto', opacity: 1, y: 0 }}
             exit={{ height: 0, opacity: 0, y: -2 }}
             transition={{ duration: 0.1, ease: [0.2, 0, 0, 1] }}
-            className="ml-6 mt-0.5 space-y-0.5 overflow-hidden pl-1 pr-1"
+	            className="ml-3 mt-0.5 space-y-0.5 overflow-hidden pr-1"
           >
-            {children.map((child: any) => {
+            {children.map((child: any, index: number) => {
               const ChildIcon = iconMap[child.icon] || File;
+              const nextChild = children[index + 1];
+              const childView = child.view || child.id;
+              const childRowKey = getSidebarRowKey(child.id, child.parentId);
+              const hasActiveRowContext = activeSidebarRow?.view === currentView;
+              const isVirtualBucketChild = child.parentId === 'favourites' || child.parentId === 'shared';
+              const isChildActive = currentView === childView && (
+                hasActiveRowContext ? activeSidebarRow?.key === childRowKey : !isVirtualBucketChild
+              );
               return (
                 <SidebarItem
                   key={child.id}
                   item={child}
-                  isActive={child.view ? currentView === child.view : currentView === child.id}
+                  isActive={isChildActive}
                   isCollapsed={isCollapsed}
                   editingId={editingId}
                   editingParentId={editingParentId}
@@ -2546,11 +2801,15 @@ function SidebarItem({
                   Icon={ChildIcon}
                   onDragStart={onDragStart}
                   onDragOver={onDragOver}
+                  nextSibling={nextChild ? { id: nextChild.id, parentId: nextChild.parentId } : undefined}
                   onDragLeave={onDragLeave}
                   onDragEnd={onDragEnd}
                   onDrop={onDrop}
-                  dragOverId={dragOverId}
+                  dragOverTargetKey={dragOverTargetKey}
                   dropPosition={dropPosition}
+                  getSidebarDropTargetKey={getSidebarDropTargetKey}
+                  activeSidebarRow={activeSidebarRow}
+                  getSidebarRowKey={getSidebarRowKey}
                   toggleFolderExpansion={toggleFolderExpansion}
                   sidebarItems={sidebarItems}
                   iconMap={iconMap}
@@ -2558,9 +2817,10 @@ function SidebarItem({
                   selectedSidebarItemIds={selectedSidebarItemIds}
                   draggingSidebarItemIds={draggingSidebarItemIds}
                   primaryDraggingSidebarItemId={primaryDraggingSidebarItemId}
-                  onCreateDatabaseInFolder={onCreateDatabaseInFolder}
-                  onCreateDocumentInFolder={onCreateDocumentInFolder}
-                />
+	                  onCreateDatabaseInFolder={onCreateDatabaseInFolder}
+	                  onCreateDocumentInFolder={onCreateDocumentInFolder}
+	                  onCreateFolderInFolder={onCreateFolderInFolder}
+	                />
               );
             })}
           </motion.div>

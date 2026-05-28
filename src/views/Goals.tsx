@@ -1,13 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '../store';
-import { Goal, PropertyType } from '../types';
+import { DatabaseLayout, Goal, PropertyType } from '../types';
 import {
   Target01Icon as Target, 
   Add01Icon as Plus, 
   MoreHorizontalIcon as MoreHorizontal, 
   Calendar01Icon as CalendarIcon, 
   DashboardSquare01Icon as LayoutGrid,
-  ArrowLeft01Icon as ChevronLeft,
   UserGroupIcon as Users,
   ZapIcon as Zap,
   CheckmarkCircle02Icon as CheckCircle,
@@ -37,7 +36,10 @@ import {
   Delete02Icon as Trash2,
   Copy01Icon as Copy,
   Share01Icon as Share,
-  StarIcon as Star
+  StarIcon as Star,
+  Folder01Icon as FolderKanban,
+  GridIcon as GridIcon,
+  Calendar02Icon as CalendarDays
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
@@ -82,6 +84,14 @@ type GoalColumn = { id: string; label: string; icon: string; width: string; hidd
 type GoalIconPickerType = 'tab' | 'column' | 'main' | 'goal' | null;
 type GoalSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_GOAL_SORT: GoalSortConfig = { columnId: 'title', direction: 'asc' };
+const DATABASE_LAYOUTS: Array<{ id: DatabaseLayout; label: string; icon: React.ElementType }> = [
+  { id: 'table', label: 'Table', icon: LayoutGrid },
+  { id: 'board', label: 'Board', icon: FolderKanban },
+  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { id: 'list', label: 'List', icon: List },
+  { id: 'gallery', label: 'Gallery', icon: GridIcon },
+];
 
 const DEFAULT_GOAL_TABS = [
   { id: 'planning', label: 'Planning', icon: 'Clock' },
@@ -409,6 +419,8 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
   const [sortConfigs, setSortConfigs] = useState<GoalSortConfig[]>(initialSortConfigs);
   const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [sortPickerOpen, setSortPickerOpen] = useState<string | null>(null);
+  const [databaseLayout, setDatabaseLayout] = useState<DatabaseLayout>(savedGoalSettings.layout || 'table');
+  const [layoutPopoverPos, setLayoutPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [datePickerConfig, setDatePickerConfig] = useState<{
     id: string;
     pos: { x: number, y: number };
@@ -452,6 +464,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       const legacySortConfigs = settings.sortConfig ? [settings.sortConfig] : [];
       setSortConfigs(currentSorts => JSON.stringify(currentSorts) === JSON.stringify(legacySortConfigs) ? currentSorts : legacySortConfigs);
     }
+    if (settings.layout) {
+      setDatabaseLayout(currentLayout => currentLayout === settings.layout ? currentLayout : settings.layout);
+    }
   }, [viewSettings.goals]);
 
   useEffect(() => {
@@ -467,8 +482,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       title: titleValue,
       description: descriptionValue,
       sortConfigs,
+      layout: databaseLayout,
     });
-  }, [tabs, columns, activeTab, titleValue, descriptionValue, sortConfigs, draggingId]);
+  }, [tabs, columns, activeTab, titleValue, descriptionValue, sortConfigs, databaseLayout, draggingId]);
 
   useEffect(() => {
     const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;
@@ -1068,6 +1084,139 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     setIsShareMenuOpen(false);
   };
 
+  const openGoalDetails = (goalId: string) => {
+    setSelectedGoalCell(null);
+    setActiveGoalFillDrag(null);
+    if (onViewChange) {
+      onViewChange(`goal-details:${goalId}`);
+    } else {
+      setLocalSelectedGoalId(goalId);
+    }
+  };
+
+  const setPageLayout = (nextLayout: DatabaseLayout) => {
+    setDatabaseLayout(nextLayout);
+    setLayoutPopoverPos(null);
+  };
+
+  const renderGoalCard = (goal: Goal, compact = false) => (
+    <button
+      key={goal.id}
+      type="button"
+      onClick={() => openGoalDetails(goal.id)}
+      className={cn(
+        "group w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] text-left transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]",
+        compact ? "px-3 py-2.5" : "p-4"
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)]">
+          {React.createElement(iconMap[goal.icon || 'Target'] || Target, { className: "h-4 w-4" })}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{goal.title}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getGoalStatusClasses(goal.status))}>
+              {toSentenceCase(goal.status)}
+            </span>
+            <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getPriorityBadgeClasses(goal.priority))}>
+              {toSentenceCase(goal.priority)}
+            </span>
+            {goal.targetDate && (
+              <span className="rounded-md bg-[var(--tokyo-hover)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-text-faint)]">
+                {format(new Date(goal.targetDate), 'MMM d')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+
+  const renderGoalLayoutView = () => {
+    if (databaseLayout === 'board') {
+      return (
+        <div className="h-full overflow-auto no-scrollbar pb-4">
+          <div className="grid min-w-[720px] grid-cols-3 gap-3 lg:grid-cols-4">
+            {tabs.map(tab => {
+              const tabGoals = visibleGoals.filter(goal => normalizeGoalStatus(goal.status) === tab.id);
+              const Icon = iconMap[tab.icon] || Target;
+              return (
+                <section key={tab.id} className="min-h-[360px] rounded-lg border border-[var(--tokyo-border)] bg-black/10 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-2 text-[var(--tokyo-text-muted)]">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate text-sm font-bold text-[var(--tokyo-text)]">{tab.label}</span>
+                    </div>
+                    <span className="text-xs text-[var(--tokyo-text-faint)]">{tabGoals.length}</span>
+                  </div>
+                  <div className="space-y-2">{tabGoals.map(goal => renderGoalCard(goal, true))}</div>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (databaseLayout === 'timeline') {
+      const datedGoals = visibleGoals.filter(goal => goal.targetDate);
+      return (
+        <div className="overflow-auto no-scrollbar pb-4">
+          <div className="flex min-w-[760px] gap-3">
+            {(datedGoals.length ? datedGoals : visibleGoals).map(goal => (
+              <div key={goal.id} className="w-64 shrink-0">
+                <div className="mb-2 text-xs font-bold text-[var(--tokyo-text-faint)]">{goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : 'No date'}</div>
+                {renderGoalCard(goal)}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (databaseLayout === 'calendar') {
+      return (
+        <div className="grid gap-3 overflow-auto no-scrollbar pb-4 md:grid-cols-2 xl:grid-cols-3">
+          {visibleGoals.map(goal => (
+            <div key={goal.id} className="rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-bold text-[var(--tokyo-text-muted)]">
+                <CalendarIcon className="h-4 w-4" />
+                {goal.targetDate ? format(new Date(goal.targetDate), 'EEEE, MMM d') : 'No date'}
+              </div>
+              {renderGoalCard(goal, true)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (databaseLayout === 'gallery') {
+      return (
+        <div className="grid gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleGoals.map(goal => (
+            <div key={goal.id} className="overflow-hidden rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)]">
+              <div className="h-24 bg-[linear-gradient(135deg,rgba(122,162,247,0.16),rgba(158,206,106,0.12),rgba(224,107,138,0.12))]" />
+              <div className="p-3">{renderGoalCard(goal, true)}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className={cn(
+        "overflow-auto no-scrollbar pb-4",
+        databaseLayout === 'list' ? "space-y-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      )}>
+        {visibleGoals.map(goal => renderGoalCard(goal, databaseLayout === 'list'))}
+      </div>
+    );
+  };
+
+  const activeLayout = DATABASE_LAYOUTS.find(layout => layout.id === databaseLayout) || DATABASE_LAYOUTS[0];
+  const ActiveLayoutIcon = activeLayout.icon;
+
   return (
     <div 
       className="max-w-6xl mx-auto p-4 pt-7 md:px-8 md:pb-8 md:pt-10 flex flex-col gap-6 min-h-full"
@@ -1361,6 +1510,24 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           <button className="p-2 hover:text-white transition-colors"><Search className="w-4 h-4" /></button>
           <button className="p-2 hover:text-white transition-colors"><FilterIcon className="w-4 h-4" /></button>
           <button
+            type="button"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setSortPopoverPos(null);
+              setLayoutPopoverPos(layoutPopoverPos ? null : { x: rect.right, y: rect.bottom + 8 });
+            }}
+            className={cn(
+              "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+              layoutPopoverPos || databaseLayout !== 'table'
+                ? "bg-[var(--tokyo-hover)] text-[#1E90FF]"
+                : "hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+            )}
+            title="Layout"
+            aria-label="Layout"
+          >
+            <ActiveLayoutIcon className="h-4 w-4" />
+          </button>
+          <button
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
               setSortPopoverPos(sortPopoverPos ? null : { x: rect.right, y: rect.bottom + 8 });
@@ -1383,7 +1550,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
         </div>
       </div>
 
-      {/* Table Container */}
+      {databaseLayout === 'table' ? (
       <div className="flex-1 overflow-visible">
         <div className={cn("-ml-6 h-full w-[calc(100%+1.5rem)] pl-6", draggingId ? "overflow-visible" : "overflow-auto no-scrollbar")}>
           <div className="relative min-h-full overflow-visible" style={{ width: `${goalTableWidth}px` }}>
@@ -1886,6 +2053,11 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
         </div>
       </div>
       </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-hidden pt-2">
+          {renderGoalLayoutView()}
+        </div>
+      )}
 
       {/* Sort Popover */}
       <AnimatePresence>
@@ -1941,6 +2113,60 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
                   ))}
                 </div>
               )}
+            </motion.div>
+          </>
+        )}
+
+        {layoutPopoverPos && (
+          <>
+            <div className="fixed inset-0 z-[130]" onClick={() => setLayoutPopoverPos(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: -6 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              className="fixed z-[140] w-[320px] rounded-lg border border-[var(--tokyo-border-strong)] bg-[var(--tokyo-panel-2)] p-2 text-[13px] shadow-2xl"
+              style={{
+                top: Math.min(layoutPopoverPos.y, window.innerHeight - 360),
+                left: Math.max(12, Math.min(layoutPopoverPos.x - 320, window.innerWidth - 332)),
+              }}
+            >
+              <div className="flex items-center justify-between px-1 pb-2">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-[var(--tokyo-text-muted)]">
+                  <ActiveLayoutIcon className="h-4 w-4" />
+                  <span>Layout</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLayoutPopoverPos(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--tokyo-text-faint)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text)]"
+                  title="Close"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 border-t border-[var(--tokyo-border)] pt-2">
+                {DATABASE_LAYOUTS.map(layout => {
+                  const Icon = layout.icon;
+                  const isSelected = databaseLayout === layout.id;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      onClick={() => setPageLayout(layout.id)}
+                      className={cn(
+                        "flex h-16 items-center gap-2 rounded-lg border px-3 text-left font-medium transition-colors hover:border-[#1E90FF]/70 hover:bg-[var(--tokyo-hover)] hover:text-[#1E90FF]",
+                        isSelected
+                          ? "border-[#1E90FF] bg-[#1E90FF]/10 text-[#1E90FF]"
+                          : "border-[var(--tokyo-border)] text-[var(--tokyo-text-muted)]"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{layout.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </motion.div>
           </>
         )}

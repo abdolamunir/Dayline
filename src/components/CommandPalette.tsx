@@ -90,7 +90,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
             <Command.Group heading="Suggestions" className="text-sm font-medium text-[var(--tokyo-text-faint)] px-2 py-2 [&_[cmdk-group-items]]:mt-1 [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:px-1">
               <Command.Item 
                 onSelect={() => runCommand(() => onViewChange('dashboard'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Home className="w-[22px] h-[22px] text-[var(--tokyo-purple)] stroke-[1.5]" />
               <span className="flex-1">Dashboard</span>
@@ -98,7 +98,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
             </Command.Item>
             <Command.Item 
               onSelect={() => runCommand(() => onViewChange('inbox'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Inbox className="w-[22px] h-[22px] text-[#45aaff] stroke-[1.5]" />
               <span className="flex-1">Inbox</span>
@@ -106,7 +106,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
             </Command.Item>
             <Command.Item 
               onSelect={() => runCommand(() => onViewChange('today'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Star className="w-[22px] h-[22px] text-[var(--tokyo-yellow)] fill-yellow-400 stroke-[1.5]" />
               <span className="flex-1">Today</span>
@@ -114,7 +114,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
             </Command.Item>
             <Command.Item 
               onSelect={() => runCommand(() => onViewChange('upcoming'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <CalendarDays className="w-[22px] h-[22px] text-[var(--tokyo-pink)] stroke-[1.5]" />
               <span className="flex-1">Upcoming</span>
@@ -130,7 +130,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 addNote({ id, title: 'New Note', content: '', ideaIds: [], createdAt: new Date().toISOString(), status: 'inbox', priority: 'medium', progress: 0, assignee: '' });
                 onViewChange(`note-details:${id}`);
               })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Pencil className="w-[22px] h-[22px] text-[var(--tokyo-purple)] stroke-[1.5]" />
               <span className="flex-1">New Note</span>
@@ -142,7 +142,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 addTask({ id, title: 'New Task', status: 'todo', priority: 'medium', tags: [] });
                 onViewChange('tasks');
               })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <CheckCircle2 className="w-[22px] h-[22px] text-[var(--tokyo-green)] stroke-[1.5]" />
               <span className="flex-1">New Task</span>
@@ -154,7 +154,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 addGoal({ id, title: 'New Goal', description: '', progress: 0, projectIds: [], taskIds: [], status: 'inbox', priority: 'medium', assignee: '' });
                 onViewChange(`goal-details:${id}`);
               })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Target className="w-[22px] h-[22px] text-[var(--tokyo-pink)] stroke-[1.5]" />
               <span className="flex-1">New Goal</span>
@@ -166,7 +166,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 addProject({ id, name: 'New Project', description: '', status: 'planning', taskIds: [], priority: 'medium', icon: 'Folder' });
                 onViewChange('projects');
               })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Folder className="w-[22px] h-[22px] text-[var(--tokyo-yellow)] stroke-[1.5]" />
               <span className="flex-1">New Project</span>
@@ -198,7 +198,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 });
                 onViewChange(id);
               })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <Database className="w-[22px] h-[22px] text-teal-300 stroke-[1.5]" />
               <span className="flex-1">New Database</span>
@@ -220,7 +220,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 });
                 onViewChange(id);
               })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
               <FileText className="w-[22px] h-[22px] text-stone-300 stroke-[1.5]" />
               <span className="flex-1">New Document</span>
@@ -237,7 +237,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                     <Command.Item 
                       key={item.id}
                       onSelect={() => runCommand(() => onViewChange(item.id))}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
                     >
                       <Icon className="w-[22px] h-[22px] text-[var(--tokyo-text-muted)]" />
                       <span className="flex-1">{item.label}</span>
@@ -250,7 +250,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
               <Command.Group heading="Commands" className="text-[15px] font-medium text-[var(--tokyo-text-faint)] px-2 py-2 mt-1 [&_[cmdk-group-items]]:mt-1 [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:px-1">
                 <Command.Item 
                   onSelect={() => runCommand(() => {})}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
                 >
                   <ClipboardList className="w-[22px] h-[22px] text-[var(--tokyo-pink)]" />
                   <span className="flex-1">Clipboard History</span>
@@ -258,7 +258,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
                 </Command.Item>
                 <Command.Item 
                   onSelect={() => runCommand(() => {})}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-yellow-dim)] aria-selected:text-white transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
                 >
                   <Download className="w-[22px] h-[22px] text-teal-400" />
                   <span className="flex-1">Import Extension</span>

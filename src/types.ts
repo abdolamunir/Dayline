@@ -184,6 +184,14 @@ export interface CustomPageItem {
   isFavorite?: boolean;
 }
 
+export type DatabaseLayout =
+  | 'table'
+  | 'board'
+  | 'timeline'
+  | 'calendar'
+  | 'list'
+  | 'gallery';
+
 export interface CustomPage {
   id: ID;
   title: string;
@@ -192,6 +200,7 @@ export interface CustomPage {
   kind?: 'database' | 'document';
   templateVersion?: string;
   activeTab?: string;
+  layout?: DatabaseLayout;
   tabs: Array<{ id: string; label: string; icon: string }>;
   columns: Array<{ id: string; label: string; icon: string; width: string; hidden?: boolean }>;
   sortConfigs?: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
