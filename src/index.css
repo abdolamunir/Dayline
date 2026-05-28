@@ -470,15 +470,20 @@ button {
 }
 
 .inner-todo-checkbox {
-  width: 1.125rem;
-  height: 1.125rem;
-  min-width: 1.125rem;
-  min-height: 1.125rem;
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  min-width: 0.95rem !important;
+  min-height: 0.95rem !important;
 }
 
 .inner-todo-input {
   min-height: 1.5rem;
   line-height: 1.35;
+  font-size: 13px !important;
+}
+
+.inner-todo-list button {
+  font-size: 13px !important;
 }
 
 @media (max-width: 1024px) {
@@ -706,8 +711,8 @@ button {
 .bn-block-content,
 .bn-inline-content,
 .ProseMirror {
-  font-size: 16px !important;
-  line-height: 1.32 !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
   font-weight: 600 !important;
   letter-spacing: 0 !important;
 }
@@ -733,7 +738,7 @@ button {
 .inner-detail-document .bn-inline-content *,
 .inner-detail-document .ProseMirror p,
 .inner-detail-document .ProseMirror p * {
-  line-height: 1.32 !important;
+  line-height: 1.4 !important;
 }
 
 .inner-detail-document .bn-block-content > *,
