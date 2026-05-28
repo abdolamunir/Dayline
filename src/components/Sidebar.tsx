@@ -1510,7 +1510,7 @@ export function Sidebar({ currentView, onViewChange, onOpenCommandPalette, isMob
                   </button>
 
                   <button onClick={() => onViewChange('today')} className={cn("w-full flex items-center rounded-md py-1.5 cursor-pointer group", isCollapsed ? "justify-center" : "px-3 gap-2", currentView === 'today' ? "bg-[var(--tokyo-hover)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text)] hover:bg-[var(--tokyo-hover)]")}>
-                    <Star className="w-4 h-4 text-[var(--tokyo-yellow)] shrink-0" />
+	                    <Star className="w-4 h-4 shrink-0 fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" strokeWidth={0} />
                     {!isCollapsed && (
                       <>
                         <span className="text-sm font-medium flex-1 text-left">Today</span>

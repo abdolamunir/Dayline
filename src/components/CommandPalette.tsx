@@ -108,7 +108,7 @@ export function CommandPalette({ open, setOpen, onViewChange, initialValue = '',
               onSelect={() => runCommand(() => onViewChange('today'))}
               className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
             >
-              <Star className="w-[22px] h-[22px] text-[var(--tokyo-yellow)] fill-yellow-400 stroke-[1.5]" />
+              <Star className="w-[22px] h-[22px] fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" strokeWidth={0} />
               <span className="flex-1">Today</span>
               <span className="text-sm text-[var(--tokyo-text-faint)]">Application</span>
             </Command.Item>
