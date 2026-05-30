@@ -1015,7 +1015,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setIsEditingTitle(false);
   };
   const handleUpdateDescription = () => {
-    onUpdatePage({ ...page, description: descriptionValue.trim() || 'Database' });
+    const nextDesc = descriptionEditRef.current?.textContent?.trim() || page.description || 'Database';
+    onUpdatePage({ ...page, description: nextDesc });
+    setDescriptionValue(nextDesc);
     setIsEditingDescription(false);
   };
   const handleCopyPageLink = async () => {
@@ -1284,7 +1286,6 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               onClick={() => {
                 if (!isEditingDescription) setIsEditingDescription(true);
               }}
-              onInput={(e) => setDescriptionValue(e.currentTarget.textContent || '')}
               onBlur={() => {
                 if (isEditingDescription) handleUpdateDescription();
               }}
@@ -1295,12 +1296,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 }
                 if (e.key === 'Escape') {
                   e.preventDefault();
+                  if (descriptionEditRef.current) descriptionEditRef.current.textContent = page.description || 'Database';
                   setDescriptionValue(page.description || 'Database');
                   setIsEditingDescription(false);
                 }
               }}
             >
-              {descriptionValue}
+              {page.description || 'Database'}
             </p>
           </div>
         </div>
