@@ -42,7 +42,12 @@ interface AppState {
   deleteTask: (taskId: string) => void;
   updateHabit: (habit: Habit) => void;
   addHabit: (habit: Habit) => void;
+  deleteHabit: (habitId: string) => void;
   addMood: (mood: Mood) => void;
+  updateMood: (mood: Mood) => void;
+  deleteMood: (moodId: string) => void;
+  updateJournalEntry: (entry: JournalEntry) => void;
+  deleteJournalEntry: (entryId: string) => void;
   addGoal: (goal: Goal) => void;
   updateGoal: (goal: Goal) => void;
   deleteGoal: (goalId: string) => void;
@@ -434,8 +439,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHabits(currentHabits => uniqueById([...currentHabits, habit]));
   };
 
+  const deleteHabit = (habitId: string) => {
+    setHabits(habits.filter(h => h.id !== habitId));
+  };
+
   const addMood = (mood: Mood) => {
     setMoods(currentMoods => uniqueById([...currentMoods, mood]));
+  };
+
+  const updateMood = (updatedMood: Mood) => {
+    setMoods(moods.map(m => m.id === updatedMood.id ? updatedMood : m));
+  };
+
+  const deleteMood = (moodId: string) => {
+    setMoods(moods.filter(m => m.id !== moodId));
   };
 
   const addGoal = (goal: Goal) => {
@@ -556,6 +573,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addJournalEntry = (entry: JournalEntry) => {
     setJournal(currentJournal => uniqueById([...currentJournal, entry]));
+  };
+
+  const updateJournalEntry = (updatedEntry: JournalEntry) => {
+    setJournal(journal.map(j => j.id === updatedEntry.id ? updatedEntry : j));
+  };
+
+  const deleteJournalEntry = (entryId: string) => {
+    setJournal(journal.filter(j => j.id !== entryId));
   };
 
   const addIdea = (idea: Idea) => {
@@ -1010,10 +1035,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{
       tasks, projects, goals, areas, habits, events, journal, moods, ideas, notes, customPages, sidebarItems, trash, viewSettings, user, loading,
-      updateTask, addTask, deleteTask, updateHabit, addHabit, addMood, addGoal, updateGoal, deleteGoal, duplicateGoal, reorderGoals,
+      updateTask, addTask, deleteTask, updateHabit, addHabit, deleteHabit, addMood, updateMood, deleteMood, addGoal, updateGoal, deleteGoal, duplicateGoal, reorderGoals,
       addProject, updateProject, deleteProject, duplicateProject, reorderProjects, replaceProjects,
       addArea, updateArea, deleteArea, duplicateArea, reorderAreas, replaceAreas,
-      addJournalEntry, addIdea, updateIdea, deleteIdea, replaceIdeas, reorderIdeas, addNote, updateNote, deleteNote, reorderNotes, replaceNotes, addCustomPage, updateCustomPage, 
+      addJournalEntry, updateJournalEntry, deleteJournalEntry, addIdea, updateIdea, deleteIdea, replaceIdeas, reorderIdeas, addNote, updateNote, deleteNote, reorderNotes, replaceNotes, addCustomPage, updateCustomPage, 
       moveToTrash, restoreFromTrash, emptyTrash,
       reorderSidebarItems, deleteSidebarItem, updateSidebarItem, duplicateSidebarItem,
       updateViewSettings, addFolder, toggleFolderExpansion, moveSidebarItem

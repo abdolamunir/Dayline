@@ -146,17 +146,32 @@ function AppContent() {
       return <Areas key={`area-details-${id}`} onViewChange={changeView} selectedAreaId={id} />;
     }
 
+    if (currentView.startsWith('habit-details:')) {
+      const id = currentView.split(':')[1];
+      return <Habits key={`habit-details-${id}`} onViewChange={changeView} selectedHabitId={id} />;
+    }
+
+    if (currentView.startsWith('mood-details:')) {
+      const id = currentView.split(':')[1];
+      return <Moods key={`mood-details-${id}`} onViewChange={changeView} selectedMoodId={id} />;
+    }
+
+    if (currentView.startsWith('journal-details:')) {
+      const id = currentView.split(':')[1];
+      return <Journal key={`journal-details-${id}`} onViewChange={changeView} selectedJournalId={id} />;
+    }
+
     switch (currentView) {
       case 'dashboard': return <Dashboard />;
       case 'tasks': return <Tasks />;
       case 'projects': return <Projects key={`projects-${viewRefreshKey}`} onViewChange={changeView} />;
       case 'areas': return <Areas key={`areas-${viewRefreshKey}`} onViewChange={changeView} />;
-      case 'habits': return <Habits />;
+      case 'habits': return <Habits onViewChange={changeView} />;
       case 'notes': return <Notes key={`notes-${viewRefreshKey}`} />;
       case 'goals': return <Goals onViewChange={changeView} />;
       case 'ideas': return <Ideas onViewChange={changeView} />;
-      case 'journal': return <Journal />;
-      case 'moods': return <Moods />;
+      case 'journal': return <Journal onViewChange={changeView} />;
+      case 'moods': return <Moods onViewChange={changeView} />;
       case 'trash': return <Trash />;
       case 'inbox': return <Inbox />;
       case 'today': return <Today />;
@@ -187,6 +202,12 @@ function AppContent() {
             ? 'Project'
             : currentView.startsWith('area-details:')
               ? 'Area'
+        : currentView.startsWith('habit-details:')
+              ? 'Habit'
+        : currentView.startsWith('mood-details:')
+              ? 'Mood'
+        : currentView.startsWith('journal-details:')
+              ? 'Journal Entry'
               : currentView.replace('-', ' ');
 
   const buildInviteLink = (scope: 'workspace' | 'page') => {
