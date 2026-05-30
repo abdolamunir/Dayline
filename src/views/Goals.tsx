@@ -1200,7 +1200,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
           className="group relative w-full overflow-hidden rounded-lg border border-[var(--tokyo-border)] bg-[linear-gradient(180deg,rgba(31,23,38,0.78),rgba(17,10,23,0.88))] p-4 text-left shadow-[0_18px_46px_rgba(0,0,0,0.18)] transition-[border-color,background-color] duration-150 hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]"
         >
           <div className="relative flex min-h-full flex-col">
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--tokyo-text-muted)] transition-colors group-hover:text-[var(--tokyo-text)]">
                 {React.createElement(GoalIcon, { className: "h-5 w-5" })}
               </span>
