@@ -133,7 +133,7 @@ function AppContent() {
 
     if (currentView.startsWith('idea-details:')) {
       const id = currentView.split(':')[1];
-      return <Ideas key={`idea-details-${id}`} onViewChange={changeView} />;
+      return <Ideas key={`idea-details-${id}`} onViewChange={changeView} selectedIdeaId={id} />;
     }
 
     if (currentView.startsWith('project-details:')) {
