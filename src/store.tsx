@@ -749,6 +749,141 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return copy;
     };
 
+    const buildSystemPage = (sysId: string): { page: CustomPage; sidebarItem: SidebarItem } | null => {
+      const settings = viewSettings[sysId] || {};
+      const defaults: Record<string, { tabs: any[]; columns: any[] }> = {
+        notes: {
+          tabs: [{ id: 'planning', label: 'Planning', icon: 'Clock' }, { id: 'active', label: 'Active', icon: 'Target' }, { id: 'completed', label: 'Completed', icon: 'CheckCircle2' }, { id: 'paused', label: 'Paused', icon: 'Circle' }],
+          columns: [{ id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' }, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' }, { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' }, { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' }, { id: 'date', label: 'Created Date', icon: 'CalendarIcon', width: '180px' }, { id: 'progress', label: 'Progress', icon: 'Circle', width: '180px' }, { id: 'creator', label: 'Creator', icon: 'User', width: '180px' }],
+        },
+        projects: {
+          tabs: [{ id: 'planning', label: 'Planning', icon: 'Clock' }, { id: 'active', label: 'Active', icon: 'Target' }, { id: 'completed', label: 'Completed', icon: 'CheckCircle2' }, { id: 'paused', label: 'Paused', icon: 'Circle' }],
+          columns: [{ id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' }, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' }, { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' }, { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' }, { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '180px' }, { id: 'creator', label: 'Creator', icon: 'User', width: '180px' }],
+        },
+        areas: {
+          tabs: [{ id: 'planning', label: 'Planning', icon: 'Clock' }, { id: 'active', label: 'Active', icon: 'Target' }, { id: 'completed', label: 'Completed', icon: 'CheckCircle2' }, { id: 'paused', label: 'Paused', icon: 'Circle' }],
+          columns: [{ id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' }, { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' }, { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' }, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' }, { id: 'creator', label: 'Creator', icon: 'User', width: '180px' }],
+        },
+        ideas: {
+          tabs: [{ id: 'active', label: 'Active', icon: 'Smile' }, { id: 'completed', label: 'Completed', icon: 'CheckCircle2' }, { id: 'archived', label: 'Archived', icon: 'Circle' }],
+          columns: [{ id: 'title', label: 'Name', icon: 'SettingsGear', width: '320px' }, { id: 'status', label: 'Status', icon: 'CheckCircle', width: '170px' }, { id: 'priority', label: 'Priority', icon: 'Clock', width: '170px' }, { id: 'date', label: 'Created', icon: 'CalendarIcon', width: '180px' }],
+        },
+      };
+
+      const sysDefaults = defaults[sysId] || { tabs: [], columns: [] };
+      const tabs = settings.tabs || sysDefaults.tabs;
+      const columns = settings.columns || sysDefaults.columns;
+
+      const collectSystemProperties = (items: any[]): any[] => {
+        const result: any[] = [];
+        if (sysId === 'notes' || sysId === 'projects') {
+          result.push({ id: 'assigned', name: 'Assigned', type: 'text' as const, value: '', icon: 'Users' });
+          result.push({ id: 'creator', name: 'Creator', type: 'text' as const, value: '', icon: 'User' });
+        }
+        if (sysId === 'areas') {
+          result.push({ id: 'assigned', name: 'Assigned', type: 'text' as const, value: '', icon: 'Users' });
+        }
+        for (const item of items) {
+          for (const cp of (item.customProperties || [])) {
+            if (!result.some(r => r.id === cp.id)) {
+              result.push(cp);
+            }
+          }
+        }
+        return result;
+      };
+
+      const newId = `page-${Date.now()}`;
+      let systemItems: CustomPage['items'] = [];
+
+      if (sysId === 'notes') {
+        systemItems = notes.map(note => ({
+          id: note.id,
+          title: note.title,
+          icon: 'Pencil',
+          status: note.status === 'in-progress' ? 'active' : note.status === 'inbox' ? 'planning' : note.status,
+          priority: note.priority,
+          date: note.createdAt,
+          progress: note.progress,
+          isFavorite: note.isFavorite,
+          properties: {
+            assigned: note.assignee || 'Unassigned',
+            creator: 'Abdola Munir',
+            content: note.content,
+            description: note.content,
+            ...Object.fromEntries((note.customProperties || []).map(p => [p.id, p.value])),
+          },
+        }));
+      } else if (sysId === 'projects') {
+        systemItems = projects.map(project => ({
+          id: project.id,
+          title: project.name,
+          icon: project.icon || 'FolderKanban',
+          status: project.status,
+          priority: project.priority || 'medium',
+          date: project.deadline || project.targetDate,
+          progress: 0,
+          isFavorite: project.isFavorite,
+          properties: {
+            assigned: project.assignee || 'Unassigned',
+            creator: 'Abdola Munir',
+            ...Object.fromEntries((project.customProperties || []).map(p => [p.id, p.value])),
+          },
+        }));
+      } else if (sysId === 'areas') {
+        systemItems = areas.map(area => ({
+          id: area.id,
+          title: area.name,
+          icon: area.icon || 'Layers',
+          status: area.status,
+          priority: area.priority || 'medium',
+          progress: 0,
+          isFavorite: area.isFavorite,
+          properties: {
+            assigned: area.assignee || 'Unassigned',
+            ...Object.fromEntries((area.customProperties || []).map(p => [p.id, p.value])),
+          },
+        }));
+      } else if (sysId === 'ideas') {
+        systemItems = ideas.map(idea => ({
+          id: idea.id,
+          title: idea.title,
+          icon: idea.icon || 'Smile',
+          status: idea.status || 'active',
+          priority: idea.priority || 'medium',
+          date: idea.createdAt,
+          progress: 0,
+          isFavorite: Boolean(idea.isFavorite),
+          properties: {
+            description: idea.description,
+            tags: idea.tags,
+            assigned: idea.assignee || 'Unassigned',
+            creator: 'Abdola Munir',
+          },
+        }));
+      }
+
+      const properties = collectSystemProperties(
+        sysId === 'notes' ? notes : sysId === 'projects' ? projects : sysId === 'areas' ? areas : ideas
+      );
+
+      const page: CustomPage = {
+        id: newId,
+        title: `${item.label} (Copy)`,
+        icon: item.icon,
+        kind: 'database',
+        activeTab: settings.activeTab,
+        tabs: deepClone(tabs),
+        columns: deepClone(columns),
+        properties: deepClone(properties),
+        sortConfigs: settings.sortConfigs ? deepClone(settings.sortConfigs) : [],
+        items: deepClone(systemItems),
+        content: '',
+      };
+      const sidebarItem: SidebarItem = { ...item, id: newId, label: `${item.label} (Copy)`, type: 'custom' };
+      return { page, sidebarItem };
+    };
+
     if (item.type === 'folder') {
       const idMap = new Map<string, string>([[id, `folder-${Date.now()}`]]);
       const collectDescendants = (parentId: string): SidebarItem[] => {
@@ -818,6 +953,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCustomPages(currentPages => [...currentPages, newPage]);
       setSidebarItems(currentItems => insertAfter(currentItems, id, newItem));
       return;
+    }
+
+    if (item.type === 'system') {
+      const built = buildSystemPage(id);
+      if (built) {
+        setCustomPages(currentPages => [...currentPages, built.page]);
+        setSidebarItems(currentItems => insertAfter(currentItems, id, built.sidebarItem));
+        return;
+      }
     }
 
     const newId = `page-${Date.now()}`;
