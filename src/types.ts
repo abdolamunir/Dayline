@@ -34,6 +34,8 @@ export interface Idea {
   priority?: 'low' | 'medium' | 'high';
   icon?: string;
   isFavorite?: boolean;
+  assignee?: string;
+  customProperties?: Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>;
 }
 
 export interface Note {
@@ -70,6 +72,7 @@ export interface Task {
   goalId?: ID;
   areaId?: ID;
   noteId?: ID;
+  ideaId?: ID;
   tags: string[];
 }
 

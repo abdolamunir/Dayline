@@ -738,9 +738,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const duplicateSidebarItem = (id: string) => {
     if (fixedSidebarIds.has(id)) return;
     const item = sidebarItems.find(i => i.id === id);
-    if (!item) {
-      return;
-    }
+    if (!item) return;
+
+    const deepClone = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj));
+
+    const insertAfter = <T extends { id: string },>(items: T[], afterId: string, ...newItems: T[]): T[] => {
+      const copy = [...items];
+      const idx = copy.findIndex(i => i.id === afterId);
+      copy.splice(idx + 1, 0, ...newItems);
+      return copy;
+    };
 
     if (item.type === 'folder') {
       const idMap = new Map<string, string>([[id, `folder-${Date.now()}`]]);
@@ -773,19 +780,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ...sourcePage,
             id: newId,
             title: `${sourcePage.title} (Copy)`,
-            items: sourcePage.items.map(item => ({ ...item, properties: { ...item.properties } })),
-            columns: sourcePage.columns.map(col => ({ ...col })),
-            tabs: sourcePage.tabs.map(tab => ({ ...tab })),
-            properties: sourcePage.properties.map(prop => ({ ...prop })),
-            sortConfigs: sourcePage.sortConfigs ? [...sourcePage.sortConfigs] : undefined,
-            sharedWith: sourcePage.sharedWith ? [...sourcePage.sharedWith] : undefined,
+            items: deepClone(sourcePage.items),
+            columns: deepClone(sourcePage.columns),
+            tabs: deepClone(sourcePage.tabs),
+            properties: deepClone(sourcePage.properties),
+            sortConfigs: sourcePage.sortConfigs ? deepClone(sourcePage.sortConfigs) : undefined,
+            sharedWith: sourcePage.sharedWith ? deepClone(sourcePage.sharedWith) : undefined,
           };
         });
 
       setCustomPages(currentPages => [...currentPages, ...duplicatedPages]);
-      setSidebarItems(currentItems => [...currentItems, ...duplicatedItems.map(duplicatedItem => (
-        duplicatedItem.type === 'folder' ? duplicatedItem : { ...duplicatedItem, type: 'custom' as const }
-      ))]);
+      setSidebarItems(currentItems => insertAfter(
+        currentItems,
+        id,
+        ...duplicatedItems.map(duplicatedItem => (
+          duplicatedItem.type === 'folder' ? duplicatedItem : { ...duplicatedItem, type: 'custom' as const }
+        ))
+      ));
       return;
     }
 
@@ -796,16 +807,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...page,
         id: newId,
         title: `${page.title} (Copy)`,
-        items: page.items.map(item => ({ ...item, properties: { ...item.properties } })),
-        columns: page.columns.map(col => ({ ...col })),
-        tabs: page.tabs.map(tab => ({ ...tab })),
-        properties: page.properties.map(prop => ({ ...prop })),
-        sortConfigs: page.sortConfigs ? [...page.sortConfigs] : undefined,
-        sharedWith: page.sharedWith ? [...page.sharedWith] : undefined,
+        items: deepClone(page.items),
+        columns: deepClone(page.columns),
+        tabs: deepClone(page.tabs),
+        properties: deepClone(page.properties),
+        sortConfigs: page.sortConfigs ? deepClone(page.sortConfigs) : undefined,
+        sharedWith: page.sharedWith ? deepClone(page.sharedWith) : undefined,
       };
       const newItem = { ...item, id: newId, label: `${item.label} (Copy)` };
       setCustomPages(currentPages => [...currentPages, newPage]);
-      setSidebarItems(currentItems => [...currentItems, newItem]);
+      setSidebarItems(currentItems => insertAfter(currentItems, id, newItem));
       return;
     }
 
@@ -823,7 +834,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       content: '',
     };
     setCustomPages(currentPages => [...currentPages, blankPage]);
-    setSidebarItems(currentItems => [...currentItems, { ...item, id: newId, label: newLabel, type: 'custom' }]);
+    setSidebarItems(currentItems => insertAfter(currentItems, id, { ...item, id: newId, label: newLabel, type: 'custom' }));
   };
 
   const updateViewSettings = (viewId: string, settings: Record<string, any>) => {
