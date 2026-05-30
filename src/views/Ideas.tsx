@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../store';
 import { ZapIcon as Zap, Add01Icon as Plus } from 'hugeicons-react';
+import { cn } from '../utils/cn';
 
 export function Ideas() {
   const { ideas } = useAppStore();
@@ -20,19 +21,52 @@ export function Ideas() {
         </button>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid items-start gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
         {ideas.map(idea => (
-          <div key={idea.id} className="bg-[var(--tokyo-hover)] border border-[var(--tokyo-border-strong)] rounded-2xl p-6 space-y-4">
-            <h3 className="text-xl font-semibold text-white">{idea.title}</h3>
-            <p className="text-[var(--tokyo-text-muted)] text-sm leading-relaxed">{idea.description}</p>
-            <div className="flex flex-wrap gap-2">
-              {idea.tags.map(tag => (
-                <span key={tag} className="px-2 py-1 bg-[var(--tokyo-hover)] rounded text-xs font-medium text-[var(--tokyo-text-faint)]">
-                  #{tag}
+          <button
+            key={idea.id}
+            type="button"
+            className="group relative w-full overflow-hidden rounded-lg border border-[var(--tokyo-border)] bg-[linear-gradient(180deg,rgba(31,23,38,0.78),rgba(17,10,23,0.88))] p-4 text-left shadow-[0_18px_46px_rgba(0,0,0,0.18)] transition-[border-color,background-color] duration-150 hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]"
+          >
+            <div className="relative flex min-h-full flex-col">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--tokyo-text-muted)] transition-colors group-hover:text-[var(--tokyo-text)]">
+                  <Zap className="h-5 w-5" />
                 </span>
-              ))}
+                <div className="min-w-0 flex-1">
+                  <div className="line-clamp-2 text-[17px] font-semibold leading-snug text-[var(--tokyo-text-strong)]">
+                    {idea.title}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-4 mt-3">
+                {idea.description ? (
+                  <p className="line-clamp-2 text-[13px] font-medium leading-6 text-[var(--tokyo-text-muted)]">
+                    {idea.description}
+                  </p>
+                ) : (
+                  <p className="line-clamp-2 text-[13px] font-medium leading-6 text-[var(--tokyo-text-faint)]">
+                    Add notes or a description to show card content here.
+                  </p>
+                )}
+              </div>
+
+              <div className="pt-1">
+                {idea.tags.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {idea.tags.map(tag => (
+                      <span key={tag} className="flex h-6 items-center rounded-md bg-white/[0.035] px-2 text-[12px] font-semibold leading-[1] text-[var(--tokyo-text)]">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-5" />
+                )}
+              </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>

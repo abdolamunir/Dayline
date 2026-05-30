@@ -42,9 +42,9 @@ import {
   Calendar02Icon as CalendarDays
 } from 'hugeicons-react';
 import {
-  Table02Icon as TableIcon,
+  GridTableIcon as TableIcon,
   KanbanIcon,
-  TimelineIcon,
+  TimelineListIcon as TimelineIcon,
   GridViewIcon
 } from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1009,7 +1009,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   ), [displayColumns]);
   const isTabDragActive = page.tabs.some(tab => tab.id === draggingId);
   const handleRenamePage = () => {
-    const nextTitle = titleValue.trim() || page.title;
+    const nextTitle = titleEditRef.current?.textContent?.trim() || page.title;
     onUpdatePage({ ...page, title: nextTitle });
     setTitleValue(nextTitle);
     setIsEditingTitle(false);
@@ -1246,14 +1246,14 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                 ref={titleEditRef}
                 contentEditable={isEditingTitle}
                 suppressContentEditableWarning
-                className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight cursor-text outline-none"
+                dir="ltr"
+                className="min-w-0 text-2xl md:text-[28px] font-semibold text-[var(--tokyo-text-strong)] tracking-tight leading-tight cursor-text outline-none text-left"
                 onClick={() => {
                   if (!isEditingTitle) {
                     setTitleValue(page.title);
                     setIsEditingTitle(true);
                   }
                 }}
-                onInput={(e) => setTitleValue(e.currentTarget.textContent || '')}
                 onBlur={() => {
                   if (isEditingTitle) handleRenamePage();
                 }}
@@ -1264,12 +1264,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
                   }
                   if (e.key === 'Escape') {
                     e.preventDefault();
+                    if (titleEditRef.current) titleEditRef.current.textContent = page.title;
                     setTitleValue(page.title);
                     setIsEditingTitle(false);
                   }
                 }}
               >
-                {isEditingTitle ? titleValue : page.title}
+                {page.title}
               </h1>
               <span className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] px-1.5 text-xs font-semibold text-[var(--tokyo-text-faint)]">
                 {page.items.length}
