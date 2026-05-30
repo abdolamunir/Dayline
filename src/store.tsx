@@ -62,6 +62,10 @@ interface AppState {
   replaceAreas: (areas: Area[]) => void;
   addJournalEntry: (entry: JournalEntry) => void;
   addIdea: (idea: Idea) => void;
+  updateIdea: (idea: Idea) => void;
+  deleteIdea: (ideaId: string) => void;
+  replaceIdeas: (ideas: Idea[]) => void;
+  reorderIdeas: (ideas: Idea[]) => void;
   addNote: (note: Note) => void;
   updateNote: (note: Note) => void;
   deleteNote: (noteId: string) => void;
@@ -450,7 +454,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const goal = goals.find(g => g.id === goalId);
     if (goal) {
       const newGoal = { ...goal, id: `goal-${Date.now()}`, title: `${goal.title} (Copy)` };
-      setGoals([...goals, newGoal]);
+      setGoals(currentGoals => [...currentGoals, newGoal]);
     }
   };
 
@@ -488,7 +492,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const project = projects.find(p => p.id === projectId);
     if (project) {
       const newProject = { ...project, id: `project-${Date.now()}`, name: `${project.name} (Copy)` };
-      setProjects([...projects, newProject]);
+      setProjects(currentProjects => [...currentProjects, newProject]);
     }
   };
 
@@ -527,7 +531,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const area = areas.find(a => a.id === areaId);
     if (area) {
       const newArea = { ...area, id: `area-${Date.now()}`, name: `${area.name} (Copy)` };
-      setAreas([...areas, newArea]);
+      setAreas(currentAreas => [...currentAreas, newArea]);
     }
   };
 
@@ -556,6 +560,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addIdea = (idea: Idea) => {
     setIdeas(currentIdeas => uniqueById([...currentIdeas, idea]));
+  };
+
+  const updateIdea = (updatedIdea: Idea) => {
+    setIdeas(ideas.map(i => i.id === updatedIdea.id ? updatedIdea : i));
+  };
+
+  const deleteIdea = (ideaId: string) => {
+    setIdeas(ideas.filter(i => i.id !== ideaId));
+  };
+
+  const replaceIdeas = (nextIdeas: Idea[]) => {
+    setIdeas(nextIdeas);
+  };
+
+  const reorderIdeas = (reorderedSubset: Idea[]) => {
+    const subsetIds = new Set(reorderedSubset.map(i => i.id));
+    const newIdeas = [...ideas];
+    const indices: number[] = [];
+    ideas.forEach((idea, index) => {
+      if (subsetIds.has(idea.id)) indices.push(index);
+    });
+    reorderedSubset.forEach((idea, i) => {
+      newIdeas[indices[i]] = idea;
+    });
+    setIdeas(newIdeas);
   };
 
   const addNote = (note: Note) => {
@@ -713,18 +742,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const createBlankCustomPage = (sourceItem: SidebarItem, newId: string, label: string): CustomPage => ({
-      id: newId,
-      title: label,
-      icon: sourceItem.icon,
-      kind: 'document',
-      tabs: [],
-      columns: [],
-      items: [],
-      properties: [],
-      content: '',
-    });
-
     if (item.type === 'folder') {
       const idMap = new Map<string, string>([[id, `folder-${Date.now()}`]]);
       const collectDescendants = (parentId: string): SidebarItem[] => {
@@ -746,18 +763,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
       });
 
-      const duplicatedPages = customPages
-        .filter(page => idMap.has(page.id))
-        .map(page => ({
-          ...page,
-          id: idMap.get(page.id)!,
-        }));
-      const duplicatedSystemPages = sourceItems
-        .filter(sourceItem => sourceItem.type !== 'folder' && sourceItem.type !== 'custom')
-        .map(sourceItem => createBlankCustomPage(sourceItem, idMap.get(sourceItem.id)!, sourceItem.label));
+      const pageById = new Map(customPages.map(p => [p.id, p]));
+      const duplicatedPages = sourceItems
+        .filter(sourceItem => sourceItem.type === 'custom' && pageById.has(sourceItem.id))
+        .map(sourceItem => {
+          const sourcePage = pageById.get(sourceItem.id)!;
+          const newId = idMap.get(sourceItem.id)!;
+          return {
+            ...sourcePage,
+            id: newId,
+            title: `${sourcePage.title} (Copy)`,
+            items: sourcePage.items.map(item => ({ ...item, properties: { ...item.properties } })),
+            columns: sourcePage.columns.map(col => ({ ...col })),
+            tabs: sourcePage.tabs.map(tab => ({ ...tab })),
+            properties: sourcePage.properties.map(prop => ({ ...prop })),
+            sortConfigs: sourcePage.sortConfigs ? [...sourcePage.sortConfigs] : undefined,
+            sharedWith: sourcePage.sharedWith ? [...sourcePage.sharedWith] : undefined,
+          };
+        });
 
-      setCustomPages([...customPages, ...duplicatedPages, ...duplicatedSystemPages]);
-      setSidebarItems([...sidebarItems, ...duplicatedItems.map(duplicatedItem => (
+      setCustomPages(currentPages => [...currentPages, ...duplicatedPages]);
+      setSidebarItems(currentItems => [...currentItems, ...duplicatedItems.map(duplicatedItem => (
         duplicatedItem.type === 'folder' ? duplicatedItem : { ...duplicatedItem, type: 'custom' as const }
       ))]);
       return;
@@ -766,17 +792,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const page = customPages.find(p => p.id === id);
     if (item.type === 'custom' && page) {
       const newId = `page-${Date.now()}`;
-      const newPage = { ...page, id: newId, title: `${page.title} (Copy)` };
+      const newPage: CustomPage = {
+        ...page,
+        id: newId,
+        title: `${page.title} (Copy)`,
+        items: page.items.map(item => ({ ...item, properties: { ...item.properties } })),
+        columns: page.columns.map(col => ({ ...col })),
+        tabs: page.tabs.map(tab => ({ ...tab })),
+        properties: page.properties.map(prop => ({ ...prop })),
+        sortConfigs: page.sortConfigs ? [...page.sortConfigs] : undefined,
+        sharedWith: page.sharedWith ? [...page.sharedWith] : undefined,
+      };
       const newItem = { ...item, id: newId, label: `${item.label} (Copy)` };
-      setCustomPages([...customPages, newPage]);
-      setSidebarItems([...sidebarItems, newItem]);
+      setCustomPages(currentPages => [...currentPages, newPage]);
+      setSidebarItems(currentItems => [...currentItems, newItem]);
       return;
     }
 
     const newId = `page-${Date.now()}`;
     const newLabel = `${item.label} (Copy)`;
-    setCustomPages([...customPages, createBlankCustomPage(item, newId, newLabel)]);
-    setSidebarItems([...sidebarItems, { ...item, id: newId, label: newLabel, type: 'custom' }]);
+    const blankPage: CustomPage = {
+      id: newId,
+      title: newLabel,
+      icon: item.icon,
+      kind: 'document',
+      tabs: [],
+      columns: [],
+      items: [],
+      properties: [],
+      content: '',
+    };
+    setCustomPages(currentPages => [...currentPages, blankPage]);
+    setSidebarItems(currentItems => [...currentItems, { ...item, id: newId, label: newLabel, type: 'custom' }]);
   };
 
   const updateViewSettings = (viewId: string, settings: Record<string, any>) => {
@@ -811,7 +858,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updateTask, addTask, deleteTask, updateHabit, addHabit, addMood, addGoal, updateGoal, deleteGoal, duplicateGoal, reorderGoals,
       addProject, updateProject, deleteProject, duplicateProject, reorderProjects, replaceProjects,
       addArea, updateArea, deleteArea, duplicateArea, reorderAreas, replaceAreas,
-      addJournalEntry, addIdea, addNote, updateNote, deleteNote, reorderNotes, replaceNotes, addCustomPage, updateCustomPage, 
+      addJournalEntry, addIdea, updateIdea, deleteIdea, replaceIdeas, reorderIdeas, addNote, updateNote, deleteNote, reorderNotes, replaceNotes, addCustomPage, updateCustomPage, 
       moveToTrash, restoreFromTrash, emptyTrash,
       reorderSidebarItems, deleteSidebarItem, updateSidebarItem, duplicateSidebarItem,
       updateViewSettings, addFolder, toggleFolderExpansion, moveSidebarItem

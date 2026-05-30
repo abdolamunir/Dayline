@@ -30,6 +30,10 @@ export interface Idea {
   tags: string[];
   createdAt: string;
   projectId?: ID;
+  status?: string;
+  priority?: 'low' | 'medium' | 'high';
+  icon?: string;
+  isFavorite?: boolean;
 }
 
 export interface Note {

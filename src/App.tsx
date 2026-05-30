@@ -131,6 +131,11 @@ function AppContent() {
       return <Notes key={`note-details-${id}`} onViewChange={changeView} selectedNoteId={id} />;
     }
 
+    if (currentView.startsWith('idea-details:')) {
+      const id = currentView.split(':')[1];
+      return <Ideas key={`idea-details-${id}`} onViewChange={changeView} />;
+    }
+
     if (currentView.startsWith('project-details:')) {
       const id = currentView.split(':')[1];
       return <Projects key={`project-details-${id}`} onViewChange={changeView} selectedProjectId={id} />;
@@ -149,7 +154,7 @@ function AppContent() {
       case 'habits': return <Habits />;
       case 'notes': return <Notes key={`notes-${viewRefreshKey}`} />;
       case 'goals': return <Goals onViewChange={changeView} />;
-      case 'ideas': return <Ideas />;
+      case 'ideas': return <Ideas onViewChange={changeView} />;
       case 'journal': return <Journal />;
       case 'moods': return <Moods />;
       case 'trash': return <Trash />;
@@ -174,8 +179,10 @@ function AppContent() {
       ? customPages.find(p => p.id === currentView)?.title || 'Page'
       : currentView.startsWith('goal-details:')
         ? 'Goal'
-        : currentView.startsWith('note-details:')
-          ? 'Note'
+      : currentView.startsWith('note-details:')
+        ? 'Note'
+        : currentView.startsWith('idea-details:')
+          ? 'Idea'
           : currentView.startsWith('project-details:')
             ? 'Project'
             : currentView.startsWith('area-details:')
