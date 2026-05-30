@@ -41,6 +41,12 @@ import {
   GridIcon as GridIcon,
   Calendar02Icon as CalendarDays
 } from 'hugeicons-react';
+import {
+  Table02Icon as TableIcon,
+  KanbanIcon,
+  TimelineIcon,
+  GridViewIcon
+} from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
 import { BlockEditor } from '../components/BlockEditor';
@@ -61,6 +67,10 @@ const iconMap: Record<string, React.ElementType> = {
   Circle: Circle,
   CheckCircle: CheckCircle,
   CalendarIcon: CalendarIcon,
+  TableIcon: TableIcon,
+  Kanban: KanbanIcon,
+  Timeline: TimelineIcon,
+  GridView: GridViewIcon,
   Text: Text,
   Hash: Hash,
   List: List,
@@ -85,12 +95,12 @@ type GoalIconPickerType = 'tab' | 'column' | 'main' | 'goal' | null;
 type GoalSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_GOAL_SORT: GoalSortConfig = { columnId: 'title', direction: 'asc' };
 const DATABASE_LAYOUTS: Array<{ id: DatabaseLayout; label: string; icon: React.ElementType }> = [
-  { id: 'table', label: 'Table', icon: LayoutGrid },
-  { id: 'board', label: 'Board', icon: FolderKanban },
-  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'table', label: 'Table', icon: TableIcon },
+  { id: 'board', label: 'Board', icon: KanbanIcon },
+  { id: 'timeline', label: 'Timeline', icon: TimelineIcon },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'list', label: 'List', icon: List },
-  { id: 'gallery', label: 'Gallery', icon: GridIcon },
+  { id: 'gallery', label: 'Gallery', icon: GridViewIcon },
 ];
 
 const DEFAULT_GOAL_TABS = [

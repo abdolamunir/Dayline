@@ -41,6 +41,12 @@ import {
   GridIcon as GridIcon,
   Calendar02Icon as CalendarDays
 } from 'hugeicons-react';
+import {
+  Table02Icon as TableIcon,
+  KanbanIcon,
+  TimelineIcon,
+  GridViewIcon
+} from 'hugeicons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reorder } from 'motion/react';
 import { cn } from '../utils/cn';
@@ -63,6 +69,10 @@ const iconMap: Record<string, React.ElementType> = {
   Inbox: Inbox,
   LayoutGrid: LayoutGrid,
   FolderKanban: FolderKanban,
+  TableIcon: TableIcon,
+  Kanban: KanbanIcon,
+  Timeline: TimelineIcon,
+  GridView: GridViewIcon,
   File: FileIcon,
   Pencil: Pencil,
   Target: Target,
@@ -93,12 +103,12 @@ interface TableViewProps {
 type TableSortConfig = { columnId: string; direction: 'asc' | 'desc' };
 const DEFAULT_TABLE_SORT: TableSortConfig = { columnId: 'title', direction: 'asc' };
 const DATABASE_LAYOUTS: Array<{ id: DatabaseLayout; label: string; icon: React.ElementType }> = [
-  { id: 'table', label: 'Table', icon: LayoutGrid },
-  { id: 'board', label: 'Board', icon: FolderKanban },
-  { id: 'timeline', label: 'Timeline', icon: Clock },
+  { id: 'table', label: 'Table', icon: TableIcon },
+  { id: 'board', label: 'Board', icon: KanbanIcon },
+  { id: 'timeline', label: 'Timeline', icon: TimelineIcon },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'list', label: 'List', icon: List },
-  { id: 'gallery', label: 'Gallery', icon: GridIcon },
+  { id: 'gallery', label: 'Gallery', icon: GridViewIcon },
 ];
 const DATABASE_LAYOUT_STORAGE_KEY = 'dayline:database-layouts:v1';
 const DATABASE_LAYOUT_IDS = new Set<DatabaseLayout>(DATABASE_LAYOUTS.map(layout => layout.id));
