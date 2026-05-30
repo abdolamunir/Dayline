@@ -682,13 +682,10 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
       columns: nextColumns,
       sortConfigs: sortConfigs.filter(sortConfig => sortConfig.columnId !== columnId),
     });
-    goals.forEach(goal => {
-      if (!goal.customProperties?.some(property => property.id === columnId)) return;
-      updateGoal({
-        ...goal,
-        customProperties: goal.customProperties.filter(property => property.id !== columnId),
-      });
-    });
+    reorderGoals(goals.map(goal => ({
+      ...goal,
+      customProperties: (goal.customProperties || []).filter(property => property.id !== columnId),
+    })));
     setColumnContextMenu(null);
   };
 
@@ -926,6 +923,95 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     );
   };
 
+  const toPlainGoalCardText = (value: any) => {
+    if (!value) return '';
+    if (typeof value !== 'string') return String(value ?? '').trim();
+
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      const collectText = (node: any): string[] => {
+        if (!node) return [];
+        if (typeof node === 'string') return [node];
+        if (Array.isArray(node)) return node.flatMap(collectText);
+        if (typeof node === 'object') {
+          return [
+            typeof node.text === 'string' ? node.text : '',
+            typeof node.content === 'string' ? node.content : '',
+            ...collectText(node.content),
+            ...collectText(node.children),
+          ].filter(Boolean);
+        }
+        return [];
+      };
+
+      const text = collectText(parsed).join(' ').replace(/\s+/g, ' ').trim();
+      if (text) return text;
+    } catch {
+      // Goal descriptions can be plain text or serialized editor content.
+    }
+
+    return trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const getGoalCardPropertyValue = (goal: Goal, columnId: string) => {
+    if (columnId === 'priority') return toSentenceCase(goal.priority);
+    if (columnId === 'date') return goal.targetDate ? format(new Date(goal.targetDate), 'MMM d, yyyy') : '';
+    if (columnId === 'assigned') return goal.assignee || '';
+    if (columnId === 'creator') return 'Abdola Munir';
+    if (columnId === 'areas') return areas.find(area => area.id === goal.areaId)?.name || '';
+    const customProp = goal.customProperties?.find(prop => prop.id === columnId);
+    if (!customProp) return '';
+    if (customProp.type === 'date' && customProp.value) return format(new Date(customProp.value), 'MMM d, yyyy');
+    if (Array.isArray(customProp.value)) return customProp.value.filter(Boolean).join(', ');
+    return String(customProp.value ?? '').trim();
+  };
+
+  const isGoalPersonCardColumn = (columnId: string) => columnId === 'assigned' || columnId === 'creator';
+
+  const renderGoalCardPropertyValue = (columnId: string, value: string) => {
+    if (!isGoalPersonCardColumn(columnId)) return value;
+    const displayName = value || 'Unassigned';
+    return (
+      <span className="inline-flex h-6 min-w-0 items-center gap-1.5 leading-[1]">
+        <img
+          src={getPersonAvatar(displayName)}
+          className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-white/10"
+          alt=""
+        />
+        <span className="flex h-6 items-center truncate leading-[1]">{displayName}</span>
+      </span>
+    );
+  };
+
+  const getGoalGalleryProperties = (goal: Goal) => {
+    const galleryColumns = displayGoalColumns
+      .filter(column => !['title', 'status', 'progress'].includes(column.id))
+      .map(column => ({
+        column,
+        value: getGoalCardPropertyValue(goal, column.id),
+      }))
+      .filter(row => row.value);
+
+    const priorityProperty = galleryColumns.find(({ column }) => column.id === 'priority');
+    const personProperties = galleryColumns.filter(({ column }) => isGoalPersonCardColumn(column.id));
+    const dateProperty = galleryColumns.find(({ column }) => column.id === 'date');
+    const remainingProperties = galleryColumns.filter(({ column }) => (
+      column.id !== 'priority' &&
+      column.id !== 'date' &&
+      !isGoalPersonCardColumn(column.id)
+    ));
+
+    return [
+      ...(priorityProperty ? [priorityProperty] : []),
+      ...personProperties,
+      ...(dateProperty ? [dateProperty] : []),
+      ...remainingProperties,
+    ].slice(0, 4);
+  };
+
   const withGoalCellValue = (goal: Goal, columnId: string, value: any): Goal => {
     if (columnId === 'title') return { ...goal, title: String(value ?? '') };
     if (columnId === 'status') return { ...goal, status: String(value ?? '') };
@@ -1099,39 +1185,102 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
     setLayoutPopoverPos(null);
   };
 
-  const renderGoalCard = (goal: Goal, compact = false) => (
-    <button
-      key={goal.id}
-      type="button"
-      onClick={() => openGoalDetails(goal.id)}
-      className={cn(
-        "group w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] text-left transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]",
-        compact ? "px-3 py-2.5" : "p-4"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)]">
-          {React.createElement(iconMap[goal.icon || 'Target'] || Target, { className: "h-4 w-4" })}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{goal.title}</div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getGoalStatusClasses(goal.status))}>
-              {toSentenceCase(goal.status)}
-            </span>
-            <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getPriorityBadgeClasses(goal.priority))}>
-              {toSentenceCase(goal.priority)}
-            </span>
-            {goal.targetDate && (
-              <span className="rounded-md bg-[var(--tokyo-hover)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-text-faint)]">
-                {format(new Date(goal.targetDate), 'MMM d')}
+  const renderGoalCard = (goal: Goal, compact = false, variant: 'default' | 'gallery' = 'default') => {
+    const GoalIcon = iconMap[goal.icon || 'Target'] || Target;
+
+    if (variant === 'gallery') {
+      const detailProperties = getGoalGalleryProperties(goal);
+      const previewText = toPlainGoalCardText(goal.description);
+
+      return (
+        <button
+          key={goal.id}
+          type="button"
+          onClick={() => openGoalDetails(goal.id)}
+          className="group relative w-full overflow-hidden rounded-lg border border-[var(--tokyo-border)] bg-[linear-gradient(180deg,rgba(31,23,38,0.78),rgba(17,10,23,0.88))] p-4 text-left shadow-[0_18px_46px_rgba(0,0,0,0.18)] transition-[border-color,background-color] duration-150 hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]"
+        >
+          <div className="relative flex min-h-full flex-col">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--tokyo-text-muted)] transition-colors group-hover:text-[var(--tokyo-text)]">
+                {React.createElement(GoalIcon, { className: "h-5 w-5" })}
               </span>
-            )}
+              <div className="min-w-0 flex-1">
+                <div className="line-clamp-2 text-[17px] font-semibold leading-snug text-[var(--tokyo-text-strong)]">
+                  {goal.title}
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4 mt-3">
+              {previewText ? (
+                <p className="line-clamp-2 text-[13px] font-medium leading-6 text-[var(--tokyo-text-muted)]">
+                  {previewText}
+                </p>
+              ) : (
+                <p className="line-clamp-2 text-[13px] font-medium leading-6 text-[var(--tokyo-text-faint)]">
+                  Add notes or a description to show card content here.
+                </p>
+              )}
+            </div>
+
+            <div className="pt-1">
+              {detailProperties.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {detailProperties.map(({ column, value }) => (
+                    column.id === 'priority' ? (
+                      <span key={column.id} className={cn("flex h-6 items-center rounded-md px-2 text-[12px] font-semibold leading-[1]", getPriorityBadgeClasses(goal.priority))}>
+                        {value}
+                      </span>
+                    ) : (
+                      <span key={column.id} className="flex h-6 max-w-full items-center rounded-md bg-white/[0.035] px-2 text-[12px] font-semibold leading-[1] text-[var(--tokyo-text)]">
+                        {renderGoalCardPropertyValue(column.id, value)}
+                      </span>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <div className="h-5" />
+              )}
+            </div>
+          </div>
+        </button>
+      );
+    }
+
+    return (
+      <button
+        key={goal.id}
+        type="button"
+        onClick={() => openGoalDetails(goal.id)}
+        className={cn(
+          "group w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] text-left transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]",
+          compact ? "px-3 py-2.5" : "p-4"
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)]">
+            {React.createElement(GoalIcon, { className: "h-4 w-4" })}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{goal.title}</div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getGoalStatusClasses(goal.status))}>
+                {toSentenceCase(goal.status)}
+              </span>
+              <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getPriorityBadgeClasses(goal.priority))}>
+                {toSentenceCase(goal.priority)}
+              </span>
+              {goal.targetDate && (
+                <span className="rounded-md bg-[var(--tokyo-hover)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-text-faint)]">
+                  {format(new Date(goal.targetDate), 'MMM d')}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </button>
-  );
+      </button>
+    );
+  };
 
   const renderGoalLayoutView = () => {
     if (databaseLayout === 'board') {
@@ -1193,12 +1342,9 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
 
     if (databaseLayout === 'gallery') {
       return (
-        <div className="grid gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-start gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
           {visibleGoals.map(goal => (
-            <div key={goal.id} className="overflow-hidden rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)]">
-              <div className="h-24 bg-[linear-gradient(135deg,rgba(122,162,247,0.16),rgba(158,206,106,0.12),rgba(224,107,138,0.12))]" />
-              <div className="p-3">{renderGoalCard(goal, true)}</div>
-            </div>
+            renderGoalCard(goal, false, 'gallery')
           ))}
         </div>
       );
@@ -1440,7 +1586,7 @@ export function Goals({ onViewChange, selectedGoalId }: { onViewChange?: (view: 
               >
                 <div
                   className={cn(
-                    "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-1 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
                     activeTab === tab.id && !isTabDragActive ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
                   )}
                 >
@@ -2717,7 +2863,7 @@ function GoalDetailsPage({ goal, onBack }: {
   goal: Goal, 
   onBack: () => void
 }) {
-  const { updateGoal, deleteGoal, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
+  const { goals, updateGoal, reorderGoals, deleteGoal, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('To-Dos');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -2869,9 +3015,7 @@ function GoalDetailsPage({ goal, onBack }: {
         : [...cols, { id, label: getCol(id, id, 'Text').label, icon: getCol(id, id, 'Text').icon, width: '150px', hidden: true }];
       updateViewSettings('goals', { ...savedSettings, columns: updatedCols });
     } else {
-      handleUpdate({
-        customProperties: goal.customProperties?.filter(p => p.id !== id)
-      });
+      handleDeleteProperty(id);
     }
   };
 
@@ -2938,9 +3082,16 @@ function GoalDetailsPage({ goal, onBack }: {
   };
 
   const handleDeleteProperty = (propId: string) => {
-    handleUpdate({
-      customProperties: goal.customProperties?.filter(p => p.id !== propId)
+    const savedSettings = viewSettings.goals || {};
+    updateViewSettings('goals', {
+      ...savedSettings,
+      columns: (savedSettings.columns || []).filter((column: any) => column.id !== propId),
+      sortConfigs: (savedSettings.sortConfigs || []).filter((sortConfig: any) => sortConfig.columnId !== propId),
     });
+    reorderGoals(goals.map((existingGoal) => ({
+      ...existingGoal,
+      customProperties: (existingGoal.customProperties || []).filter((property) => property.id !== propId),
+    })));
   };
 
   const handleAddComment = () => {

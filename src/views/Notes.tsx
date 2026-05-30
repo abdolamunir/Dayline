@@ -88,6 +88,11 @@ const DEFAULT_NOTE_COLUMNS = [
   { id: 'creator', label: 'Creator', icon: 'User', width: '180px' },
 ];
 
+const NOTE_SYSTEM_PROPERTY_DEFINITIONS: Record<string, { id: string; name: string; type: PropertyType; value: any; icon?: string }> = {
+  assigned: { id: 'assigned', name: 'Assigned', type: 'text', value: '', icon: 'Users' },
+  creator: { id: 'creator', name: 'Creator', type: 'text', value: '', icon: 'User' },
+};
+
 export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: string) => void, selectedNoteId?: string }) {
   const { notes, updateNote, addNote, reorderNotes, replaceNotes, areas, viewSettings, updateViewSettings, reorderSidebarItems, sidebarItems } = useAppStore();
   const savedNoteSettings = viewSettings.notes || {};
@@ -113,13 +118,6 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
     const ALL_KNOWN_BUILTINS = ['title', 'status', 'priority', 'date', 'deadline', 'progress', 'creator', 'assigned', 'areas'];
     const ALLOWED_BUILTINS = ['title', 'status', 'priority', 'date', 'progress', 'creator', 'assigned'];
     initial = initial.filter((c: any) => !ALL_KNOWN_BUILTINS.includes(c.id) || ALLOWED_BUILTINS.includes(c.id));
-
-    if (!initial.some((c: any) => c.id === 'creator')) {
-      initial.push({ id: 'creator', label: 'Creator', icon: 'User', width: '180px' });
-    }
-    if (!initial.some((c: any) => c.id === 'assigned')) {
-      initial.splice(1, 0, { id: 'assigned', label: 'Assigned', icon: 'Users', width: '180px' });
-    }
     return initial;
   });
 
@@ -170,9 +168,9 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
         : [];
     return areaIds[0] || '';
   };
+  const activeColumnIds = new Set(columns.filter((column: any) => !column.hidden).map((column: any) => column.id));
   const noteDetailProperties = [
-    { id: 'assigned', name: 'Assigned', type: 'text' as const, value: '' },
-    { id: 'creator', name: 'Creator', type: 'text' as const, value: '' },
+    ...Object.values(NOTE_SYSTEM_PROPERTY_DEFINITIONS).filter(property => activeColumnIds.has(property.id)),
     ...notes.flatMap(note => note.customProperties || []),
   ].reduce<Array<{ id: string; name: string; type: PropertyType; value: any; icon?: string }>>((properties, property) => {
     if (properties.some(existingProperty => existingProperty.id === property.id)) return properties;
@@ -203,6 +201,8 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
         areas: getNoteAreaId(note),
         assigned: note.assignee || 'Unassigned',
         creator: 'Abdola Munir',
+        content: note.content,
+        description: note.content,
         ...Object.fromEntries((note.customProperties || []).map(property => [property.id, property.value])),
       },
     })),
@@ -247,11 +247,16 @@ export function Notes({ onViewChange, selectedNoteId }: { onViewChange?: (view: 
           const existingNote = notes.find(note => note.id === item.id);
           const customProperties = updatedPage.properties
             .filter(property => property.id !== 'assigned' && property.id !== 'creator')
-            .map(property => {
+            .flatMap(property => {
               const existingProperty = existingNote?.customProperties?.find(candidate => candidate.id === property.id);
+              const hasItemValue = Object.prototype.hasOwnProperty.call(item.properties || {}, property.id);
+              if (!hasItemValue && !existingProperty) return [];
+
               return {
                 ...property,
-                value: item.properties[property.id] ?? existingProperty?.value ?? property.value ?? getDefaultPropertyValue(property.type),
+                value: hasItemValue
+                  ? item.properties[property.id]
+                  : existingProperty?.value ?? property.value ?? getDefaultPropertyValue(property.type),
               };
             });
           const areaValue = String(item.properties.areas || '');
@@ -304,7 +309,7 @@ function NoteDetailsPage({ note, onBack }: {
   note: any;
   onBack: () => void;
 }) {
-  const { updateNote, deleteNote, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
+  const { notes, updateNote, deleteNote, replaceNotes, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('To-Dos');
   const noteTasks = tasks.filter(t => t.noteId === note.id);
 
@@ -401,9 +406,17 @@ function NoteDetailsPage({ note, onBack }: {
   };
 
   const handleDeleteProperty = (propId: string) => {
-    handleUpdate({
-      customProperties: note.customProperties?.filter((property: any) => property.id !== propId)
+    const savedSettings = viewSettings.notes || {};
+    updateViewSettings('notes', {
+      ...savedSettings,
+      columns: (savedSettings.columns || []).filter((column: any) => column.id !== propId),
+      sortConfigs: (savedSettings.sortConfigs || []).filter((sortConfig: any) => sortConfig.columnId !== propId),
+      templateVersion: GOALS_TEMPLATE_VERSION,
     });
+    replaceNotes(notes.map((existingNote: any) => ({
+      ...existingNote,
+      customProperties: (existingNote.customProperties || []).filter((property: any) => property.id !== propId),
+    })));
   };
 
   const handleCopyLink = async () => {
@@ -467,7 +480,7 @@ function NoteDetailsPage({ note, onBack }: {
     const updatedColumns = existing
       ? cols.map((column: any) => column.id === id ? { ...column, ...updates } : column)
       : [...cols, { id, label: updates.label || current.label, icon: updates.icon || current.icon, width: '150px', hidden: updates.hidden }];
-    updateViewSettings('notes', { ...savedSettings, columns: updatedColumns });
+    updateViewSettings('notes', { ...savedSettings, columns: updatedColumns, templateVersion: GOALS_TEMPLATE_VERSION });
   };
   const handleRenameProperty = (id: string, isSystem: boolean, newName: string) => {
     if (!newName.trim()) return;

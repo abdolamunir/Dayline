@@ -392,6 +392,8 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
   const { user } = useAppStore();
   const [mentionMenu, setMentionMenu] = useState<{ x: number; y: number; query: string } | null>(null);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [isPlaceholderHintHidden, setIsPlaceholderHintHidden] = useState(false);
+  const [isPlaceholderHintHoverHidden, setIsPlaceholderHintHoverHidden] = useState(false);
   const mentionRangeRef = useRef<Range | null>(null);
   let parsedContent = undefined;
   if (initialContent) {
@@ -568,6 +570,10 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
   };
 
   const handleEditorKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setIsPlaceholderHintHidden(true);
+    }
+
     if (!mentionMenu) {
       return;
     }
@@ -674,6 +680,37 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
   }, [editor]);
 
   useEffect(() => {
+    const editorElement = editor.domElement;
+    if (!editorElement) return;
+
+    const getActiveEmptyBlock = () =>
+      editorElement.querySelector<HTMLElement>('.bn-block-content[data-is-empty-and-focused]');
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const activeEmptyBlock = getActiveEmptyBlock();
+      if (!activeEmptyBlock) {
+        setIsPlaceholderHintHoverHidden(false);
+        return;
+      }
+
+      const hoveredBlock = (event.target as Element | null)?.closest?.('.bn-block-content, .bn-block');
+      setIsPlaceholderHintHoverHidden(Boolean(hoveredBlock && !activeEmptyBlock.contains(hoveredBlock) && !hoveredBlock.contains(activeEmptyBlock)));
+    };
+
+    const handlePointerLeave = () => {
+      setIsPlaceholderHintHoverHidden(false);
+    };
+
+    editorElement.addEventListener('pointermove', handlePointerMove);
+    editorElement.addEventListener('pointerleave', handlePointerLeave);
+
+    return () => {
+      editorElement.removeEventListener('pointermove', handlePointerMove);
+      editorElement.removeEventListener('pointerleave', handlePointerLeave);
+    };
+  }, [editor]);
+
+  useEffect(() => {
     const isEditorEvent = (event: Event) => {
       const editorElement = editor.domElement;
       if (!event.target) {
@@ -743,7 +780,7 @@ export function BlockEditor({ initialContent, onChange }: { initialContent: any,
   }, [editor, filteredMentionItems, mentionMenu, selectedMentionIndex]);
 
   return (
-    <div className="relative">
+    <div className={`relative ${isPlaceholderHintHidden || isPlaceholderHintHoverHidden ? 'dayline-editor-placeholder-hidden' : ''}`}>
       <BlockNoteView 
         editor={editor} 
         theme="dark" 

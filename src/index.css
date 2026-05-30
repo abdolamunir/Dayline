@@ -778,6 +778,19 @@ button {
   opacity: 1 !important;
 }
 
+.bn-block-content[data-is-only-empty-block]:not([data-is-empty-and-focused]) .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before {
+  content: none !important;
+}
+
+.dayline-editor-placeholder-hidden .bn-inline-content[data-placeholder]::before,
+.dayline-editor-placeholder-hidden .bn-block-content[data-placeholder]::before,
+.dayline-editor-placeholder-hidden .ProseMirror [data-placeholder]::before,
+.dayline-editor-placeholder-hidden .ProseMirror .is-empty::before,
+.dayline-editor-placeholder-hidden .ProseMirror .is-editor-empty::before,
+.dayline-editor-placeholder-hidden [data-placeholder]::before {
+  content: none !important;
+}
+
 
 .bn-block-content h1,
 .bn-block-content .bn-heading-h1,

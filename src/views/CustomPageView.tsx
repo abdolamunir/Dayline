@@ -450,12 +450,16 @@ function CustomPageItemDetails({ item, page, onBack, onUpdateItem }: {
 
   const handleDeleteProperty = (propId: string) => {
     const newProps = page.properties.filter(p => p.id !== propId);
-    const newItemProperties = { ...item.properties };
-    delete newItemProperties[propId];
     updateCustomPage({
       ...page,
       properties: newProps,
-      items: page.items.map(i => i.id === item.id ? { ...i, properties: newItemProperties } : i)
+      columns: (page.columns || []).filter((column) => column.id !== propId),
+      sortConfigs: (page.sortConfigs || []).filter((sortConfig) => sortConfig.columnId !== propId),
+      items: page.items.map((pageItem) => {
+        const nextProperties = { ...pageItem.properties };
+        delete nextProperties[propId];
+        return { ...pageItem, properties: nextProperties };
+      })
     });
   };
 

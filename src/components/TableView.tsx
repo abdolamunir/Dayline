@@ -100,6 +100,32 @@ const DATABASE_LAYOUTS: Array<{ id: DatabaseLayout; label: string; icon: React.E
   { id: 'list', label: 'List', icon: List },
   { id: 'gallery', label: 'Gallery', icon: GridIcon },
 ];
+const DATABASE_LAYOUT_STORAGE_KEY = 'dayline:database-layouts:v1';
+const DATABASE_LAYOUT_IDS = new Set<DatabaseLayout>(DATABASE_LAYOUTS.map(layout => layout.id));
+
+const readStoredDatabaseLayout = (pageId: string): DatabaseLayout | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const layouts = JSON.parse(window.localStorage.getItem(DATABASE_LAYOUT_STORAGE_KEY) || '{}');
+    const layout = layouts?.[pageId];
+    return DATABASE_LAYOUT_IDS.has(layout) ? layout : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredDatabaseLayout = (pageId: string, layout: DatabaseLayout) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const layouts = JSON.parse(window.localStorage.getItem(DATABASE_LAYOUT_STORAGE_KEY) || '{}');
+    window.localStorage.setItem(DATABASE_LAYOUT_STORAGE_KEY, JSON.stringify({
+      ...layouts,
+      [pageId]: layout,
+    }));
+  } catch (error) {
+    console.warn('Unable to cache database layout.', error);
+  }
+};
 
 export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const { areas, user } = useAppStore();
@@ -162,7 +188,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   const [sortConfigs, setSortConfigs] = useState<TableSortConfig[]>(page.sortConfigs || []);
   const [sortPopoverPos, setSortPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [sortPickerOpen, setSortPickerOpen] = useState<string | null>(null);
-  const [databaseLayout, setDatabaseLayout] = useState<DatabaseLayout>(page.layout || 'table');
+  const [databaseLayout, setDatabaseLayout] = useState<DatabaseLayout>(() => readStoredDatabaseLayout(page.id) || page.layout || 'table');
   const [layoutPopoverPos, setLayoutPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
   const [draggingColumnOffset, setDraggingColumnOffset] = useState(0);
@@ -223,8 +249,13 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
   }, [page.sortConfigs]);
 
   useEffect(() => {
-    setDatabaseLayout(page.layout || 'table');
-  }, [page.layout]);
+    const storedLayout = readStoredDatabaseLayout(page.id);
+    const nextLayout = storedLayout || page.layout || 'table';
+    setDatabaseLayout(nextLayout);
+    if (storedLayout && page.layout !== storedLayout) {
+      onUpdatePage({ ...page, layout: storedLayout });
+    }
+  }, [page.id, page.layout]);
 
   useEffect(() => {
     const element = isEditingTitle ? titleEditRef.current : isEditingDescription ? descriptionEditRef.current : null;
@@ -540,10 +571,114 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     return areas.find(area => area.id === stringValue)?.name || stringValue || '';
   };
 
+  const formatCardPropertyValue = (item: CustomPageItem, columnId: string) => {
+    const value = getCellValue(item, columnId);
+    const propertyDefinition = page.properties.find(property => property.id === columnId);
+
+    if (columnId === 'status' || columnId === 'priority') return toSentenceCase(String(value || ''));
+    if (columnId === 'date') return value ? format(new Date(value), 'MMM d, yyyy') : '';
+    if (columnId === 'progress') return `${Number(value || 0)}%`;
+    if (columnId === 'areas') return getAreaLabel(value);
+    if (propertyDefinition?.type === 'date' && value) return format(new Date(value), 'MMM d, yyyy');
+    if (propertyDefinition?.type === 'checkbox') return value ? 'Checked' : '';
+    if (Array.isArray(value)) return value.filter(Boolean).join(', ');
+    return String(value ?? '').trim();
+  };
+
+  const getCardProperties = (item: CustomPageItem, compact: boolean) => {
+    const propertyRows = displayColumns
+      .filter(column => column.id !== 'title')
+      .map(column => ({
+        column,
+        value: formatCardPropertyValue(item, column.id),
+      }))
+      .filter(row => row.value);
+
+    return propertyRows.slice(0, compact ? 4 : 6);
+  };
+
+  const toPlainCardText = (value: any) => {
+    if (!value) return '';
+    if (typeof value !== 'string') return String(value ?? '').trim();
+
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      const collectText = (node: any): string[] => {
+        if (!node) return [];
+        if (typeof node === 'string') return [node];
+        if (Array.isArray(node)) return node.flatMap(collectText);
+        if (typeof node === 'object') {
+          return [
+            typeof node.text === 'string' ? node.text : '',
+            typeof node.content === 'string' ? node.content : '',
+            ...collectText(node.content),
+            ...collectText(node.children),
+          ].filter(Boolean);
+        }
+        return [];
+      };
+
+      const text = collectText(parsed).join(' ').replace(/\s+/g, ' ').trim();
+      if (text) return text;
+    } catch {
+      // Plain text content is expected for simple descriptions.
+    }
+
+    return trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const getCardPreviewText = (item: CustomPageItem) => (
+    toPlainCardText(item.properties?.notes) ||
+    toPlainCardText(item.properties?.content) ||
+    toPlainCardText(item.properties?.description) ||
+    toPlainCardText(item.properties?.summary) ||
+    ''
+  );
+
+  const isPersonCardColumn = (columnId: string) => {
+    if (columnId === 'assigned' || columnId === 'creator') return true;
+    const propertyDefinition = page.properties.find(property => property.id === columnId);
+    return propertyDefinition?.type === 'person' ||
+      propertyDefinition?.type === 'created-by' ||
+      propertyDefinition?.type === 'last-edited-by';
+  };
+
+  const renderCardPropertyValue = (columnId: string, value: string) => {
+    if (!isPersonCardColumn(columnId)) return value;
+    const displayName = value || 'Unassigned';
+    return (
+      <span className="inline-flex h-6 min-w-0 items-center gap-1.5 leading-[1]">
+        <img
+          src={getPersonAvatar(displayName)}
+          className="block h-4 w-4 shrink-0 rounded-full ring-1 ring-white/10"
+          alt=""
+          onError={(event) => {
+            event.currentTarget.src = getGeneratedAvatarDataUrl(displayName);
+          }}
+        />
+        <span className="flex h-6 items-center truncate leading-[1]">{displayName}</span>
+      </span>
+    );
+  };
+
+  const getGeneratedAvatarDataUrl = (name: string) => {
+    const initials = name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part.charAt(0).toUpperCase())
+      .join('') || 'U';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#281f30"/><text x="32" y="38" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="22" font-weight="700" fill="#c3bcc6">${initials}</text></svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  };
+
   const getPersonAvatar = (name?: string) => {
     const displayName = name || 'Abdola Munir';
     if (displayName === 'Abdola Munir' && user?.photoURL) return user.photoURL;
-    return `https://i.pravatar.cc/150?u=${encodeURIComponent(displayName.toLowerCase().replace(/\s+/g, '-'))}`;
+    return getGeneratedAvatarDataUrl(displayName);
   };
 
   const renderPersonCell = (name?: string) => {
@@ -584,6 +719,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
   const setPageLayout = (nextLayout: DatabaseLayout) => {
     setDatabaseLayout(nextLayout);
+    writeStoredDatabaseLayout(page.id, nextLayout);
     setLayoutPopoverPos(null);
     onUpdatePage({ ...page, layout: nextLayout });
   };
@@ -878,39 +1014,118 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
     setIsShareMenuOpen(false);
   };
 
-  const renderItemCard = (item: CustomPageItem, compact = false) => (
-    <button
-      key={item.id}
-      type="button"
-      onClick={() => onItemClick(item.id)}
-      className={cn(
-        "group w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] text-left transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]",
-        compact ? "px-3 py-2.5" : "p-4"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--tokyo-hover)] text-[var(--tokyo-text-faint)]">
-          {React.createElement(iconMap[item.icon || 'File'] || FileIcon, { className: "h-4 w-4" })}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{item.title}</div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-md bg-[rgba(198,140,255,0.14)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-purple)]">
-              {toSentenceCase(item.status)}
-            </span>
-            <span className={cn("rounded-md px-2 py-0.5 text-[12px] font-medium", getPriorityBadgeClasses(item.priority))}>
-              {toSentenceCase(item.priority)}
-            </span>
-            {item.date && (
-              <span className="rounded-md bg-[var(--tokyo-hover)] px-2 py-0.5 text-[12px] font-medium text-[var(--tokyo-text-faint)]">
-                {format(new Date(item.date), 'MMM d')}
+  const renderItemCard = (item: CustomPageItem, compact = false, variant: 'default' | 'gallery' = 'default') => {
+    const cardProperties = getCardProperties(item, compact);
+    const ItemIcon = iconMap[item.icon || 'File'] || FileIcon;
+
+    if (variant === 'gallery') {
+      const galleryProperties = cardProperties.filter(({ column }) => (
+        column.id !== 'status' &&
+        column.id !== 'description' &&
+        column.id !== 'notes' &&
+        column.id !== 'content' &&
+        column.id !== 'summary'
+      ));
+      const priorityProperty = galleryProperties.find(({ column }) => column.id === 'priority');
+      const detailProperties = [
+        ...(priorityProperty ? [priorityProperty] : []),
+        ...galleryProperties.filter(({ column }) => column.id !== 'priority'),
+      ].slice(0, 4);
+      const previewText = getCardPreviewText(item);
+
+      return (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onItemClick(item.id)}
+          className="group relative w-full overflow-hidden rounded-lg border border-[var(--tokyo-border)] bg-[linear-gradient(180deg,rgba(31,23,38,0.78),rgba(17,10,23,0.88))] p-4 text-left shadow-[0_18px_46px_rgba(0,0,0,0.18)] transition-[border-color,background-color] duration-150 hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]"
+        >
+          <div className="relative flex min-h-full flex-col">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--tokyo-text-muted)] transition-colors group-hover:text-[var(--tokyo-text)]">
+                {React.createElement(ItemIcon, { className: "h-5 w-5" })}
               </span>
+              <div className="min-w-0 flex-1">
+                <div className="line-clamp-2 text-[17px] font-semibold leading-snug text-[var(--tokyo-text-strong)]">
+                  {item.title}
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-4 mt-3">
+              {previewText ? (
+                <p className="line-clamp-2 text-[13px] font-medium leading-6 text-[var(--tokyo-text-muted)]">
+                  {previewText}
+                </p>
+              ) : (
+                <p className="line-clamp-2 text-[13px] font-medium leading-6 text-[var(--tokyo-text-faint)]">
+                  Add notes or a description to show card content here.
+                </p>
+              )}
+            </div>
+
+            <div className="pt-1">
+              {detailProperties.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {detailProperties.map(({ column, value }) => (
+                    column.id === 'priority' ? (
+                      <span key={column.id} className={cn("flex h-6 items-center rounded-md px-2 text-[12px] font-semibold leading-[1]", getPriorityBadgeClasses(item.priority))}>
+                        {value}
+                      </span>
+                    ) : (
+                      <span key={column.id} className="flex h-6 max-w-full items-center rounded-md bg-white/[0.035] px-2 text-[12px] font-semibold leading-[1] text-[var(--tokyo-text)]">
+                        {renderCardPropertyValue(column.id, value)}
+                      </span>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <div className="h-5" />
+              )}
+            </div>
+          </div>
+        </button>
+      );
+    }
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => onItemClick(item.id)}
+        className={cn(
+          "group w-full rounded-lg border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] text-left shadow-[0_16px_40px_rgba(0,0,0,0.12)] transition-colors hover:border-[var(--tokyo-border-strong)] hover:bg-[var(--tokyo-panel-2)]",
+          compact ? "p-3" : "p-4"
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--tokyo-border)] bg-[var(--tokyo-hover)] text-[var(--tokyo-text-muted)]">
+            {React.createElement(ItemIcon, { className: "h-4 w-4" })}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-[var(--tokyo-text-strong)]">{item.title}</div>
+            {cardProperties.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {cardProperties.map(({ column, value }) => (
+                  <span
+                    key={column.id}
+                    className={cn(
+                      "inline-flex h-6 max-w-full items-center rounded-md px-2 text-[12px] font-semibold leading-[1]",
+                      column.id === 'priority'
+                        ? getPriorityBadgeClasses(item.priority)
+                        : "bg-white/[0.035] text-[var(--tokyo-text)]"
+                    )}
+                  >
+                    {column.id === 'priority' ? value : renderCardPropertyValue(column.id, value)}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </div>
-      </div>
-    </button>
-  );
+      </button>
+    );
+  };
 
   const renderLayoutView = () => {
     if (databaseLayout === 'table') {
@@ -979,12 +1194,9 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
 
     if (databaseLayout === 'gallery') {
       return (
-        <div className="grid gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-start gap-3 overflow-auto no-scrollbar pb-4 sm:grid-cols-2 xl:grid-cols-3">
           {visibleItems.map(item => (
-            <div key={item.id} className="overflow-hidden rounded-xl border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)]">
-              <div className="h-24 bg-[linear-gradient(135deg,rgba(122,162,247,0.16),rgba(233,202,53,0.10),rgba(224,107,138,0.12))]" />
-              <div className="p-3">{renderItemCard(item, true)}</div>
-            </div>
+            renderItemCard(item, false, 'gallery')
           ))}
         </div>
       );
@@ -1173,7 +1385,7 @@ export function TableView({ page, onUpdatePage, onItemClick }: TableViewProps) {
               >
                 <div
                   className={cn(
-                    "flex items-center gap-1.5 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-1 pl-[5px] pr-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
                     activeTab === tab.id && !isTabDragActive ? "bg-[var(--tokyo-yellow-dim)] text-[var(--tokyo-text-strong)]" : "text-[var(--tokyo-text-muted)] hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)]",
                   )}
                 >

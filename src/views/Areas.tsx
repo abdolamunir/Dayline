@@ -264,7 +264,7 @@ function AreaDetailsPage({ area, onBack }: {
   area: Area, 
   onBack: () => void
 }) {
-  const { updateArea, deleteArea, projects, goals, user, viewSettings, updateViewSettings } = useAppStore();
+  const { areas, updateArea, replaceAreas, deleteArea, projects, goals, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('Projects');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -331,9 +331,16 @@ function AreaDetailsPage({ area, onBack }: {
   };
 
   const handleDeleteProperty = (propId: string) => {
-    handleUpdate({
-      customProperties: area.customProperties?.filter(p => p.id !== propId)
+    const savedSettings = viewSettings.areas || {};
+    updateViewSettings('areas', {
+      ...savedSettings,
+      columns: (savedSettings.columns || []).filter((column: any) => column.id !== propId),
+      sortConfigs: (savedSettings.sortConfigs || []).filter((sortConfig: any) => sortConfig.columnId !== propId),
     });
+    replaceAreas(areas.map((existingArea) => ({
+      ...existingArea,
+      customProperties: (existingArea.customProperties || []).filter((property) => property.id !== propId),
+    })));
   };
 
   const columns = viewSettings?.areas?.columns || [];

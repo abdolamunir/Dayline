@@ -277,7 +277,7 @@ function ProjectDetailsPage({ project, onBack }: {
   project: Project, 
   onBack: () => void
 }) {
-  const { updateProject, deleteProject, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
+  const { projects, updateProject, replaceProjects, deleteProject, tasks, addTask, updateTask, deleteTask, user, viewSettings, updateViewSettings } = useAppStore();
   const [activeTab, setActiveTab] = useState('To-Dos');
   const [commentText, setCommentText] = useState('');
   const [isPropertyPickerOpen, setIsPropertyPickerOpen] = useState(false);
@@ -403,9 +403,7 @@ function ProjectDetailsPage({ project, onBack }: {
         : [...cols, { id, label: getCol(id, id, 'Text').label, icon: getCol(id, id, 'Text').icon, width: '150px', hidden: true }];
       updateViewSettings('projects', { ...savedSettings, columns: updatedCols });
     } else {
-      handleUpdate({
-        customProperties: project.customProperties?.filter(p => p.id !== id)
-      });
+      handleDeleteProperty(id);
     }
   };
 
@@ -453,9 +451,16 @@ function ProjectDetailsPage({ project, onBack }: {
   };
 
   const handleDeleteProperty = (propId: string) => {
-    handleUpdate({
-      customProperties: project.customProperties?.filter(p => p.id !== propId)
+    const savedSettings = viewSettings.projects || {};
+    updateViewSettings('projects', {
+      ...savedSettings,
+      columns: (savedSettings.columns || []).filter((column: any) => column.id !== propId),
+      sortConfigs: (savedSettings.sortConfigs || []).filter((sortConfig: any) => sortConfig.columnId !== propId),
     });
+    replaceProjects(projects.map((existingProject) => ({
+      ...existingProject,
+      customProperties: (existingProject.customProperties || []).filter((property) => property.id !== propId),
+    })));
   };
 
   const handleAddComment = () => {

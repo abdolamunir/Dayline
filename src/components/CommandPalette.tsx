@@ -1,12 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { Command } from 'cmdk';
-import { DialogTitle } from '@radix-ui/react-dialog';
-import { Root as VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Activity01Icon as Activity,
+  Archive01Icon as Archive,
+  Book01Icon as Book,
+  Book02Icon as BookCheck,
+  Calendar02Icon as CalendarDays,
+  CheckmarkCircle02Icon as CheckCircle2,
+  ClipboardIcon as ClipboardList,
+  DashboardSquare01Icon as LayoutDashboard,
+  DatabaseIcon as Database,
+  DeliveryBox01Icon as Box,
+  Download01Icon as Download,
+  FeatherIcon as Feather,
+  File01Icon as File,
+  File02Icon as FileText,
+  Folder01Icon as Folder,
+  Home01Icon as Home,
+  InboxIcon as Inbox,
+  Layers01Icon as Layers,
+  LockIcon as Lock,
+  PencilEdit01Icon as Pencil,
+  Plug01Icon as Plug,
+  Search01Icon as Search,
+  Shield01Icon as Shield,
+  SmileIcon as Smile,
+  StarIcon as Star,
+  Target01Icon as Target,
+  Time02Icon as Clock,
+  Upload01Icon as Upload,
+  UserGroupIcon as Users,
+  Wallet01Icon as Wallet,
+} from 'hugeicons-react';
 import { useAppStore } from '../store';
-import { Search01Icon as Search, Home01Icon as Home, InboxIcon as Inbox, StarIcon as Star, Calendar02Icon as CalendarDays, Layers01Icon as Layers, Archive01Icon as Archive, Book02Icon as BookCheck, CheckmarkCircle02Icon as CheckCircle2, Folder01Icon as Folder, Target01Icon as Target, Activity01Icon as Activity, Book01Icon as Book, SmileIcon as Smile, FeatherIcon as Feather, Add01Icon as Plus, ClipboardIcon as ClipboardList, Download01Icon as Download, File01Icon as File, PencilEdit01Icon as Pencil, Idea01Icon as Lightbulb, AddCircleIcon as PlusCircle, Notification01Icon as Bell, DashboardSquare01Icon as LayoutDashboard, DeliveryBox01Icon as Box, DatabaseIcon as Database, Plug01Icon as Plug, Clock01Icon as Clock, File02Icon as FileText, LockIcon as Lock, UserGroupIcon as Users, Shield01Icon as Shield, Wallet01Icon as Wallet, Upload01Icon as Upload } from 'hugeicons-react';
 import { ViewType } from './Sidebar';
-import { cn } from '../utils/cn';
-import { format } from 'date-fns';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -16,272 +42,368 @@ interface CommandPaletteProps {
   mode?: 'default' | 'create';
 }
 
-const iconMap: Record<string, React.ElementType> = {
-  Home, Inbox, Star, CalendarDays, Layers, Archive, BookCheck,
-  CheckCircle2, Folder, Target, Activity, Book, Smile, Feather, Pencil, File,
-  Bell, LayoutDashboard, Box, Database, Plug, Clock, FileText, Lock, Users, Shield, Wallet, Download, Upload
+type PaletteGroup = 'Suggestions' | 'Create' | 'Private' | 'Commands';
+
+type PaletteAction = {
+  id: string;
+  label: string;
+  meta: string;
+  group: PaletteGroup;
+  icon: React.ElementType;
+  iconClassName: string;
+  run: () => void;
 };
 
+const iconMap: Record<string, React.ElementType> = {
+  Home,
+  Inbox,
+  Star,
+  CalendarDays,
+  Layers,
+  Archive,
+  BookCheck,
+  CheckCircle2,
+  Folder,
+  Target,
+  Activity,
+  Book,
+  Smile,
+  Feather,
+  Pencil,
+  File,
+  LayoutDashboard,
+  Box,
+  Database,
+  Plug,
+  Clock,
+  FileText,
+  Lock,
+  Users,
+  Shield,
+  Wallet,
+  Download,
+  Upload,
+};
+
+const groupOrder: PaletteGroup[] = ['Suggestions', 'Create', 'Private', 'Commands'];
+
 export function CommandPalette({ open, setOpen, onViewChange, initialValue = '', mode = 'default' }: CommandPaletteProps) {
-  const { 
-    sidebarItems, 
-    addTask, 
-    addNote, 
+  const {
+    sidebarItems,
+    addTask,
+    addNote,
     addGoal,
     addProject,
-    addCustomPage
+    addCustomPage,
   } = useAppStore();
 
   const [search, setSearch] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setSearch(initialValue);
-    }
+    if (!open) return;
+
+    setSearch(initialValue);
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [open, initialValue]);
 
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen(!open);
-      }
-    };
+  const actions = useMemo<PaletteAction[]>(() => {
+    const nextActions: PaletteAction[] = [];
 
-    document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
-  }, [setOpen]);
+    if (mode === 'default') {
+      nextActions.push(
+        {
+          id: 'view-dashboard',
+          label: 'Dashboard',
+          meta: 'Application',
+          group: 'Suggestions',
+          icon: Home,
+          iconClassName: 'text-[var(--tokyo-purple)]',
+          run: () => onViewChange('dashboard'),
+        },
+        {
+          id: 'view-inbox',
+          label: 'Inbox',
+          meta: 'Application',
+          group: 'Suggestions',
+          icon: Inbox,
+          iconClassName: 'text-[#45aaff]',
+          run: () => onViewChange('inbox'),
+        },
+        {
+          id: 'view-today',
+          label: 'Today',
+          meta: 'Application',
+          group: 'Suggestions',
+          icon: Star,
+          iconClassName: 'fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]',
+          run: () => onViewChange('today'),
+        },
+        {
+          id: 'view-upcoming',
+          label: 'Upcoming',
+          meta: 'Application',
+          group: 'Suggestions',
+          icon: CalendarDays,
+          iconClassName: 'text-[var(--tokyo-pink)]',
+          run: () => onViewChange('upcoming'),
+        },
+      );
+    }
 
-  const runCommand = (command: () => void) => {
+    nextActions.push(
+      {
+        id: 'create-note',
+        label: 'New Note',
+        meta: 'Action',
+        group: 'Create',
+        icon: Pencil,
+        iconClassName: 'text-[var(--tokyo-purple)]',
+        run: () => {
+          const id = `note-${Date.now()}`;
+          addNote({ id, title: 'New Note', content: '', ideaIds: [], createdAt: new Date().toISOString(), status: 'inbox', priority: 'medium', progress: 0, assignee: '' });
+          onViewChange(`note-details:${id}`);
+        },
+      },
+      {
+        id: 'create-task',
+        label: 'New Task',
+        meta: 'Action',
+        group: 'Create',
+        icon: CheckCircle2,
+        iconClassName: 'text-[var(--tokyo-green)]',
+        run: () => {
+          const id = `task-${Date.now()}`;
+          addTask({ id, title: 'New Task', status: 'todo', priority: 'medium', tags: [] });
+          onViewChange('tasks');
+        },
+      },
+      {
+        id: 'create-goal',
+        label: 'New Goal',
+        meta: 'Action',
+        group: 'Create',
+        icon: Target,
+        iconClassName: 'text-[var(--tokyo-pink)]',
+        run: () => {
+          const id = `goal-${Date.now()}`;
+          addGoal({ id, title: 'New Goal', description: '', progress: 0, projectIds: [], taskIds: [], status: 'inbox', priority: 'medium', assignee: '' });
+          onViewChange(`goal-details:${id}`);
+        },
+      },
+      {
+        id: 'create-project',
+        label: 'New Project',
+        meta: 'Action',
+        group: 'Create',
+        icon: Folder,
+        iconClassName: 'text-[var(--tokyo-yellow)]',
+        run: () => {
+          const id = `project-${Date.now()}`;
+          addProject({ id, name: 'New Project', description: '', status: 'planning', taskIds: [], priority: 'medium', icon: 'Folder' });
+          onViewChange('projects');
+        },
+      },
+      {
+        id: 'create-database',
+        label: 'New Database',
+        meta: 'Action',
+        group: 'Create',
+        icon: Database,
+        iconClassName: 'text-teal-300',
+        run: () => {
+          const id = `page-${Date.now()}`;
+          addCustomPage({
+            id,
+            title: 'Untitled database',
+            icon: 'Database',
+            kind: 'database',
+            tabs: [
+              { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
+              { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
+              { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
+            ],
+            columns: [
+              { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
+              { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
+              { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
+              { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '140px' },
+              { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
+            ],
+            items: [],
+            properties: [],
+            content: '',
+          });
+          onViewChange(id);
+        },
+      },
+      {
+        id: 'create-document',
+        label: 'New Document',
+        meta: 'Action',
+        group: 'Create',
+        icon: FileText,
+        iconClassName: 'text-stone-300',
+        run: () => {
+          const id = `page-${Date.now()}`;
+          addCustomPage({
+            id,
+            title: 'Untitled doc',
+            icon: 'FileText',
+            kind: 'document',
+            tabs: [],
+            columns: [],
+            items: [],
+            properties: [],
+            content: '',
+          });
+          onViewChange(id);
+        },
+      },
+    );
+
+    if (mode === 'default') {
+      sidebarItems.forEach((item) => {
+        nextActions.push({
+          id: `page-${item.id}`,
+          label: item.label,
+          meta: 'Page',
+          group: 'Private',
+          icon: iconMap[item.icon] || File,
+          iconClassName: 'text-[var(--tokyo-text-muted)]',
+          run: () => onViewChange(item.id),
+        });
+      });
+
+      nextActions.push(
+        {
+          id: 'clipboard-history',
+          label: 'Clipboard History',
+          meta: 'Command',
+          group: 'Commands',
+          icon: ClipboardList,
+          iconClassName: 'text-[var(--tokyo-pink)]',
+          run: () => {},
+        },
+        {
+          id: 'import-extension',
+          label: 'Import Extension',
+          meta: 'Command',
+          group: 'Commands',
+          icon: Download,
+          iconClassName: 'text-teal-400',
+          run: () => {},
+        },
+      );
+    }
+
+    return nextActions;
+  }, [addCustomPage, addGoal, addNote, addProject, addTask, mode, onViewChange, sidebarItems]);
+
+  const visibleActions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return actions;
+
+    return actions.filter(action => (
+      action.label.toLowerCase().includes(query) ||
+      action.meta.toLowerCase().includes(query) ||
+      action.group.toLowerCase().includes(query)
+    ));
+  }, [actions, search]);
+
+  const runCommand = (action: PaletteAction) => {
     setOpen(false);
-    command();
+    action.run();
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      return;
+    }
+
+    if (event.key === 'Enter' && visibleActions[0]) {
+      event.preventDefault();
+      runCommand(visibleActions[0]);
+    }
+  };
+
+  if (!open) return null;
+
   return (
-    <Command.Dialog 
-      open={open} 
-      onOpenChange={setOpen}
-      label="Global Command Menu"
-      className="fixed inset-0 z-[200] flex items-start justify-center pt-[13vh] bg-black/40 backdrop-blur-sm"
-      onClick={() => setOpen(false)}
+    <div
+      className="fixed inset-0 z-[200] flex items-start justify-center bg-black/40 px-6 pt-[13vh] backdrop-blur-sm"
+      role="presentation"
+      onMouseDown={() => setOpen(false)}
     >
-      <div 
-        className="dayline-command-palette w-[calc(100vw-3rem)] max-w-[660px] bg-[var(--tokyo-panel)] border border-[var(--tokyo-border)] rounded-xl shadow-2xl overflow-hidden flex flex-col font-sans"
-        onClick={(e) => e.stopPropagation()}
+      <section
+        aria-label="Global Command Menu"
+        aria-modal="true"
+        className="dayline-command-palette flex max-h-[72vh] w-full max-w-[660px] flex-col overflow-hidden rounded-xl border border-[var(--tokyo-border)] bg-[var(--tokyo-panel)] font-sans shadow-2xl"
+        role="dialog"
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <VisuallyHidden>
-          <DialogTitle>Global Command Menu</DialogTitle>
-        </VisuallyHidden>
-        <div className="flex items-center px-3 border-b border-[var(--tokyo-border)]">
-          <Command.Input 
+        <div className="flex items-center gap-2 border-b border-[var(--tokyo-border)] px-4">
+          <Search className="h-5 w-5 shrink-0 text-[var(--tokyo-text-faint)]" />
+          <input
+            ref={inputRef}
             value={search}
-            onValueChange={setSearch}
-            placeholder={mode === 'create' ? "What would you like to create?" : "Search for apps and commands..."}
-            className="flex-1 bg-transparent border-none outline-none text-[var(--tokyo-text-strong)] px-3 py-5 text-xl leading-6 placeholder:text-[var(--tokyo-text-faint)]"
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={mode === 'create' ? 'What would you like to create?' : 'Search for apps and commands...'}
+            className="min-w-0 flex-1 border-none bg-transparent px-1 py-5 text-xl leading-6 text-[var(--tokyo-text-strong)] outline-none placeholder:text-[var(--tokyo-text-faint)]"
           />
         </div>
 
-        <Command.List className="dayline-command-list max-h-[380px] overflow-y-auto p-2 custom-scrollbar">
-          <Command.Empty className="py-6 text-center text-[15px] text-[var(--tokyo-text-faint)]">
-            No results found.
-          </Command.Empty>
-
-          {mode === 'default' && (
-            <Command.Group heading="Suggestions" className="text-sm font-medium text-[var(--tokyo-text-faint)] px-2 py-2 [&_[cmdk-group-items]]:mt-1 [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:px-1">
-              <Command.Item 
-                onSelect={() => runCommand(() => onViewChange('dashboard'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Home className="w-[22px] h-[22px] text-[var(--tokyo-purple)] stroke-[1.5]" />
-              <span className="flex-1">Dashboard</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Application</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => onViewChange('inbox'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Inbox className="w-[22px] h-[22px] text-[#45aaff] stroke-[1.5]" />
-              <span className="flex-1">Inbox</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Application</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => onViewChange('today'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Star className="w-[22px] h-[22px] fill-[var(--tokyo-yellow)] text-[var(--tokyo-yellow)]" strokeWidth={0} />
-              <span className="flex-1">Today</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Application</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => onViewChange('upcoming'))}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <CalendarDays className="w-[22px] h-[22px] text-[var(--tokyo-pink)] stroke-[1.5]" />
-              <span className="flex-1">Upcoming</span>
-                <span className="text-sm text-[var(--tokyo-text-faint)]">Application</span>
-              </Command.Item>
-            </Command.Group>
+        <div className="dayline-command-list min-h-[160px] overflow-y-auto p-2 custom-scrollbar">
+          {visibleActions.length === 0 && (
+            <div className="py-6 text-center text-[15px] text-[var(--tokyo-text-faint)]">
+              No results found.
+            </div>
           )}
 
-          <Command.Group heading="Create" className="text-[15px] font-medium text-[var(--tokyo-text-faint)] px-2 py-2 mt-1 [&_[cmdk-group-items]]:mt-1 [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:px-1">
-            <Command.Item 
-              onSelect={() => runCommand(() => {
-                const id = `note-${Date.now()}`;
-                addNote({ id, title: 'New Note', content: '', ideaIds: [], createdAt: new Date().toISOString(), status: 'inbox', priority: 'medium', progress: 0, assignee: '' });
-                onViewChange(`note-details:${id}`);
-              })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Pencil className="w-[22px] h-[22px] text-[var(--tokyo-purple)] stroke-[1.5]" />
-              <span className="flex-1">New Note</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Action</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => {
-                const id = `task-${Date.now()}`;
-                addTask({ id, title: 'New Task', status: 'todo', priority: 'medium', tags: [] });
-                onViewChange('tasks');
-              })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <CheckCircle2 className="w-[22px] h-[22px] text-[var(--tokyo-green)] stroke-[1.5]" />
-              <span className="flex-1">New Task</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Action</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => {
-                const id = `goal-${Date.now()}`;
-                addGoal({ id, title: 'New Goal', description: '', progress: 0, projectIds: [], taskIds: [], status: 'inbox', priority: 'medium', assignee: '' });
-                onViewChange(`goal-details:${id}`);
-              })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Target className="w-[22px] h-[22px] text-[var(--tokyo-pink)] stroke-[1.5]" />
-              <span className="flex-1">New Goal</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Action</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => {
-                const id = `project-${Date.now()}`;
-                addProject({ id, name: 'New Project', description: '', status: 'planning', taskIds: [], priority: 'medium', icon: 'Folder' });
-                onViewChange('projects');
-              })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Folder className="w-[22px] h-[22px] text-[var(--tokyo-yellow)] stroke-[1.5]" />
-              <span className="flex-1">New Project</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Action</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => {
-                const id = `page-${Date.now()}`;
-                addCustomPage({
-                  id,
-                  title: 'Untitled database',
-                  icon: 'Database',
-                  kind: 'database',
-                  tabs: [
-                    { id: 'inbox', label: 'Inbox', icon: 'Inbox' },
-                    { id: 'in-progress', label: 'In Progress', icon: 'Clock' },
-                    { id: 'completed', label: 'Completed', icon: 'CheckCircle2' },
-                  ],
-                  columns: [
-                    { id: 'title', label: 'Name', icon: 'SettingsGear', width: '280px' },
-                    { id: 'status', label: 'Status', icon: 'CheckCircle', width: '140px' },
-                    { id: 'priority', label: 'Priority', icon: 'Clock', width: '120px' },
-                    { id: 'date', label: 'Deadline', icon: 'CalendarIcon', width: '140px' },
-                    { id: 'progress', label: 'Progress', icon: 'Circle', width: '150px' },
-                  ],
-                  items: [],
-                  properties: [],
-                  content: ''
-                });
-                onViewChange(id);
-              })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <Database className="w-[22px] h-[22px] text-teal-300 stroke-[1.5]" />
-              <span className="flex-1">New Database</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Action</span>
-            </Command.Item>
-            <Command.Item 
-              onSelect={() => runCommand(() => {
-                const id = `page-${Date.now()}`;
-                addCustomPage({
-                  id,
-                  title: 'Untitled doc',
-                  icon: 'FileText',
-                  kind: 'document',
-                  tabs: [],
-                  columns: [],
-                  items: [],
-                  properties: [],
-                  content: ''
-                });
-                onViewChange(id);
-              })}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-            >
-              <FileText className="w-[22px] h-[22px] text-stone-300 stroke-[1.5]" />
-              <span className="flex-1">New Document</span>
-              <span className="text-sm text-[var(--tokyo-text-faint)]">Action</span>
-            </Command.Item>
-          </Command.Group>
+          {groupOrder.map((group) => {
+            const groupActions = visibleActions.filter(action => action.group === group);
+            if (groupActions.length === 0) return null;
 
-          {mode === 'default' && (
-            <>
-              <Command.Group heading="Private" className="text-[15px] font-medium text-[var(--tokyo-text-faint)] px-2 py-2 mt-1 [&_[cmdk-group-items]]:mt-1 [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:px-1">
-                {sidebarItems.map((item) => {
-                  const Icon = iconMap[item.icon] || File;
-                  return (
-                    <Command.Item 
-                      key={item.id}
-                      onSelect={() => runCommand(() => onViewChange(item.id))}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-                    >
-                      <Icon className="w-[22px] h-[22px] text-[var(--tokyo-text-muted)]" />
-                      <span className="flex-1">{item.label}</span>
-                      <span className="text-sm text-[var(--tokyo-text-faint)]">Page</span>
-                    </Command.Item>
-                  );
-                })}
-              </Command.Group>
+            return (
+              <div key={group} className="px-2 py-2 text-[15px] font-medium text-[var(--tokyo-text-faint)]">
+                <div className="mb-1.5 px-1">{group}</div>
+                <div className="mt-1">
+                  {groupActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        onClick={() => runCommand(action)}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-left text-base leading-6 text-[var(--tokyo-text)] transition-colors hover:bg-[var(--tokyo-hover)] hover:text-[var(--tokyo-text-strong)] focus-visible:bg-[var(--tokyo-hover)] focus-visible:text-[var(--tokyo-text-strong)] focus-visible:outline-none"
+                      >
+                        <Icon className={`h-[22px] w-[22px] shrink-0 stroke-[1.5] ${action.iconClassName}`} />
+                        <span className="min-w-0 flex-1 truncate">{action.label}</span>
+                        <span className="shrink-0 text-sm text-[var(--tokyo-text-faint)]">{action.meta}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
-              <Command.Group heading="Commands" className="text-[15px] font-medium text-[var(--tokyo-text-faint)] px-2 py-2 mt-1 [&_[cmdk-group-items]]:mt-1 [&_[cmdk-group-heading]]:mb-1.5 [&_[cmdk-group-heading]]:px-1">
-                <Command.Item 
-                  onSelect={() => runCommand(() => {})}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-                >
-                  <ClipboardList className="w-[22px] h-[22px] text-[var(--tokyo-pink)]" />
-                  <span className="flex-1">Clipboard History</span>
-                  <span className="text-sm text-[var(--tokyo-text-faint)]">Command</span>
-                </Command.Item>
-                <Command.Item 
-                  onSelect={() => runCommand(() => {})}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md cursor-pointer text-base leading-6 text-[var(--tokyo-text)] aria-selected:bg-[var(--tokyo-hover)] aria-selected:text-[var(--tokyo-text-strong)] transition-colors"
-                >
-                  <Download className="w-[22px] h-[22px] text-teal-400" />
-                  <span className="flex-1">Import Extension</span>
-                  <span className="text-sm text-[var(--tokyo-text-faint)]">Command</span>
-                </Command.Item>
-              </Command.Group>
-            </>
-          )}
-        </Command.List>
-
-        <div className="flex items-center justify-between px-4 py-3 bg-[var(--tokyo-bg-deep)] border-t border-[var(--tokyo-border)] text-[15px] text-[var(--tokyo-text-faint)]">
+        <div className="flex items-center justify-between border-t border-[var(--tokyo-border)] bg-[var(--tokyo-bg-deep)] px-4 py-3 text-[15px] text-[var(--tokyo-text-faint)]">
           <div className="flex items-center gap-2">
             <span className="font-medium">Open Application</span>
-            <kbd className="bg-[var(--tokyo-yellow-dim)] px-2 py-1 rounded text-xs font-sans text-[var(--tokyo-text-strong)]">↵</kbd>
+            <kbd className="rounded bg-[var(--tokyo-yellow-dim)] px-2 py-1 font-sans text-xs text-[var(--tokyo-text-strong)]">↵</kbd>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">Actions</span>
-              <kbd className="bg-[var(--tokyo-yellow-dim)] px-2 py-1 rounded text-xs font-sans text-[var(--tokyo-text-strong)]">⌘ K</kbd>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Actions</span>
+            <kbd className="rounded bg-[var(--tokyo-yellow-dim)] px-2 py-1 font-sans text-xs text-[var(--tokyo-text-strong)]">⌘ K</kbd>
           </div>
         </div>
-      </div>
-    </Command.Dialog>
+      </section>
+    </div>
   );
 }

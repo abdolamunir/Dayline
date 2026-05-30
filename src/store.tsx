@@ -613,8 +613,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateCustomPage = (updatedPage: CustomPage) => {
-    setCustomPages(customPages.map(p => p.id === updatedPage.id ? updatedPage : p));
-    setSidebarItems(sidebarItems.map(item => item.id === updatedPage.id ? {
+    setCustomPages(currentPages => currentPages.map(page => page.id === updatedPage.id ? updatedPage : page));
+    setSidebarItems(currentItems => currentItems.map(item => item.id === updatedPage.id ? {
       ...item,
       label: updatedPage.title,
       icon: updatedPage.icon,
